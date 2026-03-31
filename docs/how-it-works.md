@@ -231,10 +231,10 @@ When no cached or upstream response is available, Connexions generates a mock re
 Override generated responses with static files:
 
 ```
-static/{service}/{method}/{path}/index.json
+static/{service}/{path}/{method}/index.json
 ```
 
-Example: `static/petstore/get/pets/index.json` overrides `GET /petstore/pets`
+Example: `static/petstore/pets/get/index.json` overrides `GET /petstore/pets`
 
 ### x-static-response Extension
 

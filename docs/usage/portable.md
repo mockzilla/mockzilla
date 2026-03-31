@@ -147,18 +147,19 @@ Services not listed get default contexts only.
 
 ## Static Files
 
-If a directory contains a `static/` subdirectory, its contents are automatically converted to OpenAPI specs. Organize static responses by service name, HTTP method, and path:
+If a directory contains a `static/` subdirectory, its contents are automatically converted to OpenAPI specs. Organize static responses by service name, path, and HTTP method:
 
 ```text
 my-mocks/
 ├── petstore.yml              # regular OpenAPI spec
 └── static/
     └── myapi/
-        └── get/
-            ├── users/
+        └── users/
+            ├── get/
             │   └── index.json    # GET /myapi/users
-            └── users/{id}/
-                └── index.json    # GET /myapi/users/{id}
+            └── {id}/
+                └── get/
+                    └── index.json    # GET /myapi/users/{id}
 ```
 
 ```bash

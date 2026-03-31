@@ -116,8 +116,8 @@ resources/data/
 │       └── v1.yml     # → serves at /payments/*
 ├── static/            # Static response files
 │   └── petstore/
-│       └── get/
-│           └── pets/
+│       └── pets/
+│           └── get/
 │               └── index.json  # → GET /petstore/pets
 └── services/          # Compiled Go services (generated)
     └── petstore/
@@ -137,13 +137,13 @@ Place OpenAPI specs in `openapi/`. The file/folder name becomes the service name
 
 ### Static Directory
 
-Static files provide fixed responses. Structure: `static/{service}/{method}/{path}/index.json`
+Static files provide fixed responses. Structure: `static/{service}/{path}/{method}/index.json`
 
 | File | Endpoint |
 |------|----------|
-| `petstore/get/pets/index.json` | `GET /petstore/pets` |
-| `petstore/post/pets/index.json` | `POST /petstore/pets` |
-| `petstore/get/pets/{id}/index.json` | `GET /petstore/pets/{id}` |
+| `petstore/pets/get/index.json` | `GET /petstore/pets` |
+| `petstore/pets/post/index.json` | `POST /petstore/pets` |
+| `petstore/pets/{id}/get/index.json` | `GET /petstore/pets/{id}` |
 
 Use `{param}` in directory names for path parameters.
 

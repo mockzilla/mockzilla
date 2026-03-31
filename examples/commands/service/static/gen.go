@@ -105,7 +105,7 @@ func (h *OapiDefaultErrorHandler) HandleError(w http.ResponseWriter, r *http.Req
 
 // ServiceInterface defines the service interface for business logic.
 type ServiceInterface interface {
-	PostFooBar(ctx context.Context) (*PostFooBarResponseData, error)
+	PostFooBar(ctx context.Context, opts *PostFooBarServiceRequestOptions) (*PostFooBarResponseData, error)
 }
 
 // HTTPAdapter adapts the ServiceInterface to HTTP handlers.
@@ -127,9 +127,32 @@ func NewHTTPAdapter(svc ServiceInterface, errHandler OapiErrorHandler) *HTTPAdap
 // PostFooBar handles POST /foo/bar
 func (a *HTTPAdapter) PostFooBar(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	opts := &PostFooBarServiceRequestOptions{}
+	opts.RawRequest = r
+
+	// Parse query parameters
+	queryParams := &PostFooBarQuery{}
+	query := r.URL.Query()
+	if queryParamQStr := query.Get("q"); queryParamQStr != "" {
+		queryParamQ := queryParamQStr
+		queryParams.Q = &queryParamQ
+	}
+	opts.Query = queryParams
+	// Parse request body
+	defer r.Body.Close()
+	var body PostFooBarBody
+	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
+			Kind:        OapiErrorKindDecode,
+			OperationID: "PostFooBar",
+			Message:     err.Error(),
+		})
+		return
+	}
+	opts.Body = &body
 
 	// Call business logic
-	resp, err := a.svc.PostFooBar(ctx)
+	resp, err := a.svc.PostFooBar(ctx, opts)
 	if err != nil {
 		code := http.StatusInternalServerError
 		if resp != nil && resp.Status != 0 {
@@ -373,24 +396,28 @@ type generatorService struct {
 var _ ServiceInterface = (*generatorService)(nil)
 
 // PostFooBar handles POST /foo/bar
-func (s *generatorService) PostFooBar(ctx context.Context) (*PostFooBarResponseData, error) {
-	// Call user's service first
-	if resp, err := s.service.PostFooBar(ctx); resp != nil || err != nil {
+func (s *generatorService) PostFooBar(ctx context.Context, opts *PostFooBarServiceRequestOptions) (*PostFooBarResponseData, error) {
+	// Inject GenerateResponse so user service can call it
+	opts.GenerateResponse = func() (*PostFooBarResponseData, error) {
+		respSchema := s.registry.GetResponseSchema("/foo/bar", "POST")
+		if respSchema == nil {
+			return NewPostFooBarResponseData(nil), nil
+		}
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		var body PostFooBarResponse
+		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
+			return nil, err
+		}
+		return NewPostFooBarResponseData(&body).WithHeaders(res.Headers), nil
+	}
+
+	// Call user's service
+	if resp, err := s.service.PostFooBar(ctx, opts); resp != nil || err != nil {
 		return resp, err
 	}
 
 	// Fallback to generator
-	respSchema := s.registry.GetResponseSchema("/foo/bar", "POST")
-	if respSchema == nil {
-		return NewPostFooBarResponseData(nil), nil
-	}
-
-	res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
-	var body PostFooBarResponse
-	if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
-		return nil, err
-	}
-	return NewPostFooBarResponseData(&body).WithHeaders(res.Headers), nil
+	return opts.GenerateResponse()
 }
 
 // ============================================================================
@@ -476,6 +503,26 @@ func GeneratePostFooBarRequest(ctx map[string]any) (schema.GeneratedRequest, err
 	return f.Request("/foo/bar", "POST", ctx)
 }
 
+// GeneratePostFooBarRequestBody generates a typed mock request body for POST /foo/bar.
+// ctx is an optional replacement context for controlling generated values.
+func GeneratePostFooBarRequestBody(ctx map[string]any) (*PostFooBarBody, error) {
+	req, err := GeneratePostFooBarRequest(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var body PostFooBarBody
+	if err := json.Unmarshal(req.Body, &body); err != nil {
+		return nil, err
+	}
+	return &body, nil
+}
+
+type PostFooBarBody map[string]any
+
+type PostFooBarQuery struct {
+	Q *string `json:"q,omitempty"`
+}
+
 // PostFooBarResponseData wraps the success response with optional headers and status override.
 type PostFooBarResponseData struct {
 	Body    *PostFooBarResponse
@@ -502,6 +549,42 @@ func (r *PostFooBarResponseData) WithStatus(code int) *PostFooBarResponseData {
 
 type PostFooBarResponse struct {
 	Car *string `json:"car,omitempty"`
+}
+
+// PostFooBarServiceRequestOptions holds all parameters for the PostFooBar operation.
+type PostFooBarServiceRequestOptions struct {
+	Query *PostFooBarQuery
+	Body  *PostFooBarBody
+	// RawRequest provides access to the underlying HTTP request for custom content type handling.
+	RawRequest *http.Request
+	// GenerateResponse generates a sample response with random data satisfying the OpenAPI schema.
+	GenerateResponse func() (*PostFooBarResponseData, error)
+}
+
+// Validate validates all the fields in the options.
+func (o *PostFooBarServiceRequestOptions) Validate() error {
+	var errors runtime.ValidationErrors
+
+	if o.Query != nil {
+		if v, ok := any(o.Query).(runtime.Validator); ok {
+			if err := v.Validate(); err != nil {
+				errors = errors.Append("Query", err)
+			}
+		}
+	}
+
+	if o.Body != nil {
+		if v, ok := any(o.Body).(runtime.Validator); ok {
+			if err := v.Validate(); err != nil {
+				errors = errors.Append("Body", err)
+			}
+		}
+	}
+	if len(errors) == 0 {
+		return nil
+	}
+
+	return errors
 }
 
 var typesValidator *validator.Validate

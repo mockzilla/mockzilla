@@ -32,8 +32,8 @@ raw-specs/
 └── static/
     └── myapi/
         ├── config.yml            # Optional service config
-        └── get/
-            └── users/
+        └── users/
+            └── get/
                 └── index.json
 ```
 

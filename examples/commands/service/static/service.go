@@ -26,7 +26,7 @@ func newService(params *api.ServiceParams) *service {
 }
 
 // PostFooBar handles POST /foo/bar
-func (s *service) PostFooBar(ctx context.Context) (*PostFooBarResponseData, error) {
+func (s *service) PostFooBar(ctx context.Context, opts *PostFooBarServiceRequestOptions) (*PostFooBarResponseData, error) {
 	// TODO: Implement your business logic here.
 	// Return nil, nil to use the generated mock response.
 	return nil, nil

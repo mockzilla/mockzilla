@@ -1,3 +1,5 @@
+# This file is auto-generated from static files in setup/data/.
+# Do not edit manually - modify the static files and regenerate instead.
 info:
   title: static
   version: 1.0.0
@@ -6,6 +8,19 @@ paths:
   /foo/bar:
     post:
       operationId: postFooBar
+      parameters:
+      - in: query
+        name: q
+        required: false
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: true
+              type: object
+        required: false
       responses:
         '200':
           content:
