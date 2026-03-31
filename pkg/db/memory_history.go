@@ -19,34 +19,29 @@ type memoryHistoryTable struct {
 	latestIndex map[string]*HistoryEntry // lookupKey → latest entry
 	idIndex     map[string]*HistoryEntry // id → entry
 	counter     atomic.Int64
-	cancelFunc  context.CancelFunc
+	ttl         time.Duration
 }
 
 // newMemoryHistoryTable creates a new in-memory history table.
-// clearTimeout specifies how often the history is cleared (0 means no auto-clear).
-func newMemoryHistoryTable(_ *memoryTable, clearTimeout time.Duration) *memoryHistoryTable {
-	ctx, cancel := context.WithCancel(context.Background())
-
-	h := &memoryHistoryTable{
+// ttl specifies how long each entry lives before expiring (0 means no expiry).
+func newMemoryHistoryTable(_ *memoryTable, ttl time.Duration) *memoryHistoryTable {
+	return &memoryHistoryTable{
 		latestIndex: make(map[string]*HistoryEntry),
 		idIndex:     make(map[string]*HistoryEntry),
-		cancelFunc:  cancel,
+		ttl:         ttl,
 	}
-
-	if clearTimeout > 0 {
-		startResetTicker(ctx, h, clearTimeout)
-	}
-
-	return h
 }
 
-// Get retrieves the latest request record matching the HTTP request's method and URL.
+// Get retrieves the latest non-expired request record matching the HTTP request's method and URL.
 func (h *memoryHistoryTable) Get(_ context.Context, req *http.Request) (*HistoryEntry, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	entry, ok := h.latestIndex[lookupKey(req.Method, req.URL.String())]
-	return entry, ok
+	if !ok || h.isExpired(entry) {
+		return nil, false
+	}
+	return entry, true
 }
 
 // Set stores a request record with a unique ID.
@@ -83,30 +78,44 @@ func (h *memoryHistoryTable) SetResponse(_ context.Context, req *HistoryRequest,
 	entry.Response = response
 }
 
-// GetByID retrieves a single history entry by its ID.
+// GetByID retrieves a single non-expired history entry by its ID.
 func (h *memoryHistoryTable) GetByID(_ context.Context, id string) (*HistoryEntry, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	entry, ok := h.idIndex[id]
-	return entry, ok
+	if !ok || h.isExpired(entry) {
+		return nil, false
+	}
+	return entry, true
 }
 
-// Data returns all request records as an ordered log.
+// Data returns all non-expired request records as an ordered log.
 func (h *memoryHistoryTable) Data(_ context.Context) []*HistoryEntry {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	result := make([]*HistoryEntry, len(h.entries))
-	copy(result, h.entries)
+	var result []*HistoryEntry
+	for _, entry := range h.entries {
+		if !h.isExpired(entry) {
+			result = append(result, entry)
+		}
+	}
 	return result
 }
 
-// Len returns the number of history entries.
+// Len returns the number of non-expired history entries.
 func (h *memoryHistoryTable) Len(_ context.Context) int {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	return len(h.entries)
+
+	count := 0
+	for _, entry := range h.entries {
+		if !h.isExpired(entry) {
+			count++
+		}
+	}
+	return count
 }
 
 // Clear removes all history records.
@@ -118,29 +127,11 @@ func (h *memoryHistoryTable) Clear(_ context.Context) {
 	h.idIndex = make(map[string]*HistoryEntry)
 }
 
-// cancel stops the auto-clear goroutine.
-func (h *memoryHistoryTable) cancel() {
-	if h.cancelFunc != nil {
-		h.cancelFunc()
-	}
-}
-
 func lookupKey(method, url string) string {
 	return method + ":" + url
 }
 
-// startResetTicker starts a goroutine that clears the history periodically.
-func startResetTicker(ctx context.Context, h *memoryHistoryTable, clearTimeout time.Duration) {
-	ticker := time.NewTicker(clearTimeout)
-	go func() {
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				h.Clear(ctx)
-			}
-		}
-	}()
+// isExpired returns true if the entry has expired based on the table's TTL.
+func (h *memoryHistoryTable) isExpired(entry *HistoryEntry) bool {
+	return h.ttl > 0 && time.Now().After(entry.CreatedAt.Add(h.ttl))
 }

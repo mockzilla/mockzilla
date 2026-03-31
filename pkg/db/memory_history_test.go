@@ -238,39 +238,68 @@ func TestMemoryHistoryTable_Clear(t *testing.T) {
 	assert.Equal(0, h.Len(ctx))
 }
 
-func TestMemoryHistoryTable_AutoClear(t *testing.T) {
+func TestMemoryHistoryTable_TTL(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
 
 	h := newTestHistoryTable(50 * time.Millisecond)
-	defer h.cancel()
 
 	h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
 
 	assert.Equal(1, h.Len(ctx))
 
-	// Wait for auto-clear
+	// Wait for entries to expire
 	time.Sleep(100 * time.Millisecond)
 
 	assert.Empty(h.Data(ctx))
+	assert.Equal(0, h.Len(ctx))
+
+	req, _ := http.NewRequest("GET", "/foo/1", nil)
+	_, ok := h.Get(ctx, req)
+	assert.False(ok)
 }
 
-func TestMemoryHistoryTable_Cancel(t *testing.T) {
+func TestMemoryHistoryTable_TTL_GetByID(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
 
 	h := newTestHistoryTable(50 * time.Millisecond)
 
-	h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
+	entry := h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
 
-	// Cancel should stop the reset ticker
-	h.cancel()
+	got, ok := h.GetByID(ctx, entry.ID)
+	assert.True(ok)
+	assert.Equal(entry.ID, got.ID)
 
-	// Wait past the clear timeout
+	// Wait for entry to expire
 	time.Sleep(100 * time.Millisecond)
 
-	// Data should still be there since ticker was cancelled
-	assert.Equal(1, h.Len(ctx))
+	_, ok = h.GetByID(ctx, entry.ID)
+	assert.False(ok)
+}
+
+func TestMemoryHistoryTable_TTL_MixedExpiry(t *testing.T) {
+	assert := assert2.New(t)
+	ctx := context.Background()
+
+	h := newTestHistoryTable(100 * time.Millisecond)
+
+	h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
+
+	// Wait 60ms, then add another entry
+	time.Sleep(60 * time.Millisecond)
+	h.Set(ctx, "/bar/{id}", &HistoryRequest{Method: "GET", URL: "/bar/1"}, nil)
+
+	// At ~60ms: first entry is ~60ms old, second is fresh - both alive
+	assert.Equal(2, h.Len(ctx))
+
+	// Wait another 50ms (total ~110ms for first, ~50ms for second)
+	time.Sleep(50 * time.Millisecond)
+
+	// First entry expired, second still alive
+	data := h.Data(ctx)
+	assert.Len(data, 1)
+	assert.Equal("/bar/{id}", data[0].Resource)
 }
 
 func TestFlattenHeaders(t *testing.T) {

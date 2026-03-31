@@ -89,5 +89,4 @@ func (db *memoryServiceDB) CircuitBreakerStore() gobreaker.SharedDataStore {
 
 // Close releases resources held by this service DB.
 func (db *memoryServiceDB) Close() {
-	db.history.cancel()
 }
