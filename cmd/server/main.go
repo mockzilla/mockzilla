@@ -135,6 +135,7 @@ func runServer() int {
 	_ = api.CreateHomeRoutes(router)
 	_ = api.CreateServiceRoutes(router)
 	_ = api.CreateHistoryRoutes(router)
+	_ = api.CreateServiceConfigRoutes(router)
 
 	// Auto-discover and register all services
 	// Services are automatically registered via their init() functions

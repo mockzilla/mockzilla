@@ -78,6 +78,7 @@ func Run(args []string) int {
 	_ = api.CreateHomeRoutes(router)
 	_ = api.CreateServiceRoutes(router)
 	_ = api.CreateHistoryRoutes(router)
+	_ = api.CreateServiceConfigRoutes(router)
 
 	// Track swappable handlers for hot reload
 	handlers := make(map[string]*swappableHandler)

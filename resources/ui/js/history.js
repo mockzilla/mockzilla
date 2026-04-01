@@ -59,8 +59,11 @@ const showTabs = (service) => {
     config.serviceTabs.style.display = 'flex';
     config.tabResources.href = `#/services/${service}`;
     config.tabHistory.href = `#/history/${service}`;
+    config.tabHistory.style.display = '';
+    config.tabConfiguration.href = `#/configuration/${service}`;
     config.tabResources.classList.remove('active');
     config.tabHistory.classList.add('active');
+    config.tabConfiguration.classList.remove('active');
 };
 
 const showDetail = (entry) => {

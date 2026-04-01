@@ -153,6 +153,23 @@ export const show = match => {
     navi.resetContents();
     services.show();
 
+    let displayName = service;
+    if (displayName === `.root`) {
+        displayName = `Root level`
+    } else {
+        displayName = `/${displayName}`
+    }
+    config.contentTitleEl.innerHTML = `${displayName} resources`;
+
+    config.serviceTabs.style.display = 'flex';
+    config.tabResources.href = `#/services/${service}`;
+    config.tabHistory.href = `#/history/${service}`;
+    config.tabHistory.style.display = config.historyEnabled ? '' : 'none';
+    config.tabConfiguration.href = `#/configuration/${service}`;
+    config.tabResources.classList.add('active');
+    config.tabHistory.classList.remove('active');
+    config.tabConfiguration.classList.remove('active');
+
     fetch(serviceResourcesUrl)
         .then(res => res.json())
         .then(data => {
@@ -163,22 +180,6 @@ export const show = match => {
             navi.applySelection(`service-${service}`, 'selected-service');
 
             const endpoints = data['endpoints'];
-            let name = service;
-            if (name === `.root`) {
-                name = `Root level`
-            } else {
-                name = `/${name}`
-            }
-            config.contentTitleEl.innerHTML = `${name} resources`;
-
-            if (config.historyEnabled) {
-                config.serviceTabs.style.display = 'flex';
-                config.tabResources.href = `#/services/${service}`;
-                config.tabHistory.href = `#/history/${service}`;
-                config.tabResources.classList.add('active');
-                config.tabHistory.classList.remove('active');
-            }
-
             const table = document.getElementById('fixed-service-table-body');
             let i = 0;
             const mapped = {};

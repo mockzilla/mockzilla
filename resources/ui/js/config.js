@@ -17,3 +17,5 @@ export const historyContainer = document.getElementById('history-container');
 export const serviceTabs = document.getElementById('service-tabs');
 export const tabResources = document.getElementById('tab-resources');
 export const tabHistory = document.getElementById('tab-history');
+export const tabConfiguration = document.getElementById('tab-configuration');
+export const configurationContainer = document.getElementById('configuration-container');

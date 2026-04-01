@@ -4,12 +4,14 @@ import * as services from './services.js';
 import * as home from './home.js';
 import * as resources from './resources.js';
 import * as history from './history.js';
+import * as configuration from './configuration.js';
 
 const pageMap = new Map([
     ['', home.home],
     ['#/services/:name*', resources.show],
     ['#/services', services.show],
     ['#/history/:name*', history.show],
+    ['#/configuration/:name*', configuration.show],
 ]);
 
 async function onLoad() {

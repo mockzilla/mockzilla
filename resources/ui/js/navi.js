@@ -206,6 +206,7 @@ export const resetContents = () => {
 
     config.fixedServiceContainer.style.display = 'none';
     config.historyContainer.style.display = 'none';
+    config.configurationContainer.style.display = 'none';
     config.serviceTabs.style.display = 'none';
     document.getElementById('history-detail').style.display = 'none';
     document.getElementById('history-table-body').innerHTML = '';
