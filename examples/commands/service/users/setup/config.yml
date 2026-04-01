@@ -22,11 +22,3 @@ spec:
 #  timeout: 5s
 #  headers:
 #    X-Custom-Header: value
-#  circuit-breaker:
-#    timeout: 60s        # Time in open state before half-open
-#    max-requests: 1     # Max requests allowed in half-open state
-#    interval: 0s        # Interval to clear counts in closed state (0 = never)
-#    min-requests: 3     # Min requests before evaluating failure ratio
-#    failure-ratio: 0.6  # Failure ratio threshold to trip (0.0-1.0)
-#    trip-on-status:
-#      - range: "500-599"

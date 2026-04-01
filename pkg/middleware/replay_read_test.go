@@ -29,7 +29,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 		mw := CreateReplayReadMiddleware(params)
 
 		w := NewBufferedResponseWriter()
@@ -41,7 +41,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	})
 
 	t.Run("nil config passes through", func(t *testing.T) {
-		params := newTestParams(nil, nil)
+		params := newTestParams(nil)
 		params.serviceConfig = nil
 		mw := CreateReplayReadMiddleware(params)
 
@@ -56,7 +56,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	t.Run("header with fields but no config works with actual path", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-		}, nil)
+		})
 
 		// Store using actual endpoint path (no config pattern)
 		body := []byte(`{"name":"Jane"}`)
@@ -90,7 +90,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 		mw := CreateReplayReadMiddleware(params)
 
 		w := NewBufferedResponseWriter()
@@ -111,7 +111,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		// Pre-store a replay record using config pattern path
 		body := []byte(`{"name":"Jane"}`)
@@ -148,7 +148,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		// Store with override fields but using config pattern path
 		body := []byte(`{"name":"Jane","age":30}`)
@@ -173,7 +173,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	})
 
 	t.Run("empty header value with no config passes through", func(t *testing.T) {
-		params := newTestParams(&config.ServiceConfig{Name: "svc"}, nil)
+		params := newTestParams(&config.ServiceConfig{Name: "svc"})
 		mw := CreateReplayReadMiddleware(params)
 
 		w := NewBufferedResponseWriter()
@@ -195,7 +195,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		body := []byte(`{"name":"Jane"}`)
 		key := buildReplayKey(httptest.NewRequest(http.MethodPost, "/foo", nil), "/foo", "/foo", &config.ReplayMatch{Body: []string{"name"}}, body)
@@ -228,7 +228,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 		mw := CreateReplayReadMiddleware(params)
 
 		w := NewBufferedResponseWriter()
@@ -249,7 +249,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		// Store a non-deserializable value
 		body := []byte(`{"name":"Jane"}`)
@@ -277,7 +277,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		// Store recording for credit-card
 		body := []byte(`{"ref":"REF123"}`)
@@ -324,7 +324,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		body := []byte(`{"name":"Jane"}`)
 		key := buildReplayKey(httptest.NewRequest(http.MethodPost, "/foo", nil), "/foo", "/foo", &config.ReplayMatch{Body: []string{"name"}}, body)
@@ -373,7 +373,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 		mw := CreateReplayReadMiddleware(params)
 
 		w := NewBufferedResponseWriter()

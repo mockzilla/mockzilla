@@ -142,7 +142,7 @@ Percentiles are cumulative - `p10: 400` means requests between p5 and p10 (5%) r
 
 ## Upstream Proxy
 
-Forward requests to a real backend service with circuit breaker protection.
+Forward requests to a real backend service.
 
 ```yaml
 # config.yml
@@ -160,18 +160,6 @@ upstream:
 5. If failed otherwise → proceed to mock handler (fallback)
 
 By default, `400 Bad Request` is returned directly (configurable via `fail-on`).
-
-### Circuit Breaker
-
-The circuit breaker protects against cascading failures:
-
-- **Closed** (normal): Requests flow to upstream
-- **Open** (tripped): Requests skip upstream, go directly to mock handler
-- **Half-Open** (recovery): Some requests test if upstream is healthy
-
-The circuit opens when:
-- At least 3 requests have been made
-- Failure ratio ≥ 60%
 
 ## Response Caching
 

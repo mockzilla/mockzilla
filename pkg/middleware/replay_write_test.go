@@ -25,7 +25,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte("ok"))
 		})
@@ -43,7 +43,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 	})
 
 	t.Run("nil config passes through", func(t *testing.T) {
-		params := newTestParams(nil, nil)
+		params := newTestParams(nil)
 		params.serviceConfig = nil
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte("ok"))
@@ -69,7 +69,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -105,7 +105,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 	t.Run("header-only without config records with actual path", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -138,7 +138,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		body := []byte(`{"name":"Jane"}`)
 		key := buildReplayKey(httptest.NewRequest(http.MethodPost, "/foo", nil), "/foo", "/foo", &config.ReplayMatch{Body: []string{"name"}}, body)
@@ -184,7 +184,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(ResponseHeaderSource, ResponseHeaderSourceCache)
@@ -220,7 +220,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(ResponseHeaderSource, ResponseHeaderSourceGenerated)
@@ -259,7 +259,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(ResponseHeaderSource, ResponseHeaderSourceUpstream)
@@ -297,7 +297,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(ResponseHeaderSource, ResponseHeaderSourceGenerated)
@@ -337,7 +337,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -374,7 +374,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set(ResponseHeaderSource, ResponseHeaderSourceGenerated)
@@ -408,7 +408,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -446,7 +446,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
@@ -481,7 +481,7 @@ func TestCreateReplayWriteMiddleware(t *testing.T) {
 					},
 				},
 			},
-		}, nil)
+		})
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)

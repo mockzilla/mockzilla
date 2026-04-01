@@ -35,7 +35,6 @@ type HistoryTransformFunc func(req *db.HistoryRequest, resp *db.HistoryResponse)
 // Params provides access to service configuration and database for middleware.
 type Params struct {
 	serviceConfig    *config.ServiceConfig
-	storageConfig    *config.StorageConfig
 	database         db.DB
 	log              *slog.Logger
 	router           chi.Routes
@@ -43,10 +42,9 @@ type Params struct {
 }
 
 // NewParams creates a new Params instance with the given configuration and database.
-func NewParams(serviceConfig *config.ServiceConfig, storageConfig *config.StorageConfig, database db.DB) *Params {
+func NewParams(serviceConfig *config.ServiceConfig, database db.DB) *Params {
 	return &Params{
 		serviceConfig: serviceConfig,
-		storageConfig: storageConfig,
 		database:      database,
 		log:           slog.With("service", serviceConfig.Name),
 	}

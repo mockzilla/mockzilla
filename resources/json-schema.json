@@ -238,56 +238,6 @@
             "type": "string"
           }
         },
-        "circuit-breaker": {
-          "type": "object",
-          "description": "Circuit breaker configuration.",
-          "properties": {
-            "timeout": {
-              "type": "string",
-              "description": "Time in open state before half-open.",
-              "default": "60s"
-            },
-            "max-requests": {
-              "type": "integer",
-              "description": "Max requests allowed in half-open state.",
-              "default": 1
-            },
-            "interval": {
-              "type": "string",
-              "description": "Interval to clear counts in closed state (0 = never).",
-              "default": "0s"
-            },
-            "min-requests": {
-              "type": "integer",
-              "description": "Min requests before evaluating failure ratio.",
-              "default": 3
-            },
-            "failure-ratio": {
-              "type": "number",
-              "description": "Failure ratio threshold to trip (0.0-1.0).",
-              "default": 0.6,
-              "minimum": 0,
-              "maximum": 1
-            },
-            "trip-on-status": {
-              "type": "array",
-              "description": "HTTP status codes that count as circuit breaker failures. If not set, all errors (>= 400) count.",
-              "items": {
-                "type": "object",
-                "properties": {
-                  "exact": {
-                    "type": "integer",
-                    "description": "Exact HTTP status code."
-                  },
-                  "range": {
-                    "type": "string",
-                    "description": "HTTP status range (e.g., '500-599')."
-                  }
-                }
-              }
-            }
-          }
-        }
       }
     }
   }

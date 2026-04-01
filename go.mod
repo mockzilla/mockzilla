@@ -15,7 +15,6 @@ require (
 	github.com/lmittmann/tint v1.1.2
 	github.com/pb33f/libopenapi v0.33.11
 	github.com/redis/go-redis/v9 v9.13.0
-	github.com/sony/gobreaker/v2 v2.3.0
 	github.com/stretchr/testify v1.11.1
 	go.yaml.in/yaml/v4 v4.0.0-rc.4
 	golang.org/x/text v0.33.0

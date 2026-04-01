@@ -17,7 +17,7 @@ func TestCreateResourceResolverMiddleware(t *testing.T) {
 		r := chi.NewRouter()
 		r.Get("/pets/{id}", func(w http.ResponseWriter, r *http.Request) {})
 
-		params := newTestParams(&config.ServiceConfig{Name: "petstore"}, nil)
+		params := newTestParams(&config.ServiceConfig{Name: "petstore"})
 		params.SetRouter(r)
 
 		var captured string
@@ -36,7 +36,7 @@ func TestCreateResourceResolverMiddleware(t *testing.T) {
 		r := chi.NewRouter()
 		r.Get("/pets", func(w http.ResponseWriter, r *http.Request) {})
 
-		params := newTestParams(&config.ServiceConfig{Name: "petstore"}, nil)
+		params := newTestParams(&config.ServiceConfig{Name: "petstore"})
 		params.SetRouter(r)
 
 		var captured string
@@ -52,7 +52,7 @@ func TestCreateResourceResolverMiddleware(t *testing.T) {
 	})
 
 	t.Run("falls back to endpoint path when no router set", func(t *testing.T) {
-		params := newTestParams(&config.ServiceConfig{Name: "petstore"}, nil)
+		params := newTestParams(&config.ServiceConfig{Name: "petstore"})
 
 		var captured string
 		mw := CreateResourceResolverMiddleware(params)
@@ -70,7 +70,7 @@ func TestCreateResourceResolverMiddleware(t *testing.T) {
 		r := chi.NewRouter()
 		r.Get("/other", func(w http.ResponseWriter, r *http.Request) {})
 
-		params := newTestParams(&config.ServiceConfig{Name: "petstore"}, nil)
+		params := newTestParams(&config.ServiceConfig{Name: "petstore"})
 		params.SetRouter(r)
 
 		var captured string

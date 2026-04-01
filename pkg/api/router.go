@@ -101,7 +101,7 @@ func (r *Router) RegisterService(
 
 	// Get service-scoped DB from shared storage
 	serviceDB := r.storage.NewDB(cfg.Name, r.config.History.Duration)
-	mwParams := middleware.NewParams(cfg, r.config.Storage, serviceDB)
+	mwParams := middleware.NewParams(cfg, serviceDB)
 
 	// Use cfg.Name as the route prefix (ensure it starts with /)
 	prefix := "/" + cfg.Name
@@ -178,7 +178,7 @@ func (r *Router) RegisterHTTPHandler(
 	// Create the handler with access to the DB
 	handler := handlerFactory(serviceDB)
 
-	mwParams := middleware.NewParams(cfg, r.config.Storage, serviceDB)
+	mwParams := middleware.NewParams(cfg, serviceDB)
 
 	// Use cfg.Name as the route prefix (ensure it starts with /)
 	prefix := "/" + cfg.Name

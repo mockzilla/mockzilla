@@ -66,7 +66,6 @@ A service-scoped wrapper that provides:
 
 - **History()** - Typed access to request/response history
 - **Table(name)** - Generic key-value storage with TTL support
-- **CircuitBreakerStore()** - Shared circuit breaker state (see below)
 
 ### Table
 
@@ -86,18 +85,6 @@ Typed wrapper for request/response tracking:
 - Used by caching and upstream middleware
 - Cleared periodically based on `history.duration` config
 
-## Circuit Breaker Store
-
-Each service has its own circuit breaker, keyed by its upstream URL. The store provides:
-
-- **Memory** - Circuit breaker state is local to the process
-- **Redis** - Circuit breaker state is shared across all application instances
-
-When running multiple instances of connexions behind a load balancer, 
-Redis storage ensures that circuit breaker state (failure counts, open/closed state) is 
-synchronized across all instances. This prevents one instance from continuing to hit a 
-failing upstream while another has already tripped the breaker.
-
 ## Choosing a Backend
 
 | Feature | Memory | Redis |
@@ -105,7 +92,6 @@ failing upstream while another has already tripped the breaker.
 | Setup | None | Requires Redis server |
 | Persistence | No (lost on restart) | Yes |
 | Multi-instance | No (each instance isolated) | Yes (shared state) |
-| Circuit breaker sharing | Within process only | Across all instances |
 | Performance | Fastest | Network overhead |
 
 **Use Memory when:**
@@ -115,7 +101,6 @@ failing upstream while another has already tripped the breaker.
 
 **Use Redis when:**
 - Running multiple instances behind a load balancer
-- Circuit breaker state must be shared
 - Request history should persist across restarts
 
 ## Configuration

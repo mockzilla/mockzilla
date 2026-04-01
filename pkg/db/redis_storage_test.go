@@ -86,25 +86,6 @@ func TestRedisStorage_SharedBackend(t *testing.T) {
 	assert.Equal(t, "shared_value", val2)
 }
 
-func TestRedisStorage_CircuitBreakerStoreShared(t *testing.T) {
-	mr := miniredis.RunT(t)
-	cfg := &config.RedisConfig{Address: mr.Addr()}
-
-	storage, err := newRedisStorage(cfg)
-	assert.NoError(t, err)
-	defer storage.Close()
-
-	db1 := storage.NewDB("service1", 5*time.Minute)
-	db2 := storage.NewDB("service2", 5*time.Minute)
-
-	// Both services should share the same circuit breaker store
-	store1 := db1.CircuitBreakerStore()
-	store2 := db2.CircuitBreakerStore()
-
-	assert.NotNil(t, store1)
-	assert.NotNil(t, store2)
-}
-
 func TestRedisStorage_History(t *testing.T) {
 	ctx := context.Background()
 	mr := miniredis.RunT(t)

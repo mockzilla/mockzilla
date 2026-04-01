@@ -165,7 +165,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 			Name:    "test",
 			Latency: 100 * time.Millisecond,
 		}
-		params := newTestParams(original, nil)
+		params := newTestParams(original)
 
 		var capturedConfig *config.ServiceConfig
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -187,7 +187,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 			Name:    "test",
 			Latency: 100 * time.Millisecond,
 		}
-		params := newTestParams(original, nil)
+		params := newTestParams(original)
 
 		var capturedLatency time.Duration
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -213,7 +213,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 			Name:    "test",
 			Latency: 100 * time.Millisecond,
 		}
-		params := newTestParams(original, nil)
+		params := newTestParams(original)
 
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -231,7 +231,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 	})
 
 	t.Run("X-Cxs headers are preserved on request", func(t *testing.T) {
-		params := newTestParams(&config.ServiceConfig{Name: "test"}, nil)
+		params := newTestParams(&config.ServiceConfig{Name: "test"})
 
 		var capturedHeaders http.Header
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -252,7 +252,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 	})
 
 	t.Run("browser headers are stripped from request", func(t *testing.T) {
-		params := newTestParams(&config.ServiceConfig{Name: "test"}, nil)
+		params := newTestParams(&config.ServiceConfig{Name: "test"})
 
 		var capturedHeaders http.Header
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -288,7 +288,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 	})
 
 	t.Run("Authorization is stripped when request comes from UI", func(t *testing.T) {
-		params := newTestParams(&config.ServiceConfig{Name: "test"}, nil)
+		params := newTestParams(&config.ServiceConfig{Name: "test"})
 
 		var capturedHeaders http.Header
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -318,7 +318,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 			Latency: 100 * time.Millisecond,
 			Cache:   &config.CacheConfig{Requests: true},
 		}
-		params := newTestParams(original, nil)
+		params := newTestParams(original)
 
 		var captured struct {
 			latency       time.Duration

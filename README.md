@@ -24,7 +24,7 @@ You can also define static responses for any arbitrary path.<br/>
 
 ## Features
 - **Multiple APIs** on one server - each spec becomes a service with its own URL prefix
-- **Upstream proxy** with circuit breaker - forward to real backends with fallback to mocks
+- **Upstream proxy** - forward to real backends with fallback to mocks
 - **Latency & error simulation** - test how your app handles delays and failures
 - **Custom middleware** - modify requests/responses on the fly
 - **Response caching** - cache GET responses for consistency

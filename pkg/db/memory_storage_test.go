@@ -51,29 +51,6 @@ func TestMemoryStorage_SharedBackend(t *testing.T) {
 	assert.Equal(t, "shared_value", val2)
 }
 
-func TestMemoryStorage_CircuitBreakerStoreShared(t *testing.T) {
-	storage := newMemoryStorage()
-	defer storage.Close()
-
-	db1 := storage.NewDB("service1", 5*time.Minute)
-	db2 := storage.NewDB("service2", 5*time.Minute)
-
-	// Both services should share the same circuit breaker store
-	store1 := db1.CircuitBreakerStore()
-	store2 := db2.CircuitBreakerStore()
-
-	assert.NotNil(t, store1)
-	assert.NotNil(t, store2)
-
-	// Lock from one service should be visible to the other
-	err := store1.Lock("shared-breaker")
-	assert.NoError(t, err)
-
-	// Unlock from the other service
-	err = store2.Unlock("shared-breaker")
-	assert.NoError(t, err)
-}
-
 func TestMemoryStorage_History(t *testing.T) {
 	ctx := context.Background()
 	storage := newMemoryStorage()

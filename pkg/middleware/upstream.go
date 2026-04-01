@@ -9,11 +9,9 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/mockzilla/connexions/v2/pkg/config"
 	"github.com/mockzilla/connexions/v2/pkg/db"
-	"github.com/sony/gobreaker/v2"
 )
 
 const upstreamErrorKey ctxKey = "upstreamError"
@@ -27,8 +25,7 @@ func GetUpstreamError(req *http.Request) string {
 }
 
 // upstreamHTTPError is returned when upstream responds with an error status code.
-// It carries the status code so the circuit breaker can decide whether to count it as a failure,
-// and the body/content-type so fail-on can forward the response to the client.
+// It carries the status code and body/content-type so fail-on can forward the response to the client.
 type upstreamHTTPError struct {
 	StatusCode  int
 	Body        string
@@ -46,85 +43,9 @@ type upstreamResponse struct {
 	StatusCode  int
 }
 
-// circuitBreakerExecutor defines the interface for circuit breaker execution.
-type circuitBreakerExecutor interface {
-	Execute(req func() (*upstreamResponse, error)) (*upstreamResponse, error)
-}
-
-// observableCircuitBreaker wraps a circuit breaker to persist state after every request,
-// not just on failures. Without this, successful requests never update the stored CBState
-// because gobreaker's ReadyToTrip callback only fires on failures.
-type observableCircuitBreaker struct {
-	inner     circuitBreakerExecutor
-	cb        *gobreaker.CircuitBreaker[*upstreamResponse]
-	cbTable   db.Table
-	lastError *string
-}
-
-func (o *observableCircuitBreaker) Execute(req func() (*upstreamResponse, error)) (*upstreamResponse, error) {
-	prevState := o.cb.State()
-	resp, err := o.inner.Execute(req)
-
-	// Persist state for requests that went through to the upstream.
-	// Skip when the CB rejected the request (no actual request happened)
-	// or when a state transition occurred (OnStateChange handles that with
-	// the pre-clear counts snapshot).
-	if !errors.Is(err, gobreaker.ErrOpenState) && !errors.Is(err, gobreaker.ErrTooManyRequests) && o.cb.State() == prevState {
-		state := newCBState(o.cb.State().String(), o.cb.Counts())
-		state.LastError = *o.lastError
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), asyncWriteTimeout)
-			defer cancel()
-			o.cbTable.Set(ctx, cbKeyState, state, 0)
-		}()
-	}
-
-	return resp, err
-}
-
 // CreateUpstreamRequestMiddleware returns a middleware that fetches data from an upstream service.
-// If circuit breaker is configured and the upstream service fails, consequent requests will be blocked.
 func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Handler {
 	log := params.Logger("upstream")
-
-	// Circuit breaker is created at startup with the original config.
-	// It's tied to the upstream URL and shared across requests.
-	var cb circuitBreakerExecutor
-	if cfg := params.serviceConfig.Upstream; cfg != nil && cfg.URL != "" && cfg.CircuitBreaker != nil {
-		cbTable := params.DB().Table("circuit-breaker")
-		var lastError string
-		settings := buildCircuitBreakerSettings(log, cfg.URL, cfg.CircuitBreaker, cbTable, &lastError)
-
-		var inner circuitBreakerExecutor
-		var localCB *gobreaker.CircuitBreaker[*upstreamResponse]
-
-		if storageCfg := params.storageConfig; storageCfg != nil && storageCfg.Type == config.StorageTypeRedis {
-			dcb, err := gobreaker.NewDistributedCircuitBreaker[*upstreamResponse](params.DB().CircuitBreakerStore(), settings)
-			if err != nil {
-				log.Error("Failed to create distributed circuit breaker, falling back to local",
-					"name", settings.Name,
-					"error", err,
-				)
-			} else {
-				log.Info("Created distributed circuit breaker", "name", settings.Name)
-				inner = dcb
-				localCB = dcb.CircuitBreaker
-			}
-		}
-
-		if inner == nil {
-			lcb := gobreaker.NewCircuitBreaker[*upstreamResponse](settings)
-			inner = lcb
-			localCB = lcb
-		}
-
-		cb = &observableCircuitBreaker{
-			inner:     inner,
-			cb:        localCB,
-			cbTable:   cbTable,
-			lastError: &lastError,
-		}
-	}
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -138,16 +59,7 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 			reqLog := RequestLog(log, req)
 			reqLog.Debug("Service has upstream service defined")
 
-			var resp *upstreamResponse
-			var err error
-
-			if cb != nil {
-				resp, err = cb.Execute(func() (*upstreamResponse, error) {
-					return getUpstreamResponse(log, svcCfg, params, req)
-				})
-			} else {
-				resp, err = getUpstreamResponse(log, svcCfg, params, req)
-			}
+			resp, err := getUpstreamResponse(log, svcCfg, params, req)
 
 			// If an upstream service returns a successful response, write it and return immediately
 			if err == nil && resp != nil {
@@ -224,87 +136,6 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 			next.ServeHTTP(w, req)
 		})
 	}
-}
-
-// buildCircuitBreakerSettings creates gobreaker.Settings from config.
-// lastError is shared with the observableCircuitBreaker wrapper for state persistence.
-func buildCircuitBreakerSettings(log *slog.Logger, upstreamURL string, cbCfg *config.CircuitBreakerConfig, cbTable db.Table, lastError *string) gobreaker.Settings {
-	cfg := cbCfg.WithDefaults()
-
-	// lastCounts captures the counts from ReadyToTrip so OnStateChange can persist them.
-	var lastCounts gobreaker.Counts
-
-	settings := gobreaker.Settings{
-		Name:        upstreamURL,
-		Timeout:     cfg.Timeout,
-		MaxRequests: cfg.MaxRequests,
-		Interval:    cfg.Interval,
-		ReadyToTrip: func(counts gobreaker.Counts) bool {
-			log.Debug("Circuit breaker check",
-				"url", upstreamURL,
-				"cb.requests", counts.Requests,
-				"cb.totalSuccesses", counts.TotalSuccesses,
-				"cb.totalFailures", counts.TotalFailures,
-				"cb.consecutiveSuccesses", counts.ConsecutiveSuccesses,
-				"cb.consecutiveFailures", counts.ConsecutiveFailures,
-			)
-			lastCounts = counts
-
-			if counts.Requests < cfg.MinRequests {
-				return false
-			}
-			ratio := float64(counts.TotalFailures) / float64(counts.Requests)
-			if ratio >= cfg.FailureRatio {
-				log.Info("Circuit breaker is open",
-					"url", upstreamURL,
-					"cb.failureRatio", ratio,
-				)
-				return true
-			}
-
-			return false
-		},
-		OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
-			log.Info("Circuit breaker state changed",
-				"name", name,
-				"cb.from", from.String(),
-				"cb.to", to.String(),
-				"cb.lastError", *lastError,
-			)
-
-			// Write state snapshot (with counts from last ReadyToTrip) and event
-			ctx := context.Background()
-			state := newCBState(to.String(), lastCounts)
-			state.LastError = *lastError
-			cbTable.Set(ctx, cbKeyState, state, 0)
-
-			appendCBEvent(ctx, cbTable, CBEvent{
-				From:      from.String(),
-				To:        to.String(),
-				Timestamp: time.Now().UTC().Format(time.RFC3339),
-				Error:     *lastError,
-			})
-		},
-		IsSuccessful: func(err error) bool {
-			if err == nil {
-				return true
-			}
-			*lastError = err.Error()
-			log.Warn("Upstream error",
-				"url", upstreamURL,
-				"error", err,
-			)
-			if len(cfg.TripOnStatus) > 0 {
-				var httpErr *upstreamHTTPError
-				if errors.As(err, &httpErr) {
-					return !cfg.TripOnStatus.Is(httpErr.StatusCode)
-				}
-			}
-			return false
-		},
-	}
-
-	return settings
 }
 
 func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, params *Params, req *http.Request) (*upstreamResponse, error) {

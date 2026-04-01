@@ -5,8 +5,6 @@ package db
 import (
 	"context"
 	"time"
-
-	"github.com/sony/gobreaker/v2"
 )
 
 // DB is a per-service database that provides access to named tables.
@@ -18,10 +16,6 @@ type DB interface {
 	// Table returns a generic key-value table by name.
 	// Tables are created lazily on first access.
 	Table(name string) Table
-
-	// CircuitBreakerStore returns a store for distributed circuit breaker state.
-	// Implements gobreaker.SharedDataStore interface.
-	CircuitBreakerStore() gobreaker.SharedDataStore
 
 	// Close releases any resources held by the database.
 	Close()

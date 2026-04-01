@@ -9,7 +9,6 @@ import (
 
 	"github.com/mockzilla/connexions/v2/pkg/config"
 	"github.com/redis/go-redis/v9"
-	"github.com/sony/gobreaker/v2"
 )
 
 // Ensure redisStorage implements Storage interface.
@@ -17,8 +16,7 @@ var _ Storage = (*redisStorage)(nil)
 
 // redisStorage is a shared Redis-backed storage.
 type redisStorage struct {
-	client  *redis.Client
-	cbStore *redisCircuitBreakerStore
+	client *redis.Client
 
 	mu       sync.RWMutex
 	services map[string]*redisServiceDB // track service DBs for cleanup
@@ -52,7 +50,6 @@ func newRedisStorage(cfg *config.RedisConfig) (*redisStorage, error) {
 
 	return &redisStorage{
 		client:   client,
-		cbStore:  newRedisCircuitBreakerStore(client),
 		services: make(map[string]*redisServiceDB),
 	}, nil
 }
@@ -121,11 +118,6 @@ func (db *redisServiceDB) Table(name string) Table {
 	t = newRedisTable(db.storage.client, db.serviceName, name)
 	db.tables[name] = t
 	return t
-}
-
-// CircuitBreakerStore returns the shared circuit breaker store.
-func (db *redisServiceDB) CircuitBreakerStore() gobreaker.SharedDataStore {
-	return db.storage.cbStore
 }
 
 // Close releases resources (no-op for Redis service DB, storage handles cleanup).

@@ -19,7 +19,7 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 	})
 
 	t.Run("nil config passes through", func(t *testing.T) {
-		params := newTestParams(nil, nil)
+		params := newTestParams(nil)
 		params.serviceConfig = nil
 		mw := CreateCacheReadMiddleware(params)
 		assert.NotNil(mw)
@@ -36,7 +36,7 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name:  "test",
 			Cache: nil,
-		}, nil)
+		})
 		mw := CreateCacheReadMiddleware(params)
 		assert.NotNil(mw)
 
@@ -54,7 +54,7 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 			Cache: &config.CacheConfig{
 				Requests: true,
 			},
-		}, nil)
+		})
 
 		resp := &db.HistoryResponse{
 			Body:        []byte("cached"),
@@ -103,7 +103,7 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 			Cache: &config.CacheConfig{
 				Requests: false,
 			},
-		}, nil)
+		})
 
 		resp := &db.HistoryResponse{
 			Body:        []byte("cached"),
@@ -132,7 +132,7 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 			Cache: &config.CacheConfig{
 				Requests: true,
 			},
-		}, nil)
+		})
 
 		resp := &db.HistoryResponse{
 			Body:        []byte(`{"cached": true}`),
@@ -161,7 +161,7 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 			Cache: &config.CacheConfig{
 				Requests: true,
 			},
-		}, nil)
+		})
 
 		resp := &db.HistoryResponse{
 			Body:        []byte(`{"cached": true}`),

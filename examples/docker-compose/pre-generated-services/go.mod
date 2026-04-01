@@ -27,7 +27,6 @@ require (
 	github.com/pb33f/libopenapi v0.34.3 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.0 // indirect
 	github.com/redis/go-redis/v9 v9.18.0 // indirect
-	github.com/sony/gobreaker/v2 v2.4.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/mod v0.33.0 // indirect

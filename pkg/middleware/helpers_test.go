@@ -41,13 +41,13 @@ func (bw *BufferedWriter) WriteHeader(statusCode int) {
 }
 
 // newTestParams creates a new Params with a memory DB for testing.
-func newTestParams(serviceCfg *config.ServiceConfig, storageCfg *config.StorageConfig) *Params {
+func newTestParams(serviceCfg *config.ServiceConfig) *Params {
 	if serviceCfg == nil {
 		serviceCfg = &config.ServiceConfig{Name: "test"}
 	}
 	storage := db.NewStorage(nil)
 	database := storage.NewDB(serviceCfg.Name, 100*time.Second)
-	return NewParams(serviceCfg, storageCfg, database)
+	return NewParams(serviceCfg, database)
 }
 
 // waitForAsync gives background goroutines time to complete.

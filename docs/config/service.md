@@ -218,9 +218,6 @@ upstream:
   fail-on:                   # Return these statuses directly (default: 400-499 except 401, 403)
     - range: "400-499"
       except: [401, 403]
-  circuit-breaker:
-    trip-on-status:          # Only these statuses count as CB failures
-      - range: "500-599"
 ```
 
 When configured, requests are proxied to the upstream server.
@@ -244,32 +241,6 @@ upstream:
 | Not set (omitted) | Default: `400-499` except `401` and `403` are returned directly |
 | `fail-on: []` | Disabled - all errors fall back to the generator |
 | `fail-on: [{range: "400-499"}]` | All 4xx returned directly (no exceptions) |
-
-`fail-on` and `trip-on-status` are independent - `fail-on` controls what the client sees,
-`trip-on-status` controls what counts toward circuit breaker failures.
-
-### Circuit Breaker
-
-Protect against cascading failures with circuit breaker:
-
-```yaml
-upstream:
-  url: https://api.example.com
-  circuit-breaker:
-    timeout: 60s        # Time in open state before half-open (default: 60s)
-    max-requests: 1     # Max requests in half-open state (default: 1)
-    interval: 30s       # Interval to clear counts in closed state (default: 0)
-    min-requests: 3     # Min requests before tripping (default: 3)
-    failure-ratio: 0.6  # Failure ratio to trip (default: 0.6)
-```
-
-**Circuit breaker states:**
-
-- **Closed**: Normal operation, requests pass through
-- **Open**: After failure threshold, requests are blocked
-- **Half-Open**: After timeout, limited requests test if service recovered
-
-When app-level storage is configured with `type: redis`, circuit breaker state is automatically shared across instances.
 
 ## Response Headers
 

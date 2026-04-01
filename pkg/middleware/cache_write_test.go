@@ -74,7 +74,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 			Cache: &config.CacheConfig{
 				Requests: true,
 			},
-		}, nil)
+		})
 
 		resp := &db.HistoryResponse{
 			Body:       []byte("cached"),
@@ -129,7 +129,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 			Cache: &config.CacheConfig{
 				Requests: false,
 			},
-		}, nil)
+		})
 
 		resp := &db.HistoryResponse{
 			Body:        []byte("cached"),
@@ -168,7 +168,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 			Cache: &config.CacheConfig{
 				Requests: true,
 			},
-		}, nil)
+		})
 
 		// First request: cache_write captures the response
 		writeMw := CreateCacheWriteMiddleware(params)
@@ -213,7 +213,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 	t.Run("records every request even for same URL", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test-service",
-		}, nil)
+		})
 
 		mw := CreateCacheWriteMiddleware(params)
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -235,7 +235,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 	t.Run("sets custom response headers", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test-service",
-		}, nil)
+		})
 
 		mw := CreateCacheWriteMiddleware(params)
 
@@ -264,7 +264,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 	t.Run("records request ID and duration in history", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test-service",
-		}, nil)
+		})
 
 		mw := CreateCacheWriteMiddleware(params)
 
@@ -294,7 +294,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 	t.Run("sets X-Cxs-Request-Id response header", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test-service",
-		}, nil)
+		})
 
 		mw := CreateCacheWriteMiddleware(params)
 
@@ -316,7 +316,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 	t.Run("handler WriteHeader does not send headers immediately", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test-service",
-		}, nil)
+		})
 
 		mw := CreateCacheWriteMiddleware(params)
 
@@ -346,7 +346,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 	t.Run("applies history transform callback", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test-service",
-		}, nil)
+		})
 		params.SetHistoryTransform(func(req *db.HistoryRequest, resp *db.HistoryResponse) {
 			req.Body = []byte("[redacted]")
 		})
@@ -374,7 +374,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 			History: &config.HistoryConfig{
 				MaskHeaders: []string{"Authorization"},
 			},
-		}, nil)
+		})
 
 		mw := CreateCacheWriteMiddleware(params)
 

@@ -3,8 +3,6 @@ package db
 import (
 	"sync"
 	"time"
-
-	"github.com/sony/gobreaker/v2"
 )
 
 // Ensure memoryStorage implements Storage interface.
@@ -12,16 +10,14 @@ var _ Storage = (*memoryStorage)(nil)
 
 // memoryStorage is a shared in-memory storage backend.
 type memoryStorage struct {
-	mu      sync.RWMutex
-	tables  map[string]*memoryTable // keyed by "serviceName:tableName"
-	cbStore *memoryCircuitBreakerStore
+	mu     sync.RWMutex
+	tables map[string]*memoryTable // keyed by "serviceName:tableName"
 }
 
 // newMemoryStorage creates a new shared in-memory storage.
 func newMemoryStorage() *memoryStorage {
 	return &memoryStorage{
-		tables:  make(map[string]*memoryTable),
-		cbStore: newMemoryCircuitBreakerStore(),
+		tables: make(map[string]*memoryTable),
 	}
 }
 
@@ -80,11 +76,6 @@ func (db *memoryServiceDB) History() HistoryTable {
 func (db *memoryServiceDB) Table(name string) Table {
 	fullKey := db.serviceName + ":" + name
 	return db.storage.getOrCreateTable(fullKey)
-}
-
-// CircuitBreakerStore returns the shared circuit breaker store.
-func (db *memoryServiceDB) CircuitBreakerStore() gobreaker.SharedDataStore {
-	return db.storage.cbStore
 }
 
 // Close releases resources held by this service DB.

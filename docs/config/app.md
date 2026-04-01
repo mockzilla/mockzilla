@@ -53,7 +53,7 @@ The `ROUTER_HISTORY_DURATION` environment variable overrides `history.duration`.
 
 ## Storage Configuration
 
-Configure shared storage for distributed features (e.g., circuit breaker state sharing across instances).
+Configure shared storage for features like history persistence across restarts.
 
 ```yaml
 storage:

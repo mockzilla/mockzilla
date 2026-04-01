@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/alicebob/miniredis/v2"
 	"github.com/mockzilla/connexions/v2/pkg/config"
 	"github.com/mockzilla/connexions/v2/pkg/db"
 	assert2 "github.com/stretchr/testify/assert"
@@ -42,7 +41,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -79,7 +78,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -115,7 +114,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -148,7 +147,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -178,7 +177,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -204,7 +203,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -239,7 +238,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -270,7 +269,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 					"X-Custom":      "custom-value",
 				},
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -296,7 +295,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -324,7 +323,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		resp := &db.HistoryResponse{
 			Body:           []byte("cached"),
@@ -369,7 +368,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name:     "test",
 			Upstream: &config.UpstreamConfig{},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -393,7 +392,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -411,7 +410,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: "ht tps://example.com",
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -436,7 +435,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 				URL:     upstreamServer.URL,
 				Timeout: 50 * time.Millisecond,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -461,7 +460,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -488,7 +487,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -513,7 +512,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -539,7 +538,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -564,7 +563,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 				URL:    upstreamServer.URL,
 				FailOn: &config.HTTPStatusMatchConfig{},
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -588,7 +587,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 			Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -616,7 +615,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 					{Range: "400-599"},
 				},
 			},
-		}, nil)
+		})
 
 		f := CreateUpstreamRequestMiddleware(params)
 		f(handler).ServeHTTP(w, req)
@@ -626,523 +625,4 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		assert.Equal(http.StatusBadGateway, w.statusCode)
 	})
 
-	t.Run("successful requests do not trip circuit breaker with trip-on-status", func(t *testing.T) {
-		callCount := 0
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"message": "OK"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				CircuitBreaker: &config.CircuitBreakerConfig{
-					MinRequests:  3,
-					FailureRatio: 0.6,
-					TripOnStatus: config.HTTPStatusMatchConfig{
-						{Range: "500-599"},
-					},
-				},
-			},
-		}, nil)
-
-		middleware := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := middleware(handler)
-
-		// Make 5 successful requests - should NOT trip circuit breaker.
-		for i := 1; i <= 5; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-			assert.Equal(`{"message": "OK"}`, string(w.buf))
-		}
-
-		// All 5 should have hit upstream (CB never opened)
-		assert.Equal(5, callCount, "successful requests should not trip circuit breaker")
-	})
-
-	t.Run("non-trip-on 4xx does not trip circuit breaker", func(t *testing.T) {
-		callCount := 0
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.WriteHeader(http.StatusUnauthorized)
-			_, _ = w.Write([]byte(`{"message": "Unauthorized"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				CircuitBreaker: &config.CircuitBreakerConfig{
-					MinRequests:  3,
-					FailureRatio: 0.6,
-					TripOnStatus: config.HTTPStatusMatchConfig{
-						{Range: "500-599"},
-					},
-				},
-			},
-		}, nil)
-
-		middleware := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := middleware(handler)
-
-		// Make 5 requests - all return 401, which is outside trip-on-status range.
-		// Circuit breaker should NOT open because these are not counted as failures.
-		for i := 1; i <= 5; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-			assert.Equal("Hello, from local!", string(w.buf))
-		}
-
-		// All 5 requests should have hit upstream (CB never opened)
-		assert.Equal(5, callCount, "circuit breaker should not trip on non-trip-on status codes")
-	})
-
-	t.Run("circuit breaker opened", func(t *testing.T) {
-		callCount := 0
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`{"message": "Internal Server Error!"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				CircuitBreaker: &config.CircuitBreakerConfig{
-					MinRequests:  3,
-					FailureRatio: 0.6,
-				},
-			},
-		}, nil)
-
-		// Create middleware ONCE
-		middleware := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := middleware(handler)
-
-		// Make 3 requests to open the circuit breaker
-		for i := 1; i <= 3; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-
-			// Should fall back to local handler
-			assert.Equal("Hello, from local!", string(w.buf))
-		}
-
-		// Verify upstream was called 3 times
-		assert.Equal(3, callCount)
-
-		// 4th request should be blocked by open circuit breaker
-		w := NewBufferedResponseWriter()
-		req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-		wrappedHandler.ServeHTTP(w, req)
-		waitForAsync()
-
-		// Circuit breaker is open, should fall back to local handler
-		assert.Equal("Hello, from local!", string(w.buf))
-
-		// Verify upstream was NOT called on 4th request (still 3 calls)
-		assert.Equal(3, callCount, "upstream should not be called when circuit breaker is open")
-	})
-
-	t.Run("circuit breaker state preserves counts and error on transition", func(t *testing.T) {
-		callCount := 0
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.WriteHeader(http.StatusBadGateway)
-			_, _ = w.Write([]byte(`{"message": "Bad Gateway"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				CircuitBreaker: &config.CircuitBreakerConfig{
-					MinRequests:  3,
-					FailureRatio: 0.6,
-				},
-			},
-		}, nil)
-
-		mw := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := mw(handler)
-
-		// Make 3 requests to trip the circuit breaker
-		for i := 1; i <= 3; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-		}
-
-		assert.Equal(3, callCount)
-
-		// Verify state has counts preserved
-		cbTable := params.DB().Table("circuit-breaker")
-		ctx := context.Background()
-
-		state, ok := GetCBState(ctx, cbTable)
-		assert.True(ok)
-		assert.Equal("open", state.State)
-		assert.Equal(uint32(3), state.Requests, "state should preserve request count")
-		assert.Equal(uint32(3), state.TotalFailures, "state should preserve failure count")
-		assert.Equal(float64(1), state.FailureRatio, "state should preserve failure ratio")
-		assert.NotEmpty(state.LastError, "state should contain the last error")
-		assert.Contains(state.LastError, "502")
-
-		// Verify event has error
-		events := GetCBEvents(ctx, cbTable)
-		assert.NotEmpty(events)
-		var openEvent *CBEvent
-		for i := range events {
-			if events[i].From == "closed" && events[i].To == "open" {
-				openEvent = &events[i]
-				break
-			}
-		}
-		assert.NotNil(openEvent, "should have closed->open event")
-		assert.NotEmpty(openEvent.Error, "event should contain the error")
-		assert.Contains(openEvent.Error, "502")
-	})
-
-	t.Run("circuit breaker writes state and events to table", func(t *testing.T) {
-		callCount := 0
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`{"message": "Internal Server Error!"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				CircuitBreaker: &config.CircuitBreakerConfig{
-					MinRequests:  3,
-					FailureRatio: 0.6,
-				},
-			},
-		}, nil)
-
-		mw := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := mw(handler)
-
-		// Make 3 requests to open the circuit breaker
-		for i := 1; i <= 3; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-		}
-
-		assert.Equal(3, callCount)
-
-		// Verify CB state was written
-		cbTable := params.DB().Table("circuit-breaker")
-		ctx := context.Background()
-
-		state, ok := GetCBState(ctx, cbTable)
-		assert.True(ok, "CB state should be written")
-		assert.NotNil(state)
-		// After tripping, OnStateChange writes state "open"
-		assert.Equal("open", state.State)
-		assert.NotEmpty(state.LastUpdated)
-
-		// Verify events were written
-		events := GetCBEvents(ctx, cbTable)
-		assert.NotEmpty(events, "CB events should be written")
-		// Should have at least one transition: closed -> open
-		found := false
-		for _, e := range events {
-			if e.From == "closed" && e.To == "open" {
-				found = true
-				break
-			}
-		}
-		assert.True(found, "should have closed->open transition event")
-	})
-
-	t.Run("successful requests update stored state", func(t *testing.T) {
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"message": "OK"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				CircuitBreaker: &config.CircuitBreakerConfig{
-					MinRequests:  3,
-					FailureRatio: 0.6,
-				},
-			},
-		}, nil)
-
-		mw := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := mw(handler)
-
-		// Make 5 successful requests
-		for i := 1; i <= 5; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-			assert.Equal(`{"message": "OK"}`, string(w.buf))
-		}
-
-		// Verify stored state reflects all 5 requests
-		cbTable := params.DB().Table("circuit-breaker")
-		ctx := context.Background()
-
-		state, ok := GetCBState(ctx, cbTable)
-		assert.True(ok, "CB state should be written after successful requests")
-		assert.NotNil(state)
-		assert.Equal("closed", state.State)
-		assert.Equal(uint32(5), state.Requests, "state should count all requests including successes")
-		assert.Equal(uint32(5), state.TotalSuccesses, "state should track successful requests")
-		assert.Equal(uint32(0), state.TotalFailures)
-	})
-
-	t.Run("mixed success and failure requests update stored state", func(t *testing.T) {
-		callCount := 0
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			// First 2 requests succeed, 3rd fails
-			if callCount == 2 {
-				w.WriteHeader(http.StatusInternalServerError)
-				_, _ = w.Write([]byte(`{"error": "fail"}`))
-				return
-			}
-			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write([]byte(`{"message": "OK"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				CircuitBreaker: &config.CircuitBreakerConfig{
-					MinRequests:  5,
-					FailureRatio: 0.6,
-				},
-			},
-		}, nil)
-
-		mw := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := mw(handler)
-
-		// Make 3 requests: success, failure, success
-		for i := 0; i < 3; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-		}
-
-		// Verify stored state reflects all 3 requests
-		cbTable := params.DB().Table("circuit-breaker")
-		ctx := context.Background()
-
-		state, ok := GetCBState(ctx, cbTable)
-		assert.True(ok, "CB state should be present")
-		assert.Equal(uint32(3), state.Requests, "state should count all requests")
-		assert.Equal(uint32(2), state.TotalSuccesses)
-		assert.Equal(uint32(1), state.TotalFailures)
-	})
-
-	t.Run("no circuit breaker when not configured", func(t *testing.T) {
-		callCount := 0
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`{"message": "Internal Server Error!"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				// No CircuitBreaker config - should not use circuit breaker
-			},
-		}, nil)
-
-		middleware := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := middleware(handler)
-
-		// Make 5 requests - all should hit upstream since no circuit breaker
-		for i := 1; i <= 5; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-			assert.Equal("Hello, from local!", string(w.buf))
-		}
-
-		// All 5 requests should have hit upstream
-		assert.Equal(5, callCount, "all requests should hit upstream when circuit breaker is not configured")
-	})
-
-	t.Run("distributed circuit breaker falls back to local when redis config is nil", func(t *testing.T) {
-		callCount := 0
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`{"message": "Internal Server Error!"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				CircuitBreaker: &config.CircuitBreakerConfig{
-					MinRequests:  3,
-					FailureRatio: 0.6,
-				},
-			},
-		}, &config.StorageConfig{
-			Type:  config.StorageTypeRedis,
-			Redis: nil, // Redis type but no config - should fall back to local CB
-		})
-
-		middleware := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := middleware(handler)
-
-		// Make 3 requests to open the circuit breaker (local fallback)
-		for i := 1; i <= 3; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-			assert.Equal("Hello, from local!", string(w.buf))
-		}
-
-		assert.Equal(3, callCount)
-
-		// 4th request should be blocked by open circuit breaker
-		w := NewBufferedResponseWriter()
-		req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-		wrappedHandler.ServeHTTP(w, req)
-		waitForAsync()
-
-		assert.Equal("Hello, from local!", string(w.buf))
-		assert.Equal(3, callCount, "circuit breaker should work even with fallback to local")
-	})
-
-	t.Run("distributed circuit breaker with valid redis config", func(t *testing.T) {
-		mr := miniredis.RunT(t)
-
-		callCount := 0
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`{"message": "Internal Server Error!"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				CircuitBreaker: &config.CircuitBreakerConfig{
-					MinRequests:  3,
-					FailureRatio: 0.6,
-				},
-			},
-		}, &config.StorageConfig{
-			Type: config.StorageTypeRedis,
-			Redis: &config.RedisConfig{
-				Address: mr.Addr(),
-			},
-		})
-
-		middleware := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := middleware(handler)
-
-		// Make 3 requests to open the distributed circuit breaker
-		for i := 1; i <= 3; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-			assert.Equal("Hello, from local!", string(w.buf))
-		}
-
-		assert.Equal(3, callCount)
-
-		// 4th request should be blocked by open circuit breaker
-		w := NewBufferedResponseWriter()
-		req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-		wrappedHandler.ServeHTTP(w, req)
-		waitForAsync()
-
-		assert.Equal("Hello, from local!", string(w.buf))
-		assert.Equal(3, callCount, "distributed circuit breaker should block requests")
-	})
-
-	t.Run("distributed circuit breaker falls back when redis connection fails", func(t *testing.T) {
-		callCount := 0
-		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			callCount++
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`{"message": "Internal Server Error!"}`))
-		}))
-		defer upstreamServer.Close()
-
-		params := newTestParams(&config.ServiceConfig{
-			Name: "test",
-			Upstream: &config.UpstreamConfig{
-				URL: upstreamServer.URL,
-				CircuitBreaker: &config.CircuitBreakerConfig{
-					MinRequests:  3,
-					FailureRatio: 0.6,
-				},
-			},
-		}, &config.StorageConfig{
-			Type: config.StorageTypeRedis,
-			Redis: &config.RedisConfig{
-				Address: "invalid:99999", // Invalid address
-			},
-		})
-
-		middleware := CreateUpstreamRequestMiddleware(params)
-		wrappedHandler := middleware(handler)
-
-		// Make 3 requests - should fall back to local CB
-		for i := 1; i <= 3; i++ {
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-			wrappedHandler.ServeHTTP(w, req)
-			waitForAsync()
-			assert.Equal("Hello, from local!", string(w.buf))
-		}
-
-		assert.Equal(3, callCount)
-
-		// 4th request should be blocked by local circuit breaker fallback
-		w := NewBufferedResponseWriter()
-		req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
-		wrappedHandler.ServeHTTP(w, req)
-		waitForAsync()
-
-		assert.Equal("Hello, from local!", string(w.buf))
-		assert.Equal(3, callCount, "fallback local circuit breaker should work")
-	})
 }
