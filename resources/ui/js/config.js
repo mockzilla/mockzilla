@@ -1,4 +1,5 @@
 export const url = window.location.origin;
+export const baseUrl = `${url}${appConfig.baseUrl || ''}`;
 export const serviceUrl = `${url}${appConfig.serviceUrl}`;
 export const historyEnabled = !!appConfig.historyUrl;
 export const historyUrl = appConfig.historyUrl ? `${url}${appConfig.historyUrl}` : '';

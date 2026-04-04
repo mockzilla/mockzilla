@@ -314,11 +314,10 @@ export const generateResult = (service, ix, path, method) => {
             }
 
             const curlBlock = document.getElementById('example-curl');
-            const baseUrl = `${window.location.protocol}//${window.location.host}`;
 
             // Use service name for the URL prefix, converting .root back to empty string
             const servicePrefix = service === '.root' ? '' : `/${service}`;
-            curlBlock.textContent = `curl --request ${method} \\\n'${baseUrl}${servicePrefix}${reqPath}'`;
+            curlBlock.textContent = `curl --request ${method} \\\n'${config.baseUrl}${servicePrefix}${reqPath}'`;
             if (reqContentType) {
                 curlBlock.textContent += ` \\\n--header 'Content-Type: ${reqContentType}'`
             }
@@ -349,7 +348,7 @@ export const generateResult = (service, ix, path, method) => {
             if (reqPath) {
                 // Convert .root back to empty string for actual API requests
                 const apiService = service === '.root' ? '' : service;
-                const apiUrl = apiService ? `${baseUrl}/${apiService}${reqPath}` : `${baseUrl}${reqPath}`;
+                const apiUrl = apiService ? `${config.baseUrl}/${apiService}${reqPath}` : `${config.baseUrl}${reqPath}`;
                 const fetchOptions = {
                     method: method.toUpperCase(),
                     headers: { ...reqHeaders }

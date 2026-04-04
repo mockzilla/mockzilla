@@ -34,7 +34,7 @@ export const show = (match) => {
     showTabs(service);
     config.configurationContainer.style.display = 'block';
 
-    const configUrl = `${config.url}/.config?service=${encodeURIComponent(service)}`;
+    const configUrl = `${config.baseUrl}/.config?service=${encodeURIComponent(service)}`;
 
     fetch(configUrl)
         .then(res => {

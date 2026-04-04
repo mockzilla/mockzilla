@@ -4,6 +4,7 @@
     <title>Connexions: {{.AppConfig.Title}}</title>
     <script>
         const appConfig = {
+            baseUrl: "{{.AppConfig.BaseURL}}",
             homeUrl: "{{.AppConfig.BaseURL}}{{.AppConfig.HomeURL}}",
             serviceUrl: "{{.AppConfig.BaseURL}}{{.AppConfig.ServiceURL}}",
             historyUrl: "{{.AppConfig.BaseURL}}{{.AppConfig.History.URL}}",
