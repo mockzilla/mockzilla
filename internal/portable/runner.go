@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/caarlos0/env/v11"
 	"github.com/lmittmann/tint"
 	"github.com/mockzilla/connexions/v2/pkg/api"
 	"github.com/mockzilla/connexions/v2/pkg/config"
@@ -64,7 +65,12 @@ func Run(args []string) int {
 		appCfg = config.NewDefaultAppConfig(baseDir)
 	}
 
-	// --port flag wins over app config
+	// Environment variables override file/default values.
+	if err := env.Parse(appCfg); err != nil {
+		log.Printf("Failed to apply env overrides: %v", err)
+	}
+
+	// --port flag wins over everything
 	if fl.port > 0 {
 		appCfg.Port = fl.port
 	}
