@@ -1,7 +1,7 @@
 # Connexions App Configuration
 # Override these values by mounting your own app.yml in Docker
 
-title: API Explorer
+title: Connexions
 port: 2200
 serviceURL: /.services
 contextAreaPrefix: in-

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 175 40">
+  <!-- Horns -->
+  <polygon points="2,15 7,2 12,15"   fill="#f87171"/>
+  <polygon points="11,15 16,2 21,15" fill="#f87171"/>
+  <polygon points="20,15 25,2 30,15" fill="#f87171"/>
+  <!-- Head -->
+  <rect x="2" y="13" width="28" height="24" rx="4" fill="#fff"/>
+  <!-- Eyes -->
+  <circle cx="11" cy="22" r="3.5" fill="#2563eb"/>
+  <circle cx="21" cy="22" r="3.5" fill="#2563eb"/>
+  <!-- Pupils -->
+  <circle cx="12" cy="23" r="1.8" fill="#fff"/>
+  <circle cx="22" cy="23" r="1.8" fill="#fff"/>
+  <!-- Mouth -->
+  <rect x="5" y="29" width="22" height="5" rx="1.5" fill="#f87171"/>
+  <!-- Fangs -->
+  <polygon points="9,29 11,34 13,29"  fill="#fff"/>
+  <polygon points="17,29 19,34 21,29" fill="#fff"/>
+  <!-- Wordmark -->
+  <text x="38" y="30"
+        font-family="system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
+        font-size="26" font-weight="800" letter-spacing="-0.5">
+    <tspan fill="#fff">Mock</tspan><tspan fill="#f87171">zilla</tspan>
+  </text>
+</svg>
