@@ -215,6 +215,60 @@ func TestRouter_RegisterService(t *testing.T) {
 	})
 }
 
+func TestRouter_RegisterService_DuplicateNameIsIgnored(t *testing.T) {
+	router := newTestRouter(t)
+
+	cfg := config.NewServiceConfig()
+	cfg.Name = "petstore"
+	first := &mockService{
+		name:   "petstore",
+		config: cfg,
+		routes: func(r chi.Router) {
+			r.Get("/ping", func(w http.ResponseWriter, req *http.Request) {
+				_, _ = w.Write([]byte("first"))
+			})
+		},
+	}
+	second := &mockService{
+		name:   "petstore",
+		config: cfg,
+		routes: func(r chi.Router) {
+			r.Get("/ping", func(w http.ResponseWriter, req *http.Request) {
+				_, _ = w.Write([]byte("second"))
+			})
+		},
+	}
+
+	router.RegisterService(cfg, first)
+	assert.NotPanics(t, func() { router.RegisterService(cfg, second) })
+
+	req := httptest.NewRequest(http.MethodGet, "/petstore/ping", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, "first", w.Body.String())
+}
+
+func TestRouter_RegisterHTTPHandler_DuplicateNameIsIgnored(t *testing.T) {
+	router := newTestRouter(t)
+
+	cfg := config.NewServiceConfig()
+	cfg.Name = "petstore"
+	factory := func(_ db.DB) Handler {
+		return &mockService{
+			name:   "petstore",
+			config: cfg,
+			routes: func(r chi.Router) {
+				r.Get("/ping", func(w http.ResponseWriter, req *http.Request) {
+					_, _ = w.Write([]byte("ok"))
+				})
+			},
+		}
+	}
+
+	router.RegisterHTTPHandler(cfg, factory)
+	assert.NotPanics(t, func() { router.RegisterHTTPHandler(cfg, factory) })
+}
+
 func TestRouter_MiddlewareOrder(t *testing.T) {
 	t.Run("Middleware executes in correct order", func(t *testing.T) {
 		router := newTestRouter(t)

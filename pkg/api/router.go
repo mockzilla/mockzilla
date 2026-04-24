@@ -89,11 +89,19 @@ func NewRouter(options ...RouterOption) *Router {
 // RegisterService registers a service with the router.
 // The service config must have a Name field set.
 // The service will be registered at the route "/{cfg.Name}".
+// If a service with the same Name is already registered, the call is
+// ignored with a warning - without this guard, chi.Mount would panic
+// and crash the process.
 func (r *Router) RegisterService(
 	cfg *config.ServiceConfig,
 	handler Handler,
 	opts ...HandlerOption,
 ) {
+	if r.isServiceRegistered(cfg.Name) {
+		slog.Warn("Service already registered, skipping", "name", cfg.Name)
+		return
+	}
+
 	options := &handlerOptions{}
 	for _, opt := range opts {
 		opt(options)
@@ -162,11 +170,19 @@ func WithMiddleware(mw []func(*middleware.Params) func(http.Handler) http.Handle
 // RegisterHTTPHandler registers a Handler as a service.
 // The handlerFactory receives the service DB and returns the handler.
 // The service will be registered at the route "/{cfg.Name}".
+// If a service with the same Name is already registered, the call is
+// ignored with a warning - without this guard, chi.Mount would panic
+// and crash the process.
 func (r *Router) RegisterHTTPHandler(
 	cfg *config.ServiceConfig,
 	handlerFactory func(db.DB) Handler,
 	opts ...HandlerOption,
 ) {
+	if r.isServiceRegistered(cfg.Name) {
+		slog.Warn("Service already registered, skipping", "name", cfg.Name)
+		return
+	}
+
 	options := &handlerOptions{}
 	for _, opt := range opts {
 		opt(options)
@@ -237,6 +253,13 @@ func (r *Router) GetServices() map[string]*ServiceItem {
 	}
 
 	return res
+}
+
+func (r *Router) isServiceRegistered(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.services[name]
+	return ok
 }
 
 // GetDB returns the database for a specific service.
