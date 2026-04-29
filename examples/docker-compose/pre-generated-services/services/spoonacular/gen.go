@@ -480,8 +480,9 @@ type ServiceInterface interface {
 // HTTPAdapter adapts the ServiceInterface to HTTP handlers.
 // This struct is generated and should not be modified.
 type HTTPAdapter struct {
-	svc        ServiceInterface
-	errHandler OapiErrorHandler
+	svc             ServiceInterface
+	errHandler      OapiErrorHandler
+	jsonBodyDecoder runtime.JSONBodyDecoderFunc
 }
 
 // NewHTTPAdapter creates a new HTTPAdapter wrapping the given service.
@@ -490,7 +491,7 @@ func NewHTTPAdapter(svc ServiceInterface, errHandler OapiErrorHandler) *HTTPAdap
 	if errHandler == nil {
 		errHandler = &OapiDefaultErrorHandler{}
 	}
-	return &HTTPAdapter{svc: svc, errHandler: errHandler}
+	return &HTTPAdapter{svc: svc, errHandler: errHandler, jsonBodyDecoder: runtime.DecodeJSONBody}
 }
 
 // SearchRecipes handles GET /recipes/complexSearch
@@ -6394,7 +6395,7 @@ func (a *HTTPAdapter) ComputeGlycemicLoad(w http.ResponseWriter, r *http.Request
 	// Parse request body
 	defer r.Body.Close()
 	var body ComputeGlycemicLoadBody
-	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "ComputeGlycemicLoad",
@@ -7815,7 +7816,7 @@ func (a *HTTPAdapter) ClassifyGroceryProduct(w http.ResponseWriter, r *http.Requ
 	// Parse request body
 	defer r.Body.Close()
 	var body ClassifyGroceryProductBody
-	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "ClassifyGroceryProduct",
@@ -7876,7 +7877,7 @@ func (a *HTTPAdapter) ClassifyGroceryProductBulk(w http.ResponseWriter, r *http.
 	// Parse request body
 	defer r.Body.Close()
 	var body ClassifyGroceryProductBulkBody
-	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "ClassifyGroceryProductBulk",
@@ -7929,7 +7930,7 @@ func (a *HTTPAdapter) MapIngredientsToGroceryProducts(w http.ResponseWriter, r *
 	// Parse request body
 	defer r.Body.Close()
 	var body MapIngredientsToGroceryProductsBody
-	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "MapIngredientsToGroceryProducts",
