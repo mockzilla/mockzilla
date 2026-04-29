@@ -227,7 +227,7 @@ func NewRouter(svc ServiceInterface, opts ...RouterOption) chi.Router {
 }
 
 // ============================================================================
-// Connexions Service Registration
+// mockzilla Service Registration
 // ============================================================================
 
 //go:embed setup/config.yml
@@ -300,7 +300,7 @@ func RegisterAPIRouter(router *api.Router) {
 		return
 	}
 
-	// Register with connexions using handler factory
+	// Register with mockzilla using handler factory
 	router.RegisterHTTPHandler(cfg, func(serviceDB db.DB) api.Handler {
 		userSvc := newService(&api.ServiceParams{
 			AppConfig:     router.Config(),

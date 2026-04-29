@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: Connexions API
-  description: Internal API for the Connexions UI to manage and interact with mock services.
+  title: Mockzilla API
+  description: Internal API for the Mockzilla UI to manage and interact with mock services.
   version: v2.0.0
   contact:
     name: Mockzilla

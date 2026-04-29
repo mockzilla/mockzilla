@@ -61,15 +61,15 @@ Uncomment the `app` service in `docker-compose.yml` to run your application alon
 
 ```yaml
 services:
-  connexions:
+  mockzilla:
     # ...
 
   app:
     build: ./your-app
     environment:
-      - API_BASE_URL=http://connexions:2200
+      - API_BASE_URL=http://mockzilla:2200
     depends_on:
-      connexions:
+      mockzilla:
         condition: service_healthy
 ```
 

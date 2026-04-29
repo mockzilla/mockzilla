@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "Connexions Config Schema",
+  "title": "Mockzilla Config Schema",
   "type": "object",
   "properties": {
     "app": {

@@ -1,10 +1,5 @@
 .PHONY: generate tidy test lint lint-ci tidy-ci check-fmt
 
-GOBIN ?= $(shell go env GOBIN)
-ifeq ($(GOBIN),)
-GOBIN := $(shell go env GOPATH)/bin
-endif
-
 generate:
 	go generate ./...
 
@@ -15,10 +10,10 @@ test:
 	go test -cover ./...
 
 lint:
-	$(GOBIN)/golangci-lint run ./...
+	golangci-lint run ./...
 
 lint-ci:
-	$(GOBIN)/golangci-lint run ./... --timeout=5m
+	golangci-lint run ./... --timeout=5m
 
 tidy-ci:
 	tidied -verbose

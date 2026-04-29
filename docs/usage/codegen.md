@@ -197,7 +197,7 @@ Control what gets generated via `setup/codegen.yml`. See [Codegen Config](../con
 
 Start from a GitHub template with CI/CD, API Explorer UI, and example services ready to go:
 
-- [connexions-codegen-template](https://github.com/mockzilla/connexions-codegen-template)
+- [mockzilla-codegen-template](https://github.com/mockzilla/mockzilla-codegen-template)
 
 See [Templates](../templates.md) for all available templates.
 

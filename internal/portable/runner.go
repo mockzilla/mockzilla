@@ -133,7 +133,7 @@ func Run(args []string) int {
 	}
 
 	go func() {
-		slog.Info(fmt.Sprintf("Connexions portable mode on http://localhost:%d%s", appCfg.Port, appCfg.HomeURL))
+		slog.Info(fmt.Sprintf("Mockzilla portable mode on http://localhost:%d%s", appCfg.Port, appCfg.HomeURL))
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("Server failed", "error", err)
 			os.Exit(1)
@@ -165,7 +165,7 @@ func Run(args []string) int {
 // The FS root should contain OpenAPI spec files (*.yml, *.yaml, *.json),
 // and optionally: static/, app.yml, context.yml.
 func RunFS(fsys fs.FS, args []string) int {
-	dir, err := os.MkdirTemp("", "connexions-portable-fs-*")
+	dir, err := os.MkdirTemp("", "mockzilla-portable-fs-*")
 	if err != nil {
 		slog.Error("Failed to create temp dir", "error", err)
 		return exitCodeError
