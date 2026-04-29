@@ -44,7 +44,7 @@ func TestSetDurationHeader(t *testing.T) {
 
 		SetDurationHeader(w, req)
 
-		duration := w.Header().Get("X-Cxs-Duration")
+		duration := w.Header().Get("X-Mz-Duration")
 		assert.NotEmpty(duration)
 		assert.True(strings.HasSuffix(duration, "ms"), "duration should end with 'ms'")
 	})
@@ -55,7 +55,7 @@ func TestSetDurationHeader(t *testing.T) {
 
 		SetDurationHeader(w, req)
 
-		duration := w.Header().Get("X-Cxs-Duration")
+		duration := w.Header().Get("X-Mz-Duration")
 		assert.Empty(duration)
 	})
 }

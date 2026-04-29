@@ -186,7 +186,7 @@ docker-run:
 		--platform=linux/arm64 \
 		-p 2200:2200 \
 		-e LOG_FORMAT=text \
-		-v ~/cxs-data:/app/resources/data/services \
+		-v ~/mz-data:/app/resources/data/services \
 		$(IMAGE_NAME) api
 
 @PHONY: docker-shell

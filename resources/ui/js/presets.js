@@ -1,8 +1,8 @@
 import * as commons from './commons.js';
 import { addCustomHeaderRow } from './resources.js';
 
-const STORAGE_KEY_PRESETS = 'cxs-presets';
-const STORAGE_KEY_ACTIVE = 'cxs-active-preset';
+const STORAGE_KEY_PRESETS = 'mz-presets';
+const STORAGE_KEY_ACTIVE = 'mz-active-preset';
 const NONE_KEY = '__none__';
 const NONE_LABEL = '(None)';
 const AUTO_SAVE_DELAY = 500;
