@@ -208,6 +208,6 @@ mockzilla --config config.yml ./specs/
 
 Start from a GitHub template to get a ready-to-use project with CI/CD that builds a single binary with your specs embedded:
 
-- [connexions-portable-template](https://github.com/mockzilla/connexions-portable-template)
+- [mockzilla-portable-template](https://github.com/mockzilla/mockzilla-portable-template)
 
 See [Templates](../templates.md) for all available templates.

@@ -203,8 +203,9 @@ type ServiceInterface interface {
 // HTTPAdapter adapts the ServiceInterface to HTTP handlers.
 // This struct is generated and should not be modified.
 type HTTPAdapter struct {
-	svc        ServiceInterface
-	errHandler OapiErrorHandler
+	svc             ServiceInterface
+	errHandler      OapiErrorHandler
+	jsonBodyDecoder runtime.JSONBodyDecoderFunc
 }
 
 // NewHTTPAdapter creates a new HTTPAdapter wrapping the given service.
@@ -213,7 +214,7 @@ func NewHTTPAdapter(svc ServiceInterface, errHandler OapiErrorHandler) *HTTPAdap
 	if errHandler == nil {
 		errHandler = &OapiDefaultErrorHandler{}
 	}
-	return &HTTPAdapter{svc: svc, errHandler: errHandler}
+	return &HTTPAdapter{svc: svc, errHandler: errHandler, jsonBodyDecoder: runtime.DecodeJSONBody}
 }
 
 // UpdatePet handles PUT /pet
@@ -225,7 +226,7 @@ func (a *HTTPAdapter) UpdatePet(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	defer r.Body.Close()
 	var body UpdatePetBody
-	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "UpdatePet",
@@ -278,7 +279,7 @@ func (a *HTTPAdapter) AddPet(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	defer r.Body.Close()
 	var body AddPetBody
-	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "AddPet",
@@ -725,7 +726,7 @@ func (a *HTTPAdapter) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	defer r.Body.Close()
 	var body PlaceOrderBody
-	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "PlaceOrder",
@@ -888,7 +889,7 @@ func (a *HTTPAdapter) CreateUser(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	defer r.Body.Close()
 	var body CreateUserBody
-	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "CreateUser",
@@ -941,7 +942,7 @@ func (a *HTTPAdapter) CreateUsersWithListInput(w http.ResponseWriter, r *http.Re
 	// Parse request body
 	defer r.Body.Close()
 	var body CreateUsersWithListInputBody
-	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "CreateUsersWithListInput",
@@ -1130,7 +1131,7 @@ func (a *HTTPAdapter) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	defer r.Body.Close()
 	var body UpdateUserBody
-	if err := runtime.DecodeJSONBody(r.Body, &body); err != nil {
+	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "UpdateUser",
@@ -1268,7 +1269,7 @@ func NewRouter(svc ServiceInterface, opts ...RouterOption) chi.Router {
 }
 
 // ============================================================================
-// Connexions Service Registration
+// mockzilla Service Registration
 // ============================================================================
 
 //go:embed setup/config.yml
@@ -1341,7 +1342,7 @@ func RegisterAPIRouter(router *api.Router) {
 		return
 	}
 
-	// Register with connexions using handler factory
+	// Register with mockzilla using handler factory
 	router.RegisterHTTPHandler(cfg, func(serviceDB db.DB) api.Handler {
 		userSvc := newService(&api.ServiceParams{
 			AppConfig:     router.Config(),

@@ -1,7 +1,7 @@
-# Connexions App Configuration
+# Mockzilla App Configuration
 # Override these values by mounting your own app.yml in Docker
 
-title: Connexions
+title: Mockzilla
 port: 2200
 serviceURL: /.services
 contextAreaPrefix: in-

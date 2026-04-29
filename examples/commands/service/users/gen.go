@@ -132,8 +132,9 @@ type ServiceInterface interface {
 // HTTPAdapter adapts the ServiceInterface to HTTP handlers.
 // This struct is generated and should not be modified.
 type HTTPAdapter struct {
-	svc        ServiceInterface
-	errHandler OapiErrorHandler
+	svc             ServiceInterface
+	errHandler      OapiErrorHandler
+	jsonBodyDecoder runtime.JSONBodyDecoderFunc
 }
 
 // NewHTTPAdapter creates a new HTTPAdapter wrapping the given service.
@@ -142,7 +143,7 @@ func NewHTTPAdapter(svc ServiceInterface, errHandler OapiErrorHandler) *HTTPAdap
 	if errHandler == nil {
 		errHandler = &OapiDefaultErrorHandler{}
 	}
-	return &HTTPAdapter{svc: svc, errHandler: errHandler}
+	return &HTTPAdapter{svc: svc, errHandler: errHandler, jsonBodyDecoder: runtime.DecodeJSONBody}
 }
 
 // ListUsers handles GET /users
@@ -684,7 +685,7 @@ func NewRouter(svc ServiceInterface, opts ...RouterOption) chi.Router {
 }
 
 // ============================================================================
-// Connexions Service Registration
+// mockzilla Service Registration
 // ============================================================================
 
 //go:embed setup/config.yml
@@ -757,7 +758,7 @@ func RegisterAPIRouter(router *api.Router) {
 		return
 	}
 
-	// Register with connexions using handler factory
+	// Register with mockzilla using handler factory
 	router.RegisterHTTPHandler(cfg, func(serviceDB db.DB) api.Handler {
 		userSvc := newService(&api.ServiceParams{
 			AppConfig:     router.Config(),

@@ -65,8 +65,8 @@ go run github.com/mockzilla/mockzilla/v2/cmd/server@latest \
 
 ### Templates
 
-- [Portable template](https://github.com/mockzilla/connexions-portable-template) - embed specs into a single binary via `go:embed`
-- [Codegen template](https://github.com/mockzilla/connexions-codegen-template) - generate Go handlers with custom logic and middleware
+- [Portable template](https://github.com/mockzilla/mockzilla-portable-template) - embed specs into a single binary via `go:embed`
+- [Codegen template](https://github.com/mockzilla/mockzilla-codegen-template) - generate Go handlers with custom logic and middleware
 
 Read full documentation at [mockzilla.github.io/mockzilla](https://mockzilla.github.io/mockzilla/).
 

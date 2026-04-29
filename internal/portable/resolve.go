@@ -208,7 +208,7 @@ func resolveStaticSpecs(dir string) []string {
 		return nil
 	}
 
-	tmpDir := filepath.Join(os.TempDir(), "connexions-portable", "specs")
+	tmpDir := filepath.Join(os.TempDir(), "mockzilla-portable", "specs")
 	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
 		slog.Error("Failed to create temp dir for static specs", "error", err)
 		return nil
