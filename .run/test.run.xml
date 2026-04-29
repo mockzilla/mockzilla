@@ -14,7 +14,7 @@
       </ENTRIES>
     </EXTENSION>
     <kind value="DIRECTORY" />
-    <package value="github.com/mockzilla/mockzilla.v2" />
+    <package value="github.com/mockzilla/mockzilla/v2" />
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />
