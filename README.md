@@ -1,16 +1,16 @@
 <div style="text-align: center; width:450px;">
-    <img src="https://raw.githubusercontent.com/mockzilla/mockzilla/master/resources/docs/images/gotham.svg">
+    <img src="https://raw.githubusercontent.com/mockzilla/mockzilla/main/resources/docs/images/gotham.svg">
 </div>
 
 ## Mockzilla
 
-[![CI](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml?query=branch%3Amaster)
-[![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fmockzilla%2F4110782af3ec09dd1ebabc3304756f1f%2Fraw%2Fcovbadge.json&labelColor=%23058FF3&color=%2306C53B)](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml?query=event%3Apush+branch%3Amaster+workflow%3ACI)
+[![CI](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml?query=branch%3Amain)
+[![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fmockzilla%2F4110782af3ec09dd1ebabc3304756f1f%2Fraw%2Fcovbadge.json&labelColor=%23058FF3&color=%2306C53B)](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml?query=event%3Apush+branch%3Amain+workflow%3ACI)
 [![codecov](https://codecov.io/gh/mockzilla/mockzilla/graph/badge.svg?token=XGCEHYUDH0)](https://codecov.io/gh/mockzilla/mockzilla)
 [![GoReportCard](https://goreportcard.com/badge/github.com/mockzilla/mockzilla)](https://goreportcard.com/report/github.com/mockzilla/mockzilla)
 [![GoDoc](https://godoc.org/github.com/mockzilla/mockzilla?status.svg)](https://godoc.org/github.com/mockzilla/mockzilla)
 [![Go Reference](https://pkg.go.dev/badge/github.com/mockzilla/mockzilla.svg)](https://pkg.go.dev/github.com/mockzilla/mockzilla)
-[![License](https://img.shields.io/github/license/mockzilla/mockzilla)](https://github.com/mockzilla/mockzilla/blob/master/LICENSE)
+[![License](https://img.shields.io/github/license/mockzilla/mockzilla)](https://github.com/mockzilla/mockzilla/blob/main/LICENSE)
 
 
 **Mockzilla** is a mock server generator for OpenAPI specifications.<br/>
@@ -70,10 +70,10 @@ go run github.com/mockzilla/mockzilla/v2/cmd/server@latest \
 
 Read full documentation at [mockzilla.github.io/mockzilla](https://mockzilla.github.io/mockzilla/).
 
-[OpenAPI Specification](https://editor.swagger.io/?url=https://raw.githubusercontent.com/mockzilla/mockzilla/master/resources/openapi.yml)
+[OpenAPI Specification](https://editor.swagger.io/?url=https://raw.githubusercontent.com/mockzilla/mockzilla/main/resources/openapi.yml)
 
 License
 ===================
 Copyright (c) 2023-present
 
-Licensed under the [MIT License](https://github.com/mockzilla/mockzilla/blob/master/LICENSE)
+Licensed under the [MIT License](https://github.com/mockzilla/mockzilla/blob/main/LICENSE)
