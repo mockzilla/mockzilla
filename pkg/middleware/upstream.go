@@ -267,8 +267,8 @@ func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, params 
 	}, nil
 }
 
-// cleanUpstreamHeaders removes internal X-Cxs-* headers from the request
-// before forwarding to upstream. When X-Cxs-Upstream-Headers is present,
+// cleanUpstreamHeaders removes internal X-Mz-* headers from the request
+// before forwarding to upstream. When X-Mz-Upstream-Headers is present,
 // only the listed headers are kept (all others are removed).
 func cleanUpstreamHeaders(req *http.Request) {
 	allowList := req.Header.Get(headerPrefix + headerUpstreamHeaders)

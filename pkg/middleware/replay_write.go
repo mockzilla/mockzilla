@@ -10,7 +10,7 @@ import (
 )
 
 // CreateReplayWriteMiddleware returns middleware that records responses for replay.
-// Activates when the X-Cxs-Replay header is present, or when auto-replay is enabled
+// Activates when the X-Mz-Replay header is present, or when auto-replay is enabled
 // in config for the matching endpoint.
 // It wraps downstream handlers, captures the response, and stores it indexed by match field values.
 // Responses sourced from cache or replay are never recorded. When upstream-only is set,
@@ -105,7 +105,7 @@ func CreateReplayWriteMiddleware(params *Params) func(http.Handler) http.Handler
 			headers := make(map[string]string)
 			for k := range rw.Header() {
 				// Skip our internal headers
-				if k == ResponseHeaderSource || k == "X-Cxs-Duration" {
+				if k == ResponseHeaderSource || k == "X-Mz-Duration" {
 					continue
 				}
 				headers[k] = rw.Header().Get(k)

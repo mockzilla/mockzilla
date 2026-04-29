@@ -99,9 +99,9 @@ const showDetail = (entry) => {
         if (resp.duration) addMetaRow(tbody, 'Duration', formatDuration(resp.duration));
         if (resp.contentType) addMetaRow(tbody, 'Content-Type', resp.contentType);
 
-        // Derive source from X-Cxs-Source header or isFromUpstream flag
+        // Derive source from X-Mz-Source header or isFromUpstream flag
         const sourceHeader = (resp.headers || [])
-            .find(h => h.toLowerCase().startsWith('x-cxs-source:'));
+            .find(h => h.toLowerCase().startsWith('x-mz-source:'));
         if (sourceHeader) {
             addMetaRow(tbody, 'Source', sourceHeader.split(': ')[1]);
         } else {

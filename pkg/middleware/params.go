@@ -15,7 +15,7 @@ import (
 const asyncWriteTimeout = 5 * time.Second
 
 // ResponseHeaderSource is the response header indicating where the response came from.
-const ResponseHeaderSource = "X-Cxs-Source"
+const ResponseHeaderSource = "X-Mz-Source"
 
 // ResponseHeaderSource values.
 const (

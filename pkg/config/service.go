@@ -336,7 +336,7 @@ const DefaultReplayTTL = 24 * time.Hour
 // ReplayConfig defines the replay (VCR-like) configuration for recording and replaying
 // API responses based on request body content.
 //
-// Replay is activated either by the X-Cxs-Replay header or by setting AutoReplay to true.
+// Replay is activated either by the X-Mz-Replay header or by setting AutoReplay to true.
 // When a request comes in, specified fields are extracted from the request body,
 // a content-addressed key is built, and a stored recording is returned if one exists.
 // If no recording exists, the response from downstream is captured and stored.
@@ -363,7 +363,7 @@ type ReplayConfig struct {
 	UpstreamOnly bool `yaml:"upstream-only"`
 
 	// AutoReplay when true activates replay for configured endpoints without requiring
-	// the X-Cxs-Replay header. When false (default), the header must be present.
+	// the X-Mz-Replay header. When false (default), the header must be present.
 	AutoReplay bool `yaml:"auto-replay"`
 
 	// Endpoints maps path patterns to their match configurations.

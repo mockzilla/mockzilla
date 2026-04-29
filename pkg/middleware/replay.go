@@ -22,9 +22,9 @@ import (
 //
 // Examples:
 //
-//	X-Cxs-Replay: data.name,data.address.zip
-//	X-Cxs-Replay: body:biller,reference;query:channel
-const headerReplayMatch = "X-Cxs-Replay"
+//	X-Mz-Replay: data.name,data.address.zip
+//	X-Mz-Replay: body:biller,reference;query:channel
+const headerReplayMatch = "X-Mz-Replay"
 
 // ReplayRecord holds a recorded response along with request metadata for debugging.
 //
@@ -33,7 +33,7 @@ const headerReplayMatch = "X-Cxs-Replay"
 // Resource is the matched config endpoint pattern (e.g. /pay/{paymentMethod}).
 // Empty when no config endpoint matched (header-only mode).
 // Data is the response body bytes.
-// Headers are the response headers (excluding internal X-Cxs-* headers).
+// Headers are the response headers (excluding internal X-Mz-* headers).
 // StatusCode is the HTTP status code of the response.
 // ContentType is the Content-Type header of the response.
 // IsFromUpstream is true if the response came from an upstream service.
@@ -54,7 +54,7 @@ type ReplayRecord struct {
 	CreatedAt      time.Time         `json:"createdAt"`
 }
 
-// parseReplayHeader parses the X-Cxs-Replay header value into a ReplayMatch.
+// parseReplayHeader parses the X-Mz-Replay header value into a ReplayMatch.
 // Format: "body:field1,field2;query:field3,field4"
 // Unqualified fields (no "body:" or "query:" prefix) are treated as body fields.
 // Returns nil if the header value is empty.

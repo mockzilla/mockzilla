@@ -28,10 +28,10 @@ func TestParseConfigOverrides(t *testing.T) {
 		assert.Empty(overrides)
 	})
 
-	t.Run("parses X-Cxs headers", func(t *testing.T) {
+	t.Run("parses X-Mz headers", func(t *testing.T) {
 		headers := http.Header{
-			"X-Cxs-Cache-Requests": []string{"false"},
-			"X-Cxs-Latency":        []string{"100ms"},
+			"X-Mz-Cache-Requests": []string{"false"},
+			"X-Mz-Latency":        []string{"100ms"},
 		}
 		overrides := parseConfigOverrides(headers)
 		assert.Len(overrides, 2)
@@ -40,8 +40,8 @@ func TestParseConfigOverrides(t *testing.T) {
 	t.Run("headers are case-insensitive via http.Header canonicalization", func(t *testing.T) {
 		headers := http.Header{}
 		// http.Header.Set canonicalizes the key
-		headers.Set("x-cxs-cache-requests", "false")
-		headers.Set("X-CXS-LATENCY", "100ms")
+		headers.Set("x-mz-cache-requests", "false")
+		headers.Set("X-MZ-LATENCY", "100ms")
 
 		overrides := parseConfigOverrides(headers)
 		assert.Len(overrides, 2)
@@ -57,7 +57,7 @@ func TestParseConfigOverrides(t *testing.T) {
 
 	t.Run("uses first value for multiple values", func(t *testing.T) {
 		headers := http.Header{
-			"X-Cxs-Latency": []string{"100ms", "200ms"},
+			"X-Mz-Latency": []string{"100ms", "200ms"},
 		}
 		overrides := parseConfigOverrides(headers)
 		assert.Len(overrides, 1)
@@ -66,7 +66,7 @@ func TestParseConfigOverrides(t *testing.T) {
 
 	t.Run("skips headers with empty values array", func(t *testing.T) {
 		headers := http.Header{
-			"X-Cxs-Latency": []string{},
+			"X-Mz-Latency": []string{},
 		}
 		overrides := parseConfigOverrides(headers)
 		assert.Len(overrides, 0)
@@ -196,7 +196,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set("X-Cxs-Latency", "500ms")
+		req.Header.Set("X-Mz-Latency", "500ms")
 		w := NewBufferedResponseWriter()
 
 		mw := CreateConfigOverrideMiddleware(params)
@@ -220,7 +220,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set("X-Cxs-Latency", "500ms")
+		req.Header.Set("X-Mz-Latency", "500ms")
 		w := NewBufferedResponseWriter()
 
 		mw := CreateConfigOverrideMiddleware(params)
@@ -230,7 +230,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		assert.Equal(100*time.Millisecond, original.Latency)
 	})
 
-	t.Run("X-Cxs headers are preserved on request", func(t *testing.T) {
+	t.Run("X-Mz headers are preserved on request", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{Name: "test"})
 
 		var capturedHeaders http.Header
@@ -240,15 +240,15 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set("X-Cxs-Latency", "200ms")
-		req.Header.Set("X-Cxs-Context", "eyJmb28iOiJiYXIifQ==")
+		req.Header.Set("X-Mz-Latency", "200ms")
+		req.Header.Set("X-Mz-Context", "eyJmb28iOiJiYXIifQ==")
 		w := NewBufferedResponseWriter()
 
 		mw := CreateConfigOverrideMiddleware(params)
 		mw(handler).ServeHTTP(w, req)
 
-		assert.Equal("200ms", capturedHeaders.Get("X-Cxs-Latency"))
-		assert.Equal("eyJmb28iOiJiYXIifQ==", capturedHeaders.Get("X-Cxs-Context"))
+		assert.Equal("200ms", capturedHeaders.Get("X-Mz-Latency"))
+		assert.Equal("eyJmb28iOiJiYXIifQ==", capturedHeaders.Get("X-Mz-Context"))
 	})
 
 	t.Run("browser headers are stripped from request", func(t *testing.T) {
@@ -299,7 +299,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
 		req.Header.Set("Authorization", "Basic ui-session-creds")
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Cxs-Source", "ui")
+		req.Header.Set("X-Mz-Source", "ui")
 		req.Header.Set("Origin", "http://localhost:2200")
 		w := NewBufferedResponseWriter()
 
@@ -309,7 +309,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		assert.Empty(capturedHeaders.Get("Authorization"))
 		assert.Empty(capturedHeaders.Get("Origin"))
 		assert.Equal("application/json", capturedHeaders.Get("Content-Type"))
-		assert.Equal("ui", capturedHeaders.Get("X-Cxs-Source"))
+		assert.Equal("ui", capturedHeaders.Get("X-Mz-Source"))
 	})
 
 	t.Run("multiple overrides applied", func(t *testing.T) {
@@ -332,8 +332,8 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set("X-Cxs-Latency", "200ms")
-		req.Header.Set("X-Cxs-Cache-Requests", "false")
+		req.Header.Set("X-Mz-Latency", "200ms")
+		req.Header.Set("X-Mz-Cache-Requests", "false")
 		w := NewBufferedResponseWriter()
 
 		mw := CreateConfigOverrideMiddleware(params)

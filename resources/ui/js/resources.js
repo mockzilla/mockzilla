@@ -74,7 +74,7 @@ const getConfigOverrideHeaders = () => {
     if (upstreamEnabled && upstreamEnabled.checked) {
         const upstreamUrl = document.getElementById('override-upstream-url');
         // Always send the header when checked (empty string disables upstream)
-        headers['X-Cxs-Upstream-Url'] = upstreamUrl ? upstreamUrl.value : '';
+        headers['X-Mz-Upstream-Url'] = upstreamUrl ? upstreamUrl.value : '';
     }
 
     // Cache Requests override
@@ -82,7 +82,7 @@ const getConfigOverrideHeaders = () => {
     if (cacheEnabled && cacheEnabled.checked) {
         const cacheValue = document.getElementById('override-cache-value');
         if (cacheValue) {
-            headers['X-Cxs-Cache-Requests'] = cacheValue.value;
+            headers['X-Mz-Cache-Requests'] = cacheValue.value;
         }
     }
 
@@ -91,7 +91,7 @@ const getConfigOverrideHeaders = () => {
     if (latencyEnabled && latencyEnabled.checked) {
         const latencyValue = document.getElementById('override-latency-value');
         if (latencyValue && latencyValue.value) {
-            headers['X-Cxs-Latency'] = latencyValue.value;
+            headers['X-Mz-Latency'] = latencyValue.value;
         }
     }
 
@@ -100,7 +100,7 @@ const getConfigOverrideHeaders = () => {
     if (replayEnabled && replayEnabled.checked) {
         const replayValue = document.getElementById('override-replay-value');
         // Always send the header when checked (empty value uses match fields from config)
-        headers['X-Cxs-Replay'] = replayValue ? replayValue.value : '';
+        headers['X-Mz-Replay'] = replayValue ? replayValue.value : '';
     }
 
     return headers;
@@ -355,7 +355,7 @@ export const generateResult = (service, ix, path, method) => {
                 };
 
                 // Mark request as coming from the UI
-                fetchOptions.headers['X-Cxs-Source'] = 'ui';
+                fetchOptions.headers['X-Mz-Source'] = 'ui';
 
                 // Apply config overrides from UI
                 const overrideHeaders = getConfigOverrideHeaders();
@@ -370,13 +370,13 @@ export const generateResult = (service, ix, path, method) => {
 
                 // Pass context replacements via header for response generation
                 if (replacements) {
-                    fetchOptions.headers['X-Cxs-Context'] = btoa(JSON.stringify(replacements));
+                    fetchOptions.headers['X-Mz-Context'] = btoa(JSON.stringify(replacements));
                 }
 
                 // Tell upstream middleware which headers to forward (everything else is browser noise)
                 const upstreamHeaders = Object.keys({...reqHeaders, ...customHeaders});
                 if (upstreamHeaders.length > 0) {
-                    fetchOptions.headers['X-Cxs-Upstream-Headers'] = upstreamHeaders.join(',');
+                    fetchOptions.headers['X-Mz-Upstream-Headers'] = upstreamHeaders.join(',');
                 }
 
                 if (reqContentType) {

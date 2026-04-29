@@ -1,7 +1,7 @@
 import * as config from './config.js';
 import * as navi from "./navi.js";
 
-const STORAGE_KEY_STARS = 'cxs-starred-services';
+const STORAGE_KEY_STARS = 'mz-starred-services';
 
 let cachedServices = null;
 
