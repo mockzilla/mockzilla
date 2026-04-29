@@ -12,11 +12,11 @@ COPY . .
 RUN go build -o /app/.build/gen-discover ./cmd/gen/discover
 RUN go build -o /app/.build/gen-service ./cmd/gen/service
 
-# Generate service imports for connexions itself
+# Generate service imports for mockzilla itself
 RUN /app/.build/gen-discover
 
 # Build server
-RUN go build -o /app/.build/server/connexions ./cmd/server
+RUN go build -o /app/.build/server/mockzilla ./cmd/server
 
 # Get version
 RUN git describe --tags --abbrev=0 > version.txt || echo "dev" > version.txt
@@ -26,7 +26,7 @@ ENV CGO_ENABLED=1
 
 WORKDIR /app
 
-COPY --from=builder /app/.build/server/connexions /usr/local/bin/api
+COPY --from=builder /app/.build/server/mockzilla /usr/local/bin/api
 COPY --from=builder /app/.build/gen-discover /usr/local/bin/gen-discover
 COPY --from=builder /app/.build/gen-service /usr/local/bin/gen-service
 COPY --from=builder /app/go.mod /app/go.mod

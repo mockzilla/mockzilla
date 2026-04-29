@@ -6,8 +6,8 @@ import (
 	"os"
 
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
-	"github.com/mockzilla/connexions/v2/internal/files"
-	"github.com/mockzilla/connexions/v2/pkg/typedef"
+	"github.com/mockzilla/mockzilla/v2/internal/files"
+	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/datamodel"
 	"go.yaml.in/yaml/v4"
@@ -22,7 +22,7 @@ var (
 	flagPrintUsage            bool
 )
 
-const cmdPath = "github.com/mockzilla/connexions/v2/cmd/gen/simplify"
+const cmdPath = "github.com/mockzilla/mockzilla/v2/cmd/gen/simplify"
 
 func init() {
 	flag.Usage = func() {
@@ -155,7 +155,7 @@ func loadDocument(specContents []byte) (libopenapi.Document, error) {
 	cfg = cfg.WithDefaults()
 
 	// CreateDocument applies overlay (cfg.Overlay) -> filter (cfg.Filter)
-	// -> prune (drops dangling refs). Same pipeline used by `connexions
+	// -> prune (drops dangling refs). Same pipeline used by `mockzilla
 	// gen-service`, so users can share one codegen.yml between codegen and
 	// simplify and get the same surface in both.
 	return codegen.CreateDocument(specContents, cfg)

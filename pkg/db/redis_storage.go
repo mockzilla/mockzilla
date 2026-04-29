@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v11"
-	"github.com/mockzilla/connexions/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/redis/go-redis/v9"
 )
 

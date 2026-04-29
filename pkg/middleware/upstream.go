@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/db"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/db"
 )
 
 const upstreamErrorKey ctxKey = "upstreamError"
@@ -201,7 +201,7 @@ func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, params 
 	// transparently. When set explicitly, Transport skips auto-decompression
 	// and io.ReadAll returns raw compressed bytes (e.g. gzip).
 	upReq.Header.Del("Accept-Encoding")
-	upReq.Header.Set("User-Agent", "Connexions/2.0")
+	upReq.Header.Set("User-Agent", "Mockzilla/2.0")
 	for name, value := range cfg.Headers {
 		upReq.Header.Set(name, value)
 	}

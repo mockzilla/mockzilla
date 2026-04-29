@@ -12,9 +12,9 @@ import (
 
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/runtime"
 	"github.com/google/uuid"
-	"github.com/mockzilla/connexions/v2/internal/contexts"
-	"github.com/mockzilla/connexions/v2/internal/types"
-	"github.com/mockzilla/connexions/v2/pkg/schema"
+	"github.com/mockzilla/mockzilla/v2/internal/contexts"
+	"github.com/mockzilla/mockzilla/v2/internal/types"
+	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 )
 
 // Replacer is a function that returns a value to replace the original value with.

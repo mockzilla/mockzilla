@@ -1,19 +1,19 @@
 <div style="text-align: center; width:450px;">
-    <img src="https://raw.githubusercontent.com/mockzilla/connexions/master/resources/docs/images/gotham.svg">
+    <img src="https://raw.githubusercontent.com/mockzilla/mockzilla/master/resources/docs/images/gotham.svg">
 </div>
 
-## Connexions
+## Mockzilla
 
-[![CI](https://github.com/mockzilla/connexions/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/mockzilla/connexions/actions/workflows/ci.yml?query=branch%3Amaster)
-[![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fmockzilla%2F4110782af3ec09dd1ebabc3304756f1f%2Fraw%2Fcovbadge.json&labelColor=%23058FF3&color=%2306C53B)](https://github.com/mockzilla/connexions/actions/workflows/ci.yml?query=event%3Apush+branch%3Amaster+workflow%3ACI)
-[![codecov](https://codecov.io/gh/mockzilla/connexions/graph/badge.svg?token=XGCEHYUDH0)](https://codecov.io/gh/mockzilla/connexions)
-[![GoReportCard](https://goreportcard.com/badge/github.com/mockzilla/connexions)](https://goreportcard.com/report/github.com/mockzilla/connexions)
-[![GoDoc](https://godoc.org/github.com/mockzilla/connexions?status.svg)](https://godoc.org/github.com/mockzilla/connexions)
-[![Go Reference](https://pkg.go.dev/badge/github.com/mockzilla/connexions.svg)](https://pkg.go.dev/github.com/mockzilla/connexions)
-[![License](https://img.shields.io/github/license/mockzilla/connexions)](https://github.com/mockzilla/connexions/blob/master/LICENSE)
+[![CI](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml?query=branch%3Amaster)
+[![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fgist.githubusercontent.com%2Fmockzilla%2F4110782af3ec09dd1ebabc3304756f1f%2Fraw%2Fcovbadge.json&labelColor=%23058FF3&color=%2306C53B)](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml?query=event%3Apush+branch%3Amaster+workflow%3ACI)
+[![codecov](https://codecov.io/gh/mockzilla/mockzilla/graph/badge.svg?token=XGCEHYUDH0)](https://codecov.io/gh/mockzilla/mockzilla)
+[![GoReportCard](https://goreportcard.com/badge/github.com/mockzilla/mockzilla)](https://goreportcard.com/report/github.com/mockzilla/mockzilla)
+[![GoDoc](https://godoc.org/github.com/mockzilla/mockzilla?status.svg)](https://godoc.org/github.com/mockzilla/mockzilla)
+[![Go Reference](https://pkg.go.dev/badge/github.com/mockzilla/mockzilla.svg)](https://pkg.go.dev/github.com/mockzilla/mockzilla)
+[![License](https://img.shields.io/github/license/mockzilla/mockzilla)](https://github.com/mockzilla/mockzilla/blob/master/LICENSE)
 
 
-**Connexions** is a mock server generator for OpenAPI specifications.<br/>
+**Mockzilla** is a mock server generator for OpenAPI specifications.<br/>
 It allows you to define **multiple APIs** and generate meaningful mock responses automatically.<br/>
 You can also define static responses for any arbitrary path.<br/>
 
@@ -32,7 +32,7 @@ You can also define static responses for any arbitrary path.<br/>
 
 ## Real-World Validation
 
-Connexions continuously generates and validates data against **2,200+ real-world OpenAPI specifications** from [mockzilla/specs](https://github.com/mockzilla/specs):
+Mockzilla continuously generates and validates data against **2,200+ real-world OpenAPI specifications** from [mockzilla/specs](https://github.com/mockzilla/specs):
 
 ```
 Total: 2215 services, 98464 endpoints
@@ -41,10 +41,10 @@ Total: 2215 services, 98464 endpoints
 
 ## Modes
 
-Connexions runs in two modes:
+Mockazilla runs in two modes:
 
-- **[Portable](https://mockzilla.github.io/connexions/usage/portable/)** - point at OpenAPI specs and run. No code generation, no setup.
-- **[Codegen](https://mockzilla.github.io/connexions/usage/codegen/)** - generate typed Go handlers with custom logic and middleware.
+- **[Portable](https://mockzilla.github.io/mockzilla/usage/portable/)** - point at OpenAPI specs and run. No code generation, no setup.
+- **[Codegen](https://mockzilla.github.io/mockzilla/usage/codegen/)** - generate typed Go handlers with custom logic and middleware.
 
 ## Quick Start
 
@@ -52,14 +52,14 @@ Connexions runs in two modes:
 
 ```bash
 brew tap mockzilla/tap
-brew install connexions
-connexions https://petstore3.swagger.io/api/v3/openapi.json
+brew install mockzilla
+mockzilla https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
 ### Go
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/server@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/server@latest \
   https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
@@ -68,12 +68,12 @@ go run github.com/mockzilla/connexions/v2/cmd/server@latest \
 - [Portable template](https://github.com/mockzilla/connexions-portable-template) - embed specs into a single binary via `go:embed`
 - [Codegen template](https://github.com/mockzilla/connexions-codegen-template) - generate Go handlers with custom logic and middleware
 
-Read full documentation at [mockzilla.github.io/connexions](https://mockzilla.github.io/connexions/).
+Read full documentation at [mockzilla.github.io/mockzilla](https://mockzilla.github.io/mockzilla/).
 
-[OpenAPI Specification](https://editor.swagger.io/?url=https://raw.githubusercontent.com/mockzilla/connexions/master/resources/openapi.yml)
+[OpenAPI Specification](https://editor.swagger.io/?url=https://raw.githubusercontent.com/mockzilla/mockzilla/master/resources/openapi.yml)
 
 License
 ===================
 Copyright (c) 2023-present
 
-Licensed under the [MIT License](https://github.com/mockzilla/connexions/blob/master/LICENSE)
+Licensed under the [MIT License](https://github.com/mockzilla/mockzilla/blob/master/LICENSE)

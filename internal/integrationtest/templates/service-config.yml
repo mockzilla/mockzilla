@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/connexions/refs/heads/master/resources/json-schema-service.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla/refs/heads/master/resources/json-schema-service.json
 # Integration test service configuration template.
 # This config is merged with each service's generated config.yml
 # These values override the defaults for integration testing.

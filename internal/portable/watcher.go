@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/mockzilla/connexions/v2/pkg/api"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/factory"
+	"github.com/mockzilla/mockzilla/v2/pkg/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/factory"
 )
 
 // watchSpecs watches spec files for changes, hot-swaps existing handlers

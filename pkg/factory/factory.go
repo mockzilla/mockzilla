@@ -6,11 +6,11 @@ import (
 	"net/http"
 
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
-	"github.com/mockzilla/connexions/v2/pkg/api"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/generator"
-	"github.com/mockzilla/connexions/v2/pkg/schema"
-	"github.com/mockzilla/connexions/v2/pkg/typedef"
+	"github.com/mockzilla/mockzilla/v2/pkg/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/generator"
+	"github.com/mockzilla/mockzilla/v2/pkg/schema"
+	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 )
 
 // Factory generates mock requests and responses based on an OpenAPI spec.

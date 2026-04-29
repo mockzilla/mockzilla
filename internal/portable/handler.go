@@ -10,8 +10,8 @@ import (
 	"sync"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mockzilla/connexions/v2/pkg/api"
-	"github.com/mockzilla/connexions/v2/pkg/factory"
+	"github.com/mockzilla/mockzilla/v2/pkg/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/factory"
 )
 
 // handler implements the api.Handler interface using a factory.Factory

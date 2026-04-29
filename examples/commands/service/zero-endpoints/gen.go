@@ -18,13 +18,13 @@ import (
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/runtime"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
-	"github.com/mockzilla/connexions/v2/pkg/api"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/db"
-	"github.com/mockzilla/connexions/v2/pkg/factory"
-	"github.com/mockzilla/connexions/v2/pkg/generator"
-	"github.com/mockzilla/connexions/v2/pkg/loader"
-	"github.com/mockzilla/connexions/v2/pkg/typedef"
+	"github.com/mockzilla/mockzilla/v2/pkg/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/db"
+	"github.com/mockzilla/mockzilla/v2/pkg/factory"
+	"github.com/mockzilla/mockzilla/v2/pkg/generator"
+	"github.com/mockzilla/mockzilla/v2/pkg/loader"
+	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 	yamlv4 "go.yaml.in/yaml/v4"
 )
 
@@ -161,7 +161,7 @@ func NewRouter(svc ServiceInterface, opts ...RouterOption) chi.Router {
 }
 
 // ============================================================================
-// Connexions Service Registration
+// mockzilla Service Registration
 // ============================================================================
 
 //go:embed setup/config.yml

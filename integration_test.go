@@ -1,4 +1,4 @@
-package connexions
+package mockzilla
 
 import (
 	"embed"
@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mockzilla/connexions/v2/internal/integrationtest"
+	"github.com/mockzilla/mockzilla/v2/internal/integrationtest"
 )
 
 //go:embed testdata/specs

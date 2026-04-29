@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/jaswdr/faker/v2"
-	"github.com/mockzilla/connexions/v2/internal/types"
+	"github.com/mockzilla/mockzilla/v2/internal/types"
 )
 
 // FakeFunc is a function that returns a MixedValue.

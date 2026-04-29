@@ -236,14 +236,14 @@ storage:
 storage:
   type: dynamodb
   dynamodb:
-    table: connexions
+    table: mockzilla
     region: us-east-1
 `)
 		cfg, err := NewAppConfigFromBytes(yaml, "/test")
 		assert.NoError(err)
 		assert.NotNil(cfg.Storage)
 		assert.Equal(StorageType("dynamodb"), cfg.Storage.Type)
-		assert.Equal("connexions", cfg.Storage.DriverConfig["table"])
+		assert.Equal("mockzilla", cfg.Storage.DriverConfig["table"])
 		assert.Equal("us-east-1", cfg.Storage.DriverConfig["region"])
 	})
 

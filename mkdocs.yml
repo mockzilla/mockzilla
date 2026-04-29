@@ -1,5 +1,5 @@
-site_name: "Connexions Documentation"
-repo_url: https://github.com/mockzilla/connexions
+site_name: "Mockzilla Documentation"
+repo_url: https://github.com/mockzilla/mockzilla
 
 theme:
   custom_dir: resources/docs
@@ -18,7 +18,7 @@ theme:
     code: Roboto Mono
     text: Roboto
   locale: en
-  logo: images/logo.png #connexions.png
+  logo: images/logo.png
   favicon: images/favicon.ico
   name: material
   icon:

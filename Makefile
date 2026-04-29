@@ -1,9 +1,9 @@
 build_dir := ./.build
-IMAGE_NAME ?= "mockzilla/connexions"
-VOLUME_NAME ?= "connexions"
+IMAGE_NAME ?= "mockzilla/mockzilla"
+VOLUME_NAME ?= "mockzilla"
 VERSION ?= "latest"
 GO_VERSION := $(shell awk '/^go / {print $$2}' go.mod)
-PACKAGE := github.com/mockzilla/connexions/v2
+PACKAGE := github.com/mockzilla/mockzilla/v2
 GO_BUILD_FLAGS ?=
 
 MIN_COVERAGE = 90
@@ -32,7 +32,7 @@ lint:
 build: clean
 	@echo "Go version: $(GO_VERSION)"
 	@go mod download
-	@go build $(GO_BUILD_FLAGS) -ldflags="-X main.version=$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)" -o ${build_dir}/server/connexions ./cmd/server
+	@go build $(GO_BUILD_FLAGS) -ldflags="-X main.version=$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)" -o ${build_dir}/server/mockzilla ./cmd/server
 
 .PHONY: test
 test:

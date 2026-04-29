@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Connexions: {{.AppConfig.Title}}</title>
+    <title>Mockzilla: {{.AppConfig.Title}}</title>
     <script>
         const appConfig = {
             baseUrl: "{{.AppConfig.BaseURL}}",
@@ -127,7 +127,7 @@
                                         <td>
                                             Response:<br/><br/>
                                             Use fakes: <code>{fake:uuid.v4}</code><br/>
-                                            <a href="https://mockzilla.github.io/connexions/fake-list/#aliases">Docs</a>
+                                            <a href="https://mockzilla.github.io/mockzilla/fake-list/#aliases">Docs</a>
                                         </td>
                                         <td>
                                             <div>
@@ -336,8 +336,8 @@
     </div>
 
     {{if .Contents.Footer}}{{.Contents.Footer}}{{else}}<footer class="footer">
-        <a href="https://github.com/mockzilla/connexions" target="_blank">GitHub</a>
-        <a href="https://mockzilla.github.io/connexions/" target="_blank">Docs</a>
+        <a href="https://github.com/mockzilla/mockzilla" target="_blank">GitHub</a>
+        <a href="https://mockzilla.github.io/mockzilla/" target="_blank">Docs</a>
         <span>Version: <span id="app-version"></span></span>
         <label class="footer-theme">Editor: <select id="ace-theme-select"></select></label>
     </footer>{{end}}

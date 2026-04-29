@@ -2,7 +2,7 @@
 
 The `codegen.yml` file controls how Go types and handlers are generated from your OpenAPI specification.
 
-Connexions uses [oapi-codegen-dd](https://doordash-oss.github.io/oapi-codegen-dd) for code generation.
+Mockzilla uses [oapi-codegen-dd](https://doordash-oss.github.io/oapi-codegen-dd) for code generation.
 
 ## Location
 
@@ -104,7 +104,7 @@ error-mapping:
 You can provide a custom `codegen.yml` when generating services:
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest \
   -name petstore \
   -codegen-config ./my-codegen.yml \
   https://petstore3.swagger.io/api/v3/openapi.json

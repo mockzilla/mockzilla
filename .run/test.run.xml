@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="test" type="GoTestRunConfiguration" factoryName="Go Test">
-    <module name="connexions" />
+    <module name="mockzilla" />
     <working_directory value="$PROJECT_DIR$" />
     <go_parameters value="-i" />
     <EXTENSION ID="net.ashald.envfile">
@@ -14,7 +14,7 @@
       </ENTRIES>
     </EXTENSION>
     <kind value="DIRECTORY" />
-    <package value="github.com/mockzilla/connexions" />
+    <package value="github.com/mockzilla/mockzilla.v2" />
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$" />
     <framework value="gotest" />

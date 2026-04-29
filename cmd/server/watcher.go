@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	cmdapi "github.com/mockzilla/connexions/v2/cmd/api"
-	"github.com/mockzilla/connexions/v2/pkg/api"
-	"github.com/mockzilla/connexions/v2/pkg/config"
+	cmdapi "github.com/mockzilla/mockzilla/v2/cmd/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 )
 
 type fileEvent struct {

@@ -1,6 +1,6 @@
 # Services
 
-Services are the core building blocks of Connexions. A service represents a collection of API endpoints that can be served as a mock server.
+Services are the core building blocks of Mockzilla. A service represents a collection of API endpoints that can be served as a mock server.
 
 ## Multiple APIs on One Server
 
@@ -14,7 +14,7 @@ openapi/
 └── github.yml        → /github/repos, /github/users
 ```
 
-All services share the same port (default: 2200), so you can mock your entire microservices architecture with a single Connexions instance.
+All services share the same port (default: 2200), so you can mock your entire microservices architecture with a single Mockzilla instance.
 
 The service name is determined by:
 
@@ -26,7 +26,7 @@ See [Service Configuration](config/service.md) for details on the `name` propert
 
 ## Service Types
 
-Connexions supports three types of services, each suited for different use cases:
+Mockzilla supports three types of services, each suited for different use cases:
 
 | Type | Best For | Hot Reload | Customization |
 |------|----------|------------|---------------|
@@ -36,10 +36,10 @@ Connexions supports three types of services, each suited for different use cases
 
 ### OpenAPI Spec Services
 
-The simplest way to create a mock server. Just provide an OpenAPI specification and Connexions generates responses automatically.
+The simplest way to create a mock server. Just provide an OpenAPI specification and Mockzilla generates responses automatically.
 
 ```bash
-connexions my-spec.yml
+mockzilla my-spec.yml
 ```
 
 Responses are generated based on:
@@ -69,7 +69,7 @@ For maximum control and performance. Generated Go code that you can customize:
 
 ```bash
 # Generate a service from spec
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest \
   -name petstore \
   https://petstore3.swagger.io/api/v3/openapi.json
 

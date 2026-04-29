@@ -3,7 +3,7 @@ package factory
 import (
 	"testing"
 
-	"github.com/mockzilla/connexions/v2/pkg/typedef"
+	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 	assert2 "github.com/stretchr/testify/assert"
 )
 

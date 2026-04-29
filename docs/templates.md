@@ -1,6 +1,6 @@
 # Templates
 
-GitHub templates to quickly start a new project with Connexions. Click "Use this template" to create your own repository with CI/CD pre-configured.
+GitHub templates to quickly start a new project with Mockzilla. Click "Use this template" to create your own repository with CI/CD pre-configured.
 
 ## Portable
 

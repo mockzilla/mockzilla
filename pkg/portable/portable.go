@@ -3,7 +3,7 @@ package portable
 import (
 	"io/fs"
 
-	internal "github.com/mockzilla/connexions/v2/internal/portable"
+	internal "github.com/mockzilla/mockzilla/v2/internal/portable"
 )
 
 // RunFS extracts an fs.FS to a temp directory and runs portable mode.

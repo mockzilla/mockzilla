@@ -6,9 +6,9 @@ import (
 	"strings"
 
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
-	"github.com/mockzilla/connexions/v2/internal/types"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/schema"
+	"github.com/mockzilla/mockzilla/v2/internal/types"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 )
 

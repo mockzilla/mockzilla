@@ -5,7 +5,7 @@
 
 ## Overview
 
-Connexions exposes a public Go API through the `pkg/` package that allows you to:
+mockzilla exposes a public Go API through the `pkg/` package that allows you to:
 
 - Generate mock responses programmatically
 - Parse and work with OpenAPI specifications
@@ -28,8 +28,8 @@ Connexions exposes a public Go API through the `pkg/` package that allows you to
 package main
 
 import (
-    "github.com/mockzilla/connexions/v2/pkg/generator"
-    "github.com/mockzilla/connexions/v2/pkg/schema"
+    "github.com/mockzilla/mockzilla/v2/pkg/generator"
+    "github.com/mockzilla/mockzilla/v2/pkg/schema"
 )
 
 func main() {
@@ -42,5 +42,5 @@ func main() {
 
 ## Contributing
 
-If you'd like to help document the API, contributions are welcome! See the [GitHub repository](https://github.com/mockzilla/connexions).
+If you'd like to help document the API, contributions are welcome! See the [GitHub repository](https://github.com/mockzilla/mockzilla).
 

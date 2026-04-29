@@ -1,24 +1,24 @@
 # Example: User's project with pre-generated services
 #
-# This shows how users can deploy their pre-generated connexions services.
+# This shows how users can deploy their pre-generated mockzilla services.
 # Users have full control over their code, dependencies, and custom middleware.
 #
 # Build: docker build -t my-mock-server -f examples/docker-compose/pre-generated-services/Dockerfile .
 # Run:   docker run -p 2200:2200 my-mock-server
 #
-# TODO: Once connexions v2 is published, remove the replace directive hack.
+# TODO: Once mockzilla v2 is published, remove the replace directive hack.
 
 # Build stage
 FROM golang:alpine AS builder
 
 WORKDIR /app
 
-# Copy connexions source (for local development with replace directive)
-COPY go.mod go.sum ./connexions/
-COPY cmd/ ./connexions/cmd/
-COPY pkg/ ./connexions/pkg/
-COPY internal/ ./connexions/internal/
-COPY resources/ ./connexions/resources/
+# Copy mockzilla source (for local development with replace directive)
+COPY go.mod go.sum ./mockzilla/
+COPY cmd/ ./mockzilla/cmd/
+COPY pkg/ ./mockzilla/pkg/
+COPY internal/ ./mockzilla/internal/
+COPY resources/ ./mockzilla/resources/
 
 # Copy example project
 COPY examples/docker-compose/pre-generated-services/go.mod examples/docker-compose/pre-generated-services/go.sum ./

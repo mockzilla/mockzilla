@@ -7,23 +7,23 @@ Run a mock server directly from OpenAPI spec files - no Docker, no code generati
 With Go installed, run directly:
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/server@latest petstore.yml
+go run github.com/mockzilla/mockzilla/v2/cmd/server@latest petstore.yml
 ```
 
 Or build a binary:
 
 ```bash
-go install github.com/mockzilla/connexions/v2/cmd/server@latest
+go install github.com/mockzilla/mockzilla/v2/cmd/server@latest
 ```
 
-This installs the `server` binary to your `$GOPATH/bin`. You can rename it to `connexions` if you prefer.
+This installs the `server` binary to your `$GOPATH/bin`. You can rename it to `mockzilla` if you prefer.
 
 ## Quick Start
 
 Try it now - no files needed:
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/server@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/server@latest \
   https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
@@ -32,7 +32,7 @@ The server starts on port 2200 with the Petstore API mounted at `/openapi/...`.
 Or from a local file:
 
 ```bash
-connexions petstore.yml
+mockzilla petstore.yml
 ```
 
 ## Multiple Specs
@@ -41,16 +41,16 @@ Pass any mix of files, directories, and URLs:
 
 ```bash
 # Multiple files
-connexions petstore.yml stripe.yml spoonacular.yml
+mockzilla petstore.yml stripe.yml spoonacular.yml
 
 # Directory containing specs
-connexions ./my-specs/
+mockzilla ./my-specs/
 
 # URLs
-connexions https://petstore3.swagger.io/api/v3/openapi.json https://example.com/api.yml
+mockzilla https://petstore3.swagger.io/api/v3/openapi.json https://example.com/api.yml
 
 # Mix of files and URLs
-connexions petstore.yml https://example.com/stripe.yml ./more-specs/
+mockzilla petstore.yml https://example.com/stripe.yml ./more-specs/
 ```
 
 Each spec becomes a separate service. The service name is derived from the filename or URL path (e.g., `petstore.yml` becomes `/petstore/`).
@@ -64,7 +64,7 @@ Each spec becomes a separate service. The service name is derived from the filen
 | `--context` | Per-service context YAML for value replacements |
 
 ```bash
-connexions --port 3000 --config config.yml --context contexts.yml petstore.yml stripe.yml
+mockzilla --port 3000 --config config.yml --context contexts.yml petstore.yml stripe.yml
 ```
 
 ## Config File
@@ -163,7 +163,7 @@ my-mocks/
 ```
 
 ```bash
-connexions ./my-mocks/
+mockzilla ./my-mocks/
 ```
 
 This registers both `petstore` (from the spec) and `myapi` (from static files). Static files are converted to OpenAPI specs internally - the service behaves identically to a spec-based one.
@@ -179,13 +179,13 @@ Spec files are watched for changes. When you edit a spec file, the service handl
 From a URL:
 
 ```bash
-connexions https://petstore3.swagger.io/api/v3/openapi.json
+mockzilla https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
 With config and contexts:
 
 ```bash
-connexions \
+mockzilla \
   --config config.yml \
   --context contexts.yml \
   --port 8080 \
@@ -195,13 +195,13 @@ connexions \
 Mix of local files and URLs:
 
 ```bash
-connexions petstore.yml https://example.com/stripe.yml ./more-specs/
+mockzilla petstore.yml https://example.com/stripe.yml ./more-specs/
 ```
 
 Config-only (no custom contexts):
 
 ```bash
-connexions --config config.yml ./specs/
+mockzilla --config config.yml ./specs/
 ```
 
 ## Template

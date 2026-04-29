@@ -24,7 +24,7 @@ var (
 // External drivers can register in their own init() — users activate them
 // with a blank import:
 //
-//	import _ "github.com/someone/connexions-db-dynamodb"
+//	import _ "github.com/someone/mockzilla-db-dynamodb"
 func Register(name string, factory StorageFactory) {
 	driversMu.Lock()
 	defer driversMu.Unlock()

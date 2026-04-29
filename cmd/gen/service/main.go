@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	cmdapi "github.com/mockzilla/connexions/v2/cmd/api"
+	cmdapi "github.com/mockzilla/mockzilla/v2/cmd/api"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 	flagQuiet             bool
 )
 
-const cmdPath = "github.com/mockzilla/connexions/v2/cmd/gen/service"
+const cmdPath = "github.com/mockzilla/mockzilla/v2/cmd/gen/service"
 
 func init() {
 	flag.Usage = func() {

@@ -11,8 +11,8 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/resources"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/resources"
 )
 
 // CreateHomeRoutes creates routes for home.

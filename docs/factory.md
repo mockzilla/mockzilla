@@ -6,7 +6,7 @@ The Factory provides programmatic generation of mock requests and responses from
 
 Use the `factory` package directly with any OpenAPI spec.
 
-See the full runnable example at [`examples/api/factory/main.go`](https://github.com/mockzilla/connexions/blob/master/examples/api/factory/main.go).
+See the full runnable example at [`examples/api/factory/main.go`](https://github.com/mockzilla/mockzilla/blob/master/examples/api/factory/main.go).
 
 ### Create a factory
 

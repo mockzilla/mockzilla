@@ -1,6 +1,6 @@
 # Code Generation Tools
 
-This directory contains code generation commands for Connexions.
+This directory contains code generation commands for Mockzilla.
 
 ## Commands
 
@@ -15,12 +15,12 @@ This directory contains code generation commands for Connexions.
 
 ```bash
 # Generate a service from an OpenAPI spec
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest \
   -name petstore \
   https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
-See the [documentation](https://mockzilla.github.io/connexions/) for detailed usage.
+See the [documentation](https://mockzilla.github.io/mockzilla/) for detailed usage.
 
 ## Discover
 
@@ -28,10 +28,10 @@ Scans a directory for `register.go` files and generates an imports file for serv
 
 ```bash
 # Scan default directory
-go run github.com/mockzilla/connexions/v2/cmd/gen/discover@latest
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/discover@latest
 
 # Scan custom directory
-go run github.com/mockzilla/connexions/v2/cmd/gen/discover@latest pkg/services
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/discover@latest pkg/services
 ```
 
 This generates `cmd/server/services_gen.go` with imports for all discovered services.

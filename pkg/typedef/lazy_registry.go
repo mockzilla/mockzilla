@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/schema"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 )
 
 // OperationRegistry is the interface for accessing parsed operations.

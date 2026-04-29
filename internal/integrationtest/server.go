@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mockzilla/connexions/v2/internal/files"
-	"github.com/mockzilla/connexions/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/internal/files"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 )
 
 const (
@@ -76,7 +76,7 @@ func SetupSandbox(sandboxDir string) error {
 
 	// Add replace directive to go.mod so Go uses local code instead of fetching from internet
 	// This is needed because generated handlers import packages like:
-	// github.com/mockzilla/connexions/v2/resources/data/services/stripe_spec3/types
+	// github.com/mockzilla/mockzilla/v2/resources/data/services/stripe_spec3/types
 	// Without the replace directive, Go tries to fetch this from the internet and fails
 	goModPath := filepath.Join(sandboxDir, "go.mod")
 	goModContent, err := os.ReadFile(goModPath)
@@ -86,10 +86,10 @@ func SetupSandbox(sandboxDir string) error {
 
 	// Check if replace directive already exists
 	goModStr := string(goModContent)
-	if !strings.Contains(goModStr, "replace github.com/mockzilla/connexions/v2") {
+	if !strings.Contains(goModStr, "replace github.com/mockzilla/mockzilla/v2") {
 		// Add replace directive with absolute path to sandbox directory
 		// sandboxDir is already an absolute path from CreateSandbox()
-		goModStr += fmt.Sprintf("\n// Use local code for sandbox testing\nreplace github.com/mockzilla/connexions/v2 => %s\n", sandboxDir)
+		goModStr += fmt.Sprintf("\n// Use local code for sandbox testing\nreplace github.com/mockzilla/mockzilla/v2 => %s\n", sandboxDir)
 		if err := os.WriteFile(goModPath, []byte(goModStr), 0644); err != nil {
 			return fmt.Errorf("failed to write go.mod: %w", err)
 		}

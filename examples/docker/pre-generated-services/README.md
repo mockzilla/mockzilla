@@ -1,6 +1,6 @@
 # Pre-generated Services with Docker
 
-This example demonstrates deploying pre-generated connexions services as a standalone Docker container.
+This example demonstrates deploying pre-generated mockzilla services as a standalone Docker container.
 
 ## Quick Start
 
@@ -21,7 +21,7 @@ curl http://localhost:2200/spoonacular/food/jokes/random
 
 ## What's Included
 
-- **go.mod** - User's module with connexions as a dependency
+- **go.mod** - User's module with mockzilla as a dependency
 - **cmd/server/main.go** - Simple server that imports and runs services
 - **services/** - Pre-generated services with custom middleware
 - **Dockerfile** - Multi-stage build for minimal production image
@@ -42,7 +42,7 @@ module myproject
 
 go 1.23
 
-require github.com/mockzilla/connexions/v2 v2.x.x
+require github.com/mockzilla/mockzilla/v2 v2.x.x
 ```
 
 2. Create `cmd/server/main.go`:
@@ -51,8 +51,8 @@ require github.com/mockzilla/connexions/v2 v2.x.x
 package main
 
 import (
-    "github.com/mockzilla/connexions/v2/pkg/api"
-    "github.com/mockzilla/connexions/v2/pkg/loader"
+    "github.com/mockzilla/mockzilla/v2/pkg/api"
+    "github.com/mockzilla/mockzilla/v2/pkg/loader"
 
     _ "myproject/services/myapi"  // Import to register
 )
@@ -67,7 +67,7 @@ func main() {
 3. Generate services:
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/gen/service \
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service \
     -name myapi https://example.com/openapi.json
 ```
 

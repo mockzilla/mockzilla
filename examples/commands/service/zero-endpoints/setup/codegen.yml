@@ -18,7 +18,7 @@ generate:
     service: {}
     server:
       directory: server
-      handler-package: github.com/mockzilla/connexions/v2/examples/commands/service/zero-endpoints
+      handler-package: github.com/mockzilla/mockzilla/v2/examples/commands/service/zero-endpoints
     validation:
       request: true
       response: true

@@ -3,7 +3,7 @@ package replacer
 import (
 	"sync"
 
-	"github.com/mockzilla/connexions/v2/pkg/schema"
+	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 )
 
 // ReplaceState is a struct that holds information about the current state of the replace operation.

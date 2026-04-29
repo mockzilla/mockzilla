@@ -16,10 +16,10 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/lmittmann/tint"
-	"github.com/mockzilla/connexions/v2/internal/portable"
-	"github.com/mockzilla/connexions/v2/pkg/api"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/loader"
+	"github.com/mockzilla/mockzilla/v2/internal/portable"
+	"github.com/mockzilla/mockzilla/v2/pkg/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/loader"
 
 	// Imports to ensure it's vendored for generated code
 	_ "github.com/go-playground/validator/v10"
@@ -166,7 +166,7 @@ func runServer() int {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting Connexions Server on %s", addr)
+		log.Printf("Starting mockzilla Server on %s", addr)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("Server failed to start: %v", err)
 		}

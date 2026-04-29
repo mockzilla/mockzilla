@@ -6,7 +6,7 @@ It handles both setup (creating configuration files) and code generation in a si
 ## Usage
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest [-name <name>] [-type openapi|static] [-output <dir>] [spec-file-or-url]
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest [-name <name>] [-type openapi|static] [-output <dir>] [spec-file-or-url]
 ```
 
 ## Arguments
@@ -65,32 +65,32 @@ The command creates a service directory with this structure:
 
 ```bash
 cd myservice
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest https://petstore3.swagger.io/api/v3/openapi.json
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
 ### From local file
 
 ```bash
 cd myservice
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest ./specs/openapi.yml
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest ./specs/openapi.yml
 ```
 
 ### With custom output directory
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest -output /path/to/service ./specs/openapi.yml
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest -output /path/to/service ./specs/openapi.yml
 ```
 
 ### With custom name
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest -name petstore https://petstore3.swagger.io/api/v3/openapi.json
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest -name petstore https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
 ### With custom configs
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest \
   -codegen-config ./my-codegen.yml \
   -service-config ./my-config.yml \
   ./specs/openapi.yml

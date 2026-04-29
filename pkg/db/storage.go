@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/mockzilla/connexions/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 )
 
 // Storage is the shared storage backend that can provide per-service DB instances.

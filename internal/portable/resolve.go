@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	cmdapi "github.com/mockzilla/connexions/v2/cmd/api"
+	cmdapi "github.com/mockzilla/mockzilla/v2/cmd/api"
 )
 
 // flags holds the parsed CLI flags for portable mode.
@@ -160,7 +160,7 @@ func downloadSpec(rawURL string) (string, error) {
 		return "", fmt.Errorf("HTTP %d from %s", resp.StatusCode, rawURL)
 	}
 
-	dir := filepath.Join(os.TempDir(), "connexions-portable", "specs")
+	dir := filepath.Join(os.TempDir(), "mockzilla-portable", "specs")
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}

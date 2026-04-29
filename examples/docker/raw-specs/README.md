@@ -9,7 +9,7 @@ Mount OpenAPI specs and static files - get a mock server.
 docker run -p 2200:2200 \
   -v $(pwd)/openapi:/app/resources/data/openapi \
   -v $(pwd)/static:/app/resources/data/static \
-  mockzilla/connexions:latest
+  mockzilla/mockzilla:latest
 ```
 
 ## Test

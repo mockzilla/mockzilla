@@ -7,8 +7,8 @@ import (
 	"unsafe"
 
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
-	"github.com/mockzilla/connexions/v2/internal/types"
-	"github.com/mockzilla/connexions/v2/pkg/schema"
+	"github.com/mockzilla/mockzilla/v2/internal/types"
+	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 )
 
 type schemaContext struct {

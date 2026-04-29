@@ -1,6 +1,6 @@
 # App Configuration
 
-App-level configuration for Connexions server.
+App-level configuration for Mockzilla server.
 
 ## File Location
 
@@ -18,7 +18,7 @@ volumes:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `title` | string | `Connexions` | App title displayed in UI |
+| `title` | string | `Mockzilla` | App title displayed in UI |
 | `port` | int | `2200` | Server port |
 | `baseURL` | string | - | Public base URL (e.g., `https://api.example.com`) |
 | `internalURL` | string | - | Internal URL for service-to-service calls |

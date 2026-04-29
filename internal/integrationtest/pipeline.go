@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/mockzilla/connexions/v2/pkg/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/api"
 )
 
 const (

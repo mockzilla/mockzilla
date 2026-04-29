@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/jaswdr/faker/v2"
-	"github.com/mockzilla/connexions/v2/internal/contexts"
-	"github.com/mockzilla/connexions/v2/internal/types"
-	"github.com/mockzilla/connexions/v2/pkg/schema"
+	"github.com/mockzilla/mockzilla/v2/internal/contexts"
+	"github.com/mockzilla/mockzilla/v2/internal/types"
+	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	assert2 "github.com/stretchr/testify/assert"
 )
 

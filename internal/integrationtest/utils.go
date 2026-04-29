@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/mockzilla/connexions/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 )
 
 var (

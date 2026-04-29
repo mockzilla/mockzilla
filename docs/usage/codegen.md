@@ -14,7 +14,7 @@ Generate a service from the Petstore spec:
 mkdir myapp && cd myapp
 go mod init myapp
 
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest \
   -name petstore \
   https://petstore3.swagger.io/api/v3/openapi.json
 ```
@@ -22,7 +22,7 @@ go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest \
 Add the dependency and generate the code:
 
 ```bash
-go get github.com/mockzilla/connexions/v2@latest
+go get github.com/mockzilla/mockzilla/v2@latest
 go mod tidy
 go generate ./...
 ```
@@ -36,8 +36,8 @@ import (
     "log"
     "net/http"
 
-    "github.com/mockzilla/connexions/v2/pkg/api"
-    "github.com/mockzilla/connexions/v2/pkg/loader"
+    "github.com/mockzilla/mockzilla/v2/pkg/api"
+    "github.com/mockzilla/mockzilla/v2/pkg/loader"
 
     _ "myapp/petstore"
 )
@@ -126,8 +126,8 @@ Edit `middleware.go` to add authentication, logging, or request modification. Se
 Generate each service, then import them all in a single `main.go`:
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest -name petstore ./petstore.yml
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest -name payments ./payments.yml
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest -name petstore ./petstore.yml
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest -name payments ./payments.yml
 go generate ./...
 ```
 
@@ -138,8 +138,8 @@ import (
     "log"
     "net/http"
 
-    "github.com/mockzilla/connexions/v2/pkg/api"
-    "github.com/mockzilla/connexions/v2/pkg/loader"
+    "github.com/mockzilla/mockzilla/v2/pkg/api"
+    "github.com/mockzilla/mockzilla/v2/pkg/loader"
 
     _ "myapp/petstore"
     _ "myapp/payments"

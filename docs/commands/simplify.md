@@ -9,7 +9,7 @@ generate unwieldy code with deeply nested union types.
 ## Usage
 
 ```bash
-go run github.com/mockzilla/connexions/v2/cmd/gen/simplify@latest [options] <path-to-spec>
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/simplify@latest [options] <path-to-spec>
 ```
 
 ## Arguments
@@ -42,26 +42,26 @@ The simplify command performs the following transformations:
 
 ```bash
 # Simplify and output to stdout
-go run github.com/mockzilla/connexions/v2/cmd/gen/simplify@latest openapi.yml
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/simplify@latest openapi.yml
 
 # Simplify and save to file
-go run github.com/mockzilla/connexions/v2/cmd/gen/simplify@latest -output simplified.yml openapi.yml
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/simplify@latest -output simplified.yml openapi.yml
 ```
 
 ### Controlling Optional Properties
 
 ```bash
 # Keep exactly 3 optional properties per schema
-go run github.com/mockzilla/connexions/v2/cmd/gen/simplify@latest -keep-optional 3 openapi.yml
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/simplify@latest -keep-optional 3 openapi.yml
 
 # Keep between 1-3 optional properties per schema
-go run github.com/mockzilla/connexions/v2/cmd/gen/simplify@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/simplify@latest \
   -min-optional-properties 1 \
   -max-optional-properties 3 \
   openapi.yml
 
 # Keep all optional properties (only simplify unions)
-go run github.com/mockzilla/connexions/v2/cmd/gen/simplify@latest -keep-optional 0 openapi.yml
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/simplify@latest -keep-optional 0 openapi.yml
 ```
 
 ### With Service Generation
@@ -70,12 +70,12 @@ A common workflow is to simplify a spec before generating a service:
 
 ```bash
 # 1. Simplify the spec
-go run github.com/mockzilla/connexions/v2/cmd/gen/simplify@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/simplify@latest \
   -output simplified.yml \
   https://raw.githubusercontent.com/stripe/openapi/master/openapi/spec3.json
 
 # 2. Generate service from simplified spec
-go run github.com/mockzilla/connexions/v2/cmd/gen/service@latest -name stripe simplified.yml
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest -name stripe simplified.yml
 ```
 
 ## Use Cases
@@ -99,7 +99,7 @@ Simplifying the spec makes it faster to iterate.
 
 ## Example
 
-See the [simplify example](https://github.com/mockzilla/connexions/tree/master/examples/commands/simplify) for a runnable example.
+See the [simplify example](https://github.com/mockzilla/mockzilla/tree/master/examples/commands/simplify) for a runnable example.
 
 ```bash
 cd examples/commands/simplify

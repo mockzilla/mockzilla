@@ -40,7 +40,7 @@ filter:
 - Run `CODEGEN_CONFIG=<path-to-codegen.yml> make test-integration <path-to-spec.yml>`
 
 ## Investigating validation errors in integration tests
-- Get the request and response payloads the connexions generate bypassing validation:
+- Get the request and response payloads the mockzilla generate bypassing validation:
   Create custom codegen config somewhere in the sandbox with validation disabled:
 ```yaml
 generate:

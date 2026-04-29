@@ -12,11 +12,11 @@ import (
 	"text/template"
 
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
-	"github.com/mockzilla/connexions/v2/cmd/gen/templatehelpers"
-	"github.com/mockzilla/connexions/v2/internal/files"
-	"github.com/mockzilla/connexions/v2/internal/types"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/typedef"
+	"github.com/mockzilla/mockzilla/v2/cmd/gen/templatehelpers"
+	"github.com/mockzilla/mockzilla/v2/internal/files"
+	"github.com/mockzilla/mockzilla/v2/internal/types"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -243,7 +243,7 @@ func GenerateService(opts ServiceOptions) error {
 		return fmt.Errorf("no output directory specified")
 	}
 
-	// Override oapi-codegen templates with connexions versions
+	// Override oapi-codegen templates with mockzilla versions
 	if cfg.UserTemplates == nil {
 		cfg.UserTemplates = make(map[string]string)
 	}
@@ -270,7 +270,7 @@ func GenerateService(opts ServiceOptions) error {
 		cfg.UserTemplates[key] = string(tmplContent)
 	}
 
-	// Override chi handler template to include connexions generator code
+	// Override chi handler template to include mockzilla generator code
 	if _, ok := cfg.UserTemplates["handler/chi/handler.tmpl"]; !ok {
 		chiHandlerContent, err := templatesFS.ReadFile("templates/handler/chi/handler.tmpl")
 		if err != nil {
@@ -279,17 +279,17 @@ func GenerateService(opts ServiceOptions) error {
 		cfg.UserTemplates["handler/chi/handler.tmpl"] = string(chiHandlerContent)
 	}
 
-	// Add imports required by connexions generator code
+	// Add imports required by mockzilla generator code
 	cfg.AdditionalImports = append(cfg.AdditionalImports,
 		codegen.AdditionalImport{Package: "sync"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/connexions/v2/pkg/api"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/connexions/v2/pkg/config"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/connexions/v2/pkg/db"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/connexions/v2/pkg/factory"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/connexions/v2/pkg/schema"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/connexions/v2/pkg/generator"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/connexions/v2/pkg/loader"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/connexions/v2/pkg/typedef"},
+		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/api"},
+		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/config"},
+		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/db"},
+		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/factory"},
+		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/schema"},
+		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/generator"},
+		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/loader"},
+		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/typedef"},
 		codegen.AdditionalImport{Alias: "oapicodegen", Package: "github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"},
 		codegen.AdditionalImport{Alias: "yamlv4", Package: "go.yaml.in/yaml/v4"},
 	)
@@ -307,7 +307,7 @@ func GenerateService(opts ServiceOptions) error {
 		return fmt.Errorf("oapi-codegen generate: %w", err)
 	}
 
-	// Determine handler directory for connexions templates
+	// Determine handler directory for mockzilla templates
 	handlerDir := destDir
 	if cfg.Generate != nil && cfg.Generate.Handler != nil {
 		if cfg.Generate.Handler.Output != nil && cfg.Generate.Handler.Output.Directory != "" {

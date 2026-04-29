@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/connexions/refs/heads/master/resources/json-schema-service.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla/refs/heads/master/resources/json-schema-service.json
 name: users
 latency: 0ms
 errors:

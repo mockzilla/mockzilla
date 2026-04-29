@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/mockzilla/connexions/v2/internal/contexts"
+	"github.com/mockzilla/mockzilla/v2/internal/contexts"
 )
 
 // main generates a list of available fake functions for documentation.

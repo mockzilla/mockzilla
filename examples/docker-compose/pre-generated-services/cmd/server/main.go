@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/mockzilla/connexions/v2/pkg/api"
-	"github.com/mockzilla/connexions/v2/pkg/loader"
+	"github.com/mockzilla/mockzilla/v2/pkg/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/loader"
 
 	// Import services to trigger their init() registration
 	_ "example/services/petstore"

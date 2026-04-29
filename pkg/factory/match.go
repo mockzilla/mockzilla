@@ -3,7 +3,7 @@ package factory
 import (
 	"strings"
 
-	"github.com/mockzilla/connexions/v2/pkg/typedef"
+	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 )
 
 // pathPattern holds a pre-split spec path for efficient matching.

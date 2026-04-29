@@ -46,14 +46,14 @@ jobs:
           if [ "${{ matrix.goos }}" = "windows" ]; then
             EXT=".exe"
           fi
-          BINARY="connexions-${{ env.TAG }}-${{ matrix.goos }}-${{ matrix.goarch }}${EXT}"
+          BINARY="mockzilla-${{ env.TAG }}-${{ matrix.goos }}-${{ matrix.goarch }}${EXT}"
           go build -ldflags="-s -w -X main.version=${TAG}" -o "${BINARY}" ./cmd/server
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: connexions-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: connexions-*
+          name: mockzilla-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: mockzilla-*
 
   release:
     runs-on: ubuntu-latest
@@ -75,7 +75,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release upload "${{ env.TAG }}" connexions-* --clobber
+          gh release upload "${{ env.TAG }}" mockzilla-* --clobber
 
   update-homebrew:
     runs-on: ubuntu-latest
@@ -89,9 +89,9 @@ jobs:
 
       - name: Compute SHA256 hashes
         run: |
-          BASE_URL="https://github.com/mockzilla/connexions/releases/download/${{ env.TAG }}"
+          BASE_URL="https://github.com/mockzilla/mockzilla/releases/download/${{ env.TAG }}"
           for pair in darwin-amd64 darwin-arm64 linux-amd64 linux-arm64; do
-            HASH=$(curl -sL "${BASE_URL}/connexions-${{ env.TAG }}-${pair}" | sha256sum | awk '{print $1}')
+            HASH=$(curl -sL "${BASE_URL}/mockzilla-${{ env.TAG }}-${pair}" | sha256sum | awk '{print $1}')
             VAR="SHA_$(echo "$pair" | tr '-' '_')"
             echo "${VAR}=${HASH}" >> $GITHUB_ENV
           done
@@ -103,7 +103,7 @@ jobs:
           git clone "https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/mockzilla/homebrew-tap.git" tap
           cd tap
 
-          FORMULA="Formula/connexions.rb"
+          FORMULA="Formula/mockzilla.rb"
           sed -i "s/version \".*\"/version \"${{ env.VERSION }}\"/" "$FORMULA"
 
           update_sha() {
@@ -121,5 +121,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "$FORMULA"
           git diff --cached --quiet && echo "No changes" && exit 0
-          git commit -m "connexions ${{ env.TAG }}"
+          git commit -m "mockzilla ${{ env.TAG }}"
           git push

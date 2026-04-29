@@ -1,6 +1,6 @@
 # Storage
 
-Connexions uses a layered storage architecture that provides service isolation while sharing a single backend connection.
+Mockzilla uses a layered storage architecture that provides service isolation while sharing a single backend connection.
 
 ## Design Principles
 

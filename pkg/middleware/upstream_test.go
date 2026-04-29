@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/db"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/db"
 	assert2 "github.com/stretchr/testify/assert"
 )
 
@@ -52,7 +52,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		// Check that headers were forwarded to upstream
 		assert.Equal("Bearer 123", receivedHeaders.Get("Authorization"))
 		assert.Equal("test", receivedHeaders.Get("X-Test"))
-		assert.Equal("Connexions/2.0", receivedHeaders.Get("User-Agent"))
+		assert.Equal("Mockzilla/2.0", receivedHeaders.Get("User-Agent"))
 
 		// Check history
 		data := params.DB().History().Data(context.Background())

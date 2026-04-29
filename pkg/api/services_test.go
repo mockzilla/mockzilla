@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/db"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/db"
 	"github.com/stretchr/testify/assert"
 )
 

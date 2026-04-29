@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mockzilla/connexions/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"go.yaml.in/yaml/v4"
 )
 

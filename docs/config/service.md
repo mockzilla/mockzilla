@@ -222,7 +222,7 @@ upstream:
 ```
 
 When configured, requests are proxied to the upstream server.
-If the upstream fails (timeout, network error, or error status), Connexions falls back to generating mock responses.
+If the upstream fails (timeout, network error, or error status), Mockzilla falls back to generating mock responses.
 
 ### Sticky Source
 
@@ -312,7 +312,7 @@ fail-on:
 
 ## Response Headers
 
-Connexions adds the following headers to responses:
+Mockzilla adds the following headers to responses:
 
 | Header | Values | Description |
 |--------|--------|-------------|

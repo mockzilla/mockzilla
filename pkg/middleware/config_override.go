@@ -1,4 +1,4 @@
-// Package middleware provides HTTP middleware for connexions services.
+// Package middleware provides HTTP middleware for mockzilla services.
 package middleware
 
 import (
@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mockzilla/connexions/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 )
 
 // Header prefix and names for per-request config overrides.

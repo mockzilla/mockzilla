@@ -1,8 +1,8 @@
 package generator
 
 import (
-	"github.com/mockzilla/connexions/v2/internal/contexts"
-	"github.com/mockzilla/connexions/v2/resources"
+	"github.com/mockzilla/mockzilla/v2/internal/contexts"
+	"github.com/mockzilla/mockzilla/v2/resources"
 )
 
 // LoadServiceContext loads the service context and combines it with the default contexts.

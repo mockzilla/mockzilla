@@ -7,4 +7,4 @@ package petstore
 // Run after any OpenAPI spec changes: go generate
 //
 // The command automatically uses setup/codegen.yml and setup/openapi.yml from the current directory.
-//go:generate go run github.com/mockzilla/connexions/v2/cmd/gen/service
+//go:generate go run github.com/mockzilla/mockzilla/v2/cmd/gen/service

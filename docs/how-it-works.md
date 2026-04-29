@@ -1,10 +1,10 @@
 # How It Works
 
-This page explains the request flow through Connexions and how different features interact.
+This page explains the request flow through Mockzilla and how different features interact.
 
 ## Request Flow
 
-When a request arrives at Connexions, it passes through a middleware chain:
+When a request arrives at Mockzilla, it passes through a middleware chain:
 
 ```
 Request → Config Override → Latency/Error → Replay Read → Replay Write ──→ Cache Read → Upstream ──────────→ Response
@@ -42,7 +42,7 @@ This is useful for testing, debugging, or handling special cases without modifyi
 
 ### Response Headers
 
-Connexions adds headers to responses indicating how they were processed:
+Mockzilla adds headers to responses indicating how they were processed:
 
 | Header | Values | Description |
 |--------|--------|-------------|
@@ -153,7 +153,7 @@ upstream:
 
 ### How It Works
 
-1. Request arrives at Connexions
+1. Request arrives at Mockzilla
 2. Upstream middleware forwards request to `https://api.example.com`
 3. If successful -> return upstream response
 4. If failed and status matches `fail-on` -> return upstream error directly
@@ -203,7 +203,7 @@ Invalid requests return `400 Bad Request` with validation details.
 
 ## Response Generation
 
-When no cached or upstream response is available, Connexions generates a mock response:
+When no cached or upstream response is available, Mockzilla generates a mock response:
 
 1. **Find matching operation** in OpenAPI spec
 2. **Select response** (prefer 200, then 2xx, then first defined)

@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="server" type="GoApplicationRunConfiguration" factoryName="Go Application">
-    <module name="connexions" />
+    <module name="mockzilla" />
     <working_directory value="$PROJECT_DIR$" />
     <EXTENSION ID="net.ashald.envfile">
       <option name="IS_ENABLED" value="false" />
@@ -18,7 +18,7 @@
       <option name="useCurrentConnection" value="false" />
     </EXTENSION>
     <kind value="PACKAGE" />
-    <package value="github.com/mockzilla/connexions/v2/cmd/server" />
+    <package value="github.com/mockzilla/mockzilla/v2/cmd/server" />
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$/cmd/server/main.go" />
     <method v="2" />

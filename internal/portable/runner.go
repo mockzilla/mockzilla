@@ -15,9 +15,9 @@ import (
 
 	"github.com/caarlos0/env/v11"
 	"github.com/lmittmann/tint"
-	"github.com/mockzilla/connexions/v2/pkg/api"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/factory"
+	"github.com/mockzilla/mockzilla/v2/pkg/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/factory"
 )
 
 const (
@@ -53,7 +53,7 @@ func Run(args []string) int {
 		return exitCodeError
 	}
 
-	baseDir := filepath.Join(os.TempDir(), "connexions-portable")
+	baseDir := filepath.Join(os.TempDir(), "mockzilla-portable")
 	_ = os.MkdirAll(baseDir, 0o755)
 
 	// Load unified config (app + per-service)

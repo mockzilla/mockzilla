@@ -10,7 +10,7 @@ import (
 	"sort"
 	"text/template"
 
-	"github.com/mockzilla/connexions/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 )
 
 const (
@@ -97,7 +97,7 @@ type BatchServerInfo struct {
 // GenerateBatchServer generates a main.go that imports all services in the batch
 func GenerateBatchServer(sandboxDir string, batchID int, serviceNames []string) (*BatchServerInfo, error) {
 	// Get module name for imports
-	moduleName := "github.com/mockzilla/connexions/v2"
+	moduleName := "github.com/mockzilla/mockzilla/v2"
 
 	// Build service imports using relative services path
 	paths := config.NewPaths("")

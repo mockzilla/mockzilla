@@ -10,11 +10,11 @@ import (
 	"github.com/caarlos0/env/v11"
 	"github.com/go-chi/chi/v5"
 	chiMw "github.com/go-chi/chi/v5/middleware"
-	"github.com/mockzilla/connexions/v2/internal/contexts"
-	"github.com/mockzilla/connexions/v2/pkg/config"
-	"github.com/mockzilla/connexions/v2/pkg/db"
-	"github.com/mockzilla/connexions/v2/pkg/middleware"
-	"github.com/mockzilla/connexions/v2/resources"
+	"github.com/mockzilla/mockzilla/v2/internal/contexts"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/db"
+	"github.com/mockzilla/mockzilla/v2/pkg/middleware"
+	"github.com/mockzilla/mockzilla/v2/resources"
 )
 
 // Router is the central HTTP router for all services

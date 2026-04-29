@@ -1,6 +1,6 @@
 services:
-  connexions:
-    image: mockzilla/connexions:latest
+  mockzilla:
+    image: mockzilla/mockzilla:latest
     ports:
       - "2200:2200"
     volumes:
@@ -17,7 +17,7 @@ services:
   # app:
   #   build: ./your-app
   #   environment:
-  #     - API_BASE_URL=http://connexions:2200
+  #     - API_BASE_URL=http://mockzilla:2200
   #   depends_on:
-  #     connexions:
+  #     mockzilla:
   #       condition: service_healthy

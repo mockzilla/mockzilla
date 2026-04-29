@@ -19,7 +19,7 @@ generate:
     middleware: {}
     server:
       directory: server
-      handler-package: github.com/mockzilla/connexions/v2/examples/commands/service/petstore
+      handler-package: github.com/mockzilla/mockzilla/v2/examples/commands/service/petstore
     validation:
       request: true
       response: true
