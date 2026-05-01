@@ -186,6 +186,8 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: fetch-specs
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout code
@@ -208,14 +210,26 @@ jobs:
         total=$(go tool cover -func=coverage.out | awk '/^total:/{printf "%d", $3}' | tr -d '%')
         echo "TOTAL_COVERAGE=$total" >> $GITHUB_ENV
 
-    - name: Make coverage badge
-      uses: schneegans/dynamic-badges-action@v1.7.0
-      with:
-        auth: ${{ secrets.GIST_WRITER }}
-        gistID: 4110782af3ec09dd1ebabc3304756f1f
-        filename: covbadge.json
-        label: Coverage
-        message: ${{ env.TOTAL_COVERAGE }}%
-        minColorRange: 50
-        maxColorRange: 90
-        valColorRange: ${{ env.TOTAL_COVERAGE }}
+    - name: Update coverage badge
+      run: |
+        cov=${TOTAL_COVERAGE}
+        if [ "$cov" -le 50 ]; then hue=0
+        elif [ "$cov" -ge 90 ]; then hue=120
+        else hue=$(( (cov - 50) * 3 )); fi
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git fetch origin main
+        git switch main
+        git pull --rebase origin main
+
+        mkdir -p resources/badges
+        printf '{"schemaVersion":1,"label":"Coverage","message":"%s%%","color":"hsl(%s, 100%%, 40%%)"}\n' "$cov" "$hue" > resources/badges/covbadge.json
+
+        git add resources/badges/covbadge.json
+        if git diff --cached --quiet; then
+          echo "Coverage badge unchanged, skipping commit"
+          exit 0
+        fi
+        git commit -m "Update coverage badge [skip ci]"
+        git push origin main
