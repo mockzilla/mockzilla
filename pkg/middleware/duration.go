@@ -19,11 +19,11 @@ func StartTimeMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// SetDurationHeader sets X-Mz-Duration header based on start time from context.
+// SetDurationHeader sets X-Mockzilla-Duration header based on start time from context.
 func SetDurationHeader(w http.ResponseWriter, r *http.Request) {
 	if start, ok := r.Context().Value(startTimeKey).(time.Time); ok {
 		duration := float64(time.Since(start).Microseconds()) / 1000
-		w.Header().Set("X-Mz-Duration", fmt.Sprintf("%.3fms", duration))
+		w.Header().Set("X-Mockzilla-Duration", fmt.Sprintf("%.3fms", duration))
 	}
 }
 

@@ -255,7 +255,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 
 		// Verify custom headers are set
 		assert.Equal(ResponseHeaderSourceGenerated, w.Header().Get(ResponseHeaderSource))
-		assert.NotEmpty(w.Header().Get("X-Mz-Duration"), "Duration header should be set")
+		assert.NotEmpty(w.Header().Get("X-Mockzilla-Duration"), "Duration header should be set")
 		assert.Equal("application/json", w.Header().Get("Content-Type"))
 		assert.Equal(http.StatusCreated, w.Code)
 		assert.Equal(`{"id": 1}`, w.Body.String())
@@ -287,11 +287,11 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 		assert.Equal("test-req-id-001", rec.Request.RequestID)
 		assert.GreaterOrEqual(rec.Response.Duration, 25*time.Millisecond)
 
-		// Verify X-Mz-Source is captured in history headers
+		// Verify X-Mockzilla-Source is captured in history headers
 		assert.Contains(rec.Response.Headers, ResponseHeaderSource+": "+ResponseHeaderSourceGenerated)
 	})
 
-	t.Run("sets X-Mz-Request-Id response header", func(t *testing.T) {
+	t.Run("sets X-Mockzilla-Request-Id response header", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test-service",
 		})

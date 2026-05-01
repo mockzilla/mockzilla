@@ -10,13 +10,13 @@ import (
 
 // ContextHeaderName is the header name for passing context replacements via HTTP requests.
 // The value should be base64-encoded JSON.
-const ContextHeaderName = "X-Mz-Context"
+const ContextHeaderName = "X-Mockzilla-Context"
 
 type contextKeyType struct{}
 
 var userContextKey = contextKeyType{}
 
-// ExtractContextFromRequest reads and decodes the X-Mz-Context header from an HTTP request.
+// ExtractContextFromRequest reads and decodes the X-Mockzilla-Context header from an HTTP request.
 // Returns nil if the header is absent or cannot be decoded.
 func ExtractContextFromRequest(r *http.Request) map[string]any {
 	encoded := r.Header.Get(ContextHeaderName)
@@ -34,7 +34,7 @@ func ExtractContextFromRequest(r *http.Request) map[string]any {
 	return ctx
 }
 
-// ContextReplacementsMiddleware extracts the X-Mz-Context header and stores
+// ContextReplacementsMiddleware extracts the X-Mockzilla-Context header and stores
 // the decoded context data on the request's Go context.
 func ContextReplacementsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

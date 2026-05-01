@@ -30,8 +30,8 @@ func TestParseConfigOverrides(t *testing.T) {
 
 	t.Run("parses X-Mz headers", func(t *testing.T) {
 		headers := http.Header{
-			"X-Mz-Cache-Requests": []string{"false"},
-			"X-Mz-Latency":        []string{"100ms"},
+			"X-Mockzilla-Cache-Requests": []string{"false"},
+			"X-Mockzilla-Latency":        []string{"100ms"},
 		}
 		overrides := parseConfigOverrides(headers)
 		assert.Len(overrides, 2)
@@ -40,8 +40,8 @@ func TestParseConfigOverrides(t *testing.T) {
 	t.Run("headers are case-insensitive via http.Header canonicalization", func(t *testing.T) {
 		headers := http.Header{}
 		// http.Header.Set canonicalizes the key
-		headers.Set("x-mz-cache-requests", "false")
-		headers.Set("X-MZ-LATENCY", "100ms")
+		headers.Set("x-mockzilla-cache-requests", "false")
+		headers.Set("X-MOCKZILLA-LATENCY", "100ms")
 
 		overrides := parseConfigOverrides(headers)
 		assert.Len(overrides, 2)
@@ -57,7 +57,7 @@ func TestParseConfigOverrides(t *testing.T) {
 
 	t.Run("uses first value for multiple values", func(t *testing.T) {
 		headers := http.Header{
-			"X-Mz-Latency": []string{"100ms", "200ms"},
+			"X-Mockzilla-Latency": []string{"100ms", "200ms"},
 		}
 		overrides := parseConfigOverrides(headers)
 		assert.Len(overrides, 1)
@@ -66,7 +66,7 @@ func TestParseConfigOverrides(t *testing.T) {
 
 	t.Run("skips headers with empty values array", func(t *testing.T) {
 		headers := http.Header{
-			"X-Mz-Latency": []string{},
+			"X-Mockzilla-Latency": []string{},
 		}
 		overrides := parseConfigOverrides(headers)
 		assert.Len(overrides, 0)
@@ -196,7 +196,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set("X-Mz-Latency", "500ms")
+		req.Header.Set("X-Mockzilla-Latency", "500ms")
 		w := NewBufferedResponseWriter()
 
 		mw := CreateConfigOverrideMiddleware(params)
@@ -220,7 +220,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set("X-Mz-Latency", "500ms")
+		req.Header.Set("X-Mockzilla-Latency", "500ms")
 		w := NewBufferedResponseWriter()
 
 		mw := CreateConfigOverrideMiddleware(params)
@@ -240,15 +240,15 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set("X-Mz-Latency", "200ms")
-		req.Header.Set("X-Mz-Context", "eyJmb28iOiJiYXIifQ==")
+		req.Header.Set("X-Mockzilla-Latency", "200ms")
+		req.Header.Set("X-Mockzilla-Context", "eyJmb28iOiJiYXIifQ==")
 		w := NewBufferedResponseWriter()
 
 		mw := CreateConfigOverrideMiddleware(params)
 		mw(handler).ServeHTTP(w, req)
 
-		assert.Equal("200ms", capturedHeaders.Get("X-Mz-Latency"))
-		assert.Equal("eyJmb28iOiJiYXIifQ==", capturedHeaders.Get("X-Mz-Context"))
+		assert.Equal("200ms", capturedHeaders.Get("X-Mockzilla-Latency"))
+		assert.Equal("eyJmb28iOiJiYXIifQ==", capturedHeaders.Get("X-Mockzilla-Context"))
 	})
 
 	t.Run("browser headers are stripped from request", func(t *testing.T) {
@@ -299,7 +299,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
 		req.Header.Set("Authorization", "Basic ui-session-creds")
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Mz-Source", "ui")
+		req.Header.Set("X-Mockzilla-Source", "ui")
 		req.Header.Set("Origin", "http://localhost:2200")
 		w := NewBufferedResponseWriter()
 
@@ -309,7 +309,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		assert.Empty(capturedHeaders.Get("Authorization"))
 		assert.Empty(capturedHeaders.Get("Origin"))
 		assert.Equal("application/json", capturedHeaders.Get("Content-Type"))
-		assert.Equal("ui", capturedHeaders.Get("X-Mz-Source"))
+		assert.Equal("ui", capturedHeaders.Get("X-Mockzilla-Source"))
 	})
 
 	t.Run("multiple overrides applied", func(t *testing.T) {
@@ -332,8 +332,8 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		})
 
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
-		req.Header.Set("X-Mz-Latency", "200ms")
-		req.Header.Set("X-Mz-Cache-Requests", "false")
+		req.Header.Set("X-Mockzilla-Latency", "200ms")
+		req.Header.Set("X-Mockzilla-Cache-Requests", "false")
 		w := NewBufferedResponseWriter()
 
 		mw := CreateConfigOverrideMiddleware(params)

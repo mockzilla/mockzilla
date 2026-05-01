@@ -352,7 +352,7 @@ Replacement is applied in the order of definition. If no configuration is provid
 
 When generating values, contexts are checked in the following order. The first match wins:
 
-1. **User context** - provided via the UI editor or `X-Mz-Context` HTTP header (base64-encoded JSON)
+1. **User context** - provided via the UI editor or `X-Mockzilla-Context` HTTP header (base64-encoded JSON)
 2. **Service context** - from the service's `context.yml` file
 3. **Common context** - built-in patterns like `(_id|Id)$`, `email`, etc.
 4. **Fake context** - faker library generators
@@ -362,10 +362,10 @@ User context overrides service context, which overrides defaults. This applies t
 
 ## Per-Request Context via Header
 
-Context replacements can be passed with any HTTP request using the `X-Mz-Context` header. The value should be base64-encoded JSON:
+Context replacements can be passed with any HTTP request using the `X-Mockzilla-Context` header. The value should be base64-encoded JSON:
 
 ```
-X-Mz-Context: eyJuYW1lIjoiZm9vIiwiaWQiOjExfQ==
+X-Mockzilla-Context: eyJuYW1lIjoiZm9vIiwiaWQiOjExfQ==
 ```
 
 This is useful for:

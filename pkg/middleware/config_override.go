@@ -15,7 +15,7 @@ import (
 // Headers are case-insensitive (Go's http.Header canonicalizes them).
 const (
 	// headerPrefix is the prefix for all config override headers.
-	headerPrefix = "X-Mz-"
+	headerPrefix = "X-Mockzilla-"
 
 	// Supported header names (without prefix, canonicalized form)
 	headerCacheRequests   = "Cache-Requests"
@@ -51,7 +51,7 @@ var browserHeaders = map[string]bool{
 	"Service-Worker-Navigation-Preload": true,
 }
 
-// CreateConfigOverrideMiddleware creates a middleware that reads X-Mz-* headers
+// CreateConfigOverrideMiddleware creates a middleware that reads X-Mockzilla-* headers
 // and temporarily overrides ServiceConfig values for the current request.
 // Headers are case-insensitive. The original config is restored after the request completes.
 func CreateConfigOverrideMiddleware(params *Params) func(http.Handler) http.Handler {
@@ -73,7 +73,7 @@ func CreateConfigOverrideMiddleware(params *Params) func(http.Handler) http.Hand
 }
 
 // stripBrowserHeaders removes known browser-injected headers from the request.
-// When the request originates from the UI (detected by the presence of X-Mz-*
+// When the request originates from the UI (detected by the presence of X-Mockzilla-*
 // headers), Authorization is also stripped since it belongs to the UI session,
 // not to the target API.
 func stripBrowserHeaders(req *http.Request, fromUI bool) {
@@ -95,7 +95,7 @@ type configOverride struct {
 	value string
 }
 
-// parseConfigOverrides extracts X-Mz-* headers from the request.
+// parseConfigOverrides extracts X-Mockzilla-* headers from the request.
 func parseConfigOverrides(headers http.Header) []configOverride {
 	var overrides []configOverride
 
