@@ -99,7 +99,7 @@ Simplifying the spec makes it faster to iterate.
 
 ## Example
 
-See the [simplify example](https://github.com/mockzilla/mockzilla/tree/master/examples/commands/simplify) for a runnable example.
+See the [simplify example](https://github.com/mockzilla/mockzilla/tree/main/examples/commands/simplify) for a runnable example.
 
 ```bash
 cd examples/commands/simplify

@@ -146,7 +146,7 @@ ownerPerson:
   email: "fake:internet.email"
 ```
 
-All available fake functions are listed in the [fake.yml](https://github.com/mockzilla/mockzilla/blob/master/resources/contexts/fake.yml) file.
+All available fake functions are listed in the [fake.yml](https://github.com/mockzilla/mockzilla/blob/main/resources/contexts/fake.yml) file.
 
 **Common fake functions:**
 - `fake:uuid.v4` - UUID v4

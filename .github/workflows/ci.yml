@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: 'master'
+    branches: 'main'
     paths-ignore:
       - 'docs/**'
   pull_request:
@@ -181,9 +181,9 @@ jobs:
       run: |
         NO_CACHE=1 SPECS="${{ matrix.specs }}" make test-integration
 
-  # Only runs on push to master to update the coverage badge
+  # Only runs on push to main to update the coverage badge
   generate_badge:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: fetch-specs
     runs-on: ubuntu-latest
 
