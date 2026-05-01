@@ -91,5 +91,5 @@ func TestRequestLog(t *testing.T) {
 
 func TestResponseHeaderRequestID(t *testing.T) {
 	assert := assert2.New(t)
-	assert.Equal("X-Mz-Request-Id", ResponseHeaderRequestID)
+	assert.Equal("X-Mockzilla-Request-Id", ResponseHeaderRequestID)
 }

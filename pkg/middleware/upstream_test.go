@@ -106,8 +106,8 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		w := NewBufferedResponseWriter()
 		req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
 		req.Header.Set("Authorization", "Bearer 123")
-		req.Header.Set("X-Mz-Latency", "200ms")
-		req.Header.Set("X-Mz-Context", "eyJmb28iOiJiYXIifQ==")
+		req.Header.Set("X-Mockzilla-Latency", "200ms")
+		req.Header.Set("X-Mockzilla-Context", "eyJmb28iOiJiYXIifQ==")
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
@@ -121,11 +121,11 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		waitForAsync()
 
 		assert.Equal("Bearer 123", receivedHeaders.Get("Authorization"))
-		assert.Empty(receivedHeaders.Get("X-Mz-Latency"))
-		assert.Empty(receivedHeaders.Get("X-Mz-Context"))
+		assert.Empty(receivedHeaders.Get("X-Mockzilla-Latency"))
+		assert.Empty(receivedHeaders.Get("X-Mockzilla-Context"))
 	})
 
-	t.Run("X-Mz-Upstream-Headers allowlist keeps only listed headers for upstream", func(t *testing.T) {
+	t.Run("X-Mockzilla-Upstream-Headers allowlist keeps only listed headers for upstream", func(t *testing.T) {
 		var receivedHeaders http.Header
 		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			receivedHeaders = r.Header.Clone()
@@ -140,7 +140,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		req.Header.Set("Smartum-Version", "2020-04-02")
 		req.Header.Set("X-Custom", "keep-me")
 		req.Header.Set("Cookie", "session=abc")
-		req.Header.Set("X-Mz-Upstream-Headers", "Smartum-Version,X-Custom")
+		req.Header.Set("X-Mockzilla-Upstream-Headers", "Smartum-Version,X-Custom")
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
@@ -157,7 +157,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		assert.Equal("keep-me", receivedHeaders.Get("X-Custom"))
 		assert.Empty(receivedHeaders.Get("Authorization"))
 		assert.Empty(receivedHeaders.Get("Cookie"))
-		assert.Empty(receivedHeaders.Get("X-Mz-Upstream-Headers"))
+		assert.Empty(receivedHeaders.Get("X-Mockzilla-Upstream-Headers"))
 	})
 
 	t.Run("query parameters are forwarded to upstream", func(t *testing.T) {
@@ -280,7 +280,7 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		assert.Equal("custom-value", receivedHeaders.Get("X-Custom"))
 	})
 
-	t.Run("sets X-Mz-Source header to upstream", func(t *testing.T) {
+	t.Run("sets X-Mockzilla-Source header to upstream", func(t *testing.T) {
 		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write([]byte(`{"from":"upstream"}`))

@@ -8,14 +8,14 @@ import (
 )
 
 // ResponseHeaderRequestID is the response header containing the request ID.
-const ResponseHeaderRequestID = "X-Mz-Request-Id"
+const ResponseHeaderRequestID = "X-Mockzilla-Request-Id"
 
 // GetRequestID extracts the request ID set by chi's RequestID middleware.
 func GetRequestID(r *http.Request) string {
 	return chiMw.GetReqID(r.Context())
 }
 
-// SetRequestIDHeader sets the X-Mz-Request-Id response header from context.
+// SetRequestIDHeader sets the X-Mockzilla-Request-Id response header from context.
 func SetRequestIDHeader(w http.ResponseWriter, r *http.Request) {
 	if id := GetRequestID(r); id != "" {
 		w.Header().Set(ResponseHeaderRequestID, id)

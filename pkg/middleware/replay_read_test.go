@@ -34,7 +34,7 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 
 		w := NewBufferedResponseWriter()
 		req := httptest.NewRequest(http.MethodPost, "/svc/foo", strings.NewReader(`{"name":"test"}`))
-		// No X-Mz-Replay header
+		// No X-Mockzilla-Replay header
 		mw(handler).ServeHTTP(w, req)
 
 		assert.Equal("fresh", string(w.buf))

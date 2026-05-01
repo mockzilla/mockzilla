@@ -82,7 +82,7 @@
             },
             "auto-replay": {
               "type": "boolean",
-              "description": "Activate replay for configured endpoints without requiring the X-Mz-Replay header.",
+              "description": "Activate replay for configured endpoints without requiring the X-Mockzilla-Replay header.",
               "default": false
             },
             "endpoints": {

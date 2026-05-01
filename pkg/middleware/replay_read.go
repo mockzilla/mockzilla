@@ -5,9 +5,9 @@ import (
 )
 
 // CreateReplayReadMiddleware returns middleware that checks for a matching replay recording.
-// Activates when the X-Mz-Replay header is present, or when auto-replay is enabled
+// Activates when the X-Mockzilla-Replay header is present, or when auto-replay is enabled
 // in config for the matching endpoint.
-// On hit, it returns the stored response with X-Mz-Source: replay.
+// On hit, it returns the stored response with X-Mockzilla-Source: replay.
 // On miss, it passes through to the next handler.
 func CreateReplayReadMiddleware(params *Params) func(http.Handler) http.Handler {
 	log := params.Logger("replay-read")

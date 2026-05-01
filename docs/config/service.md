@@ -316,8 +316,8 @@ Mockzilla adds the following headers to responses:
 
 | Header | Values | Description |
 |--------|--------|-------------|
-| `X-Mz-Source` | `upstream`, `cache`, `generated`, `replay` | Indicates where the response came from |
-| `X-Mz-Duration` | e.g. `1.234ms` | Request processing time |
+| `X-Mockzilla-Source` | `upstream`, `cache`, `generated`, `replay` | Indicates where the response came from |
+| `X-Mockzilla-Duration` | e.g. `1.234ms` | Request processing time |
 
 ## Contexts
 

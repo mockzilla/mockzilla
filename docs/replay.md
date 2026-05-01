@@ -21,32 +21,32 @@ cache:
 
 ## How It Works
 
-1. A request comes in with the `X-Mz-Replay` header (or to an `auto-replay` endpoint)
+1. A request comes in with the `X-Mockzilla-Replay` header (or to an `auto-replay` endpoint)
 2. Specified fields are extracted from the request body and/or query string
 3. A content-addressed key is built from the method, path pattern, and extracted values
-4. If a recording exists for that key - return it immediately with `X-Mz-Source: replay`
+4. If a recording exists for that key - return it immediately with `X-Mockzilla-Source: replay`
 5. If no recording exists - forward to downstream, capture the response, store it, and return it
 
 ## Activation
 
 Replay activates in two ways:
 
-**Header-based (default):** Send the `X-Mz-Replay` header to activate replay for any request.
+**Header-based (default):** Send the `X-Mockzilla-Replay` header to activate replay for any request.
 
 ```bash
 # Empty header - uses match fields from config
 curl -X POST /svc/foo/123/bar/456 \
-  -H "X-Mz-Replay:" \
+  -H "X-Mockzilla-Replay:" \
   -d '{"data": {"name": "Jane", "address": {"zip": "12345"}}}'
 
 # Header with body fields - overrides config
 curl -X POST /svc/foo/123/bar/456 \
-  -H "X-Mz-Replay: data.name,data.address.zip" \
+  -H "X-Mockzilla-Replay: data.name,data.address.zip" \
   -d '{"data": {"name": "Jane", "address": {"zip": "12345"}}}'
 
 # Header with explicit body and query fields
 curl -X POST /svc/pay?channel=web \
-  -H "X-Mz-Replay: body:biller,reference;query:channel" \
+  -H "X-Mockzilla-Replay: body:biller,reference;query:channel" \
   -d 'biller=BLR0001&reference=REF123'
 ```
 
@@ -55,7 +55,7 @@ Fields can also include path variables using the `path:` prefix:
 ```bash
 # Header with path, body, and query fields
 curl -X POST /svc/pay/credit-card/tx/123 \
-  -H "X-Mz-Replay: path:paymentMethodName;body:reference;query:channel" \
+  -H "X-Mockzilla-Replay: path:paymentMethodName;body:reference;query:channel" \
   -d 'reference=REF123'
 ```
 
@@ -148,11 +148,11 @@ endpoints:
 ```bash
 # credit-card and bank-transfer produce different recordings
 curl -X POST /svc/pay/credit-card/tx/123 \
-  -H "X-Mz-Replay:" \
+  -H "X-Mockzilla-Replay:" \
   -d 'reference=REF123'
 
 curl -X POST /svc/pay/bank-transfer/tx/456 \
-  -H "X-Mz-Replay:" \
+  -H "X-Mockzilla-Replay:" \
   -d 'reference=REF123'
 ```
 
@@ -174,7 +174,7 @@ match:
 ```bash
 curl -X POST /svc/search \
   -H "Content-Type: application/json" \
-  -H "X-Mz-Replay:" \
+  -H "X-Mockzilla-Replay:" \
   -d '{"data": {"name": "Jane"}}'
 ```
 
@@ -190,7 +190,7 @@ match:
 ```bash
 curl -X POST /svc/pets \
   -H "Content-Type: application/json" \
-  -H "X-Mz-Replay:" \
+  -H "X-Mockzilla-Replay:" \
   -d '[{"name": "doggie", "tag": "fundamental-window"}]'
 ```
 
@@ -206,7 +206,7 @@ match:
 ```bash
 curl -X POST /svc/pay \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -H "X-Mz-Replay:" \
+  -H "X-Mockzilla-Replay:" \
   -d 'amount=50&biller=BLR0001&reference=REF123'
 ```
 
@@ -223,7 +223,7 @@ match:
 
 ```bash
 curl /svc/pay?amount=50&biller=BLR0001 \
-  -H "X-Mz-Replay:"
+  -H "X-Mockzilla-Replay:"
 ```
 
 ### Mixed: body + query
@@ -242,7 +242,7 @@ match:
 ```bash
 curl -X POST /svc/pay?channel=web \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -H "X-Mz-Replay:" \
+  -H "X-Mockzilla-Replay:" \
   -d 'amount=50&biller=BLR0001&reference=REF123'
 ```
 
