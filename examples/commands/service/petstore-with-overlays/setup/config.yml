@@ -1,2 +1,2 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla/refs/heads/master/resources/json-schema-service.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla/refs/heads/main/resources/json-schema-service.json
 name: petstore
