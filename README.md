@@ -5,7 +5,6 @@
 ## Mockzilla
 
 [![CI](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml?query=branch%3Amain)
-[![Endpoint Badge](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmockzilla%2Fmockzilla%2Fmain%2Fresources%2Fbadges%2Fcovbadge.json&labelColor=%23058FF3&color=%2306C53B)](https://github.com/mockzilla/mockzilla/actions/workflows/ci.yml?query=event%3Apush+branch%3Amain+workflow%3ACI)
 [![codecov](https://codecov.io/gh/mockzilla/mockzilla/graph/badge.svg?token=XGCEHYUDH0)](https://codecov.io/gh/mockzilla/mockzilla)
 [![GoReportCard](https://goreportcard.com/badge/github.com/mockzilla/mockzilla/v2)](https://goreportcard.com/report/github.com/mockzilla/mockzilla/v2)
 [![Go Reference](https://pkg.go.dev/badge/github.com/mockzilla/mockzilla/v2.svg)](https://pkg.go.dev/github.com/mockzilla/mockzilla/v2)
