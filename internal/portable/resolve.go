@@ -16,9 +16,10 @@ import (
 
 // flags holds the parsed CLI flags for portable mode.
 type flags struct {
-	port    int
-	config  string // unified app+services config
-	context string // per-service contexts
+	port       int
+	config     string // unified app+services config
+	context    string // per-service contexts
+	readyStamp bool   // emit a single JSON readiness line on stdout
 }
 
 // IsPortableMode determines if the CLI args indicate portable mode.
@@ -101,9 +102,10 @@ func resolveSpecs(args []string) []string {
 func parseFlags(args []string) (flags, []string) {
 	fs := flag.NewFlagSet("portable", flag.ContinueOnError)
 	fl := flags{}
-	fs.IntVar(&fl.port, "port", 0, "Server port (default: from app config or 2200)")
+	fs.IntVar(&fl.port, "port", -1, "Server port (0 = kernel picks a free port; default: from app config or 2200)")
 	fs.StringVar(&fl.config, "config", "", "Unified config YAML (app settings + per-service config)")
 	fs.StringVar(&fl.context, "context", "", "Per-service context YAML for value replacements")
+	fs.BoolVar(&fl.readyStamp, "ready-stamp", false, "Emit a single JSON line on stdout once the HTTP listener is bound (for programmatic supervisors)")
 
 	// Separate positional args from flags
 	var positional []string

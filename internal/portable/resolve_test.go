@@ -298,7 +298,10 @@ func TestParseFlags(t *testing.T) {
 
 	t.Run("handles no flags", func(t *testing.T) {
 		fl, positional := parseFlags([]string{"spec1.yml", "spec2.yml"})
-		assert.Equal(t, 0, fl.port)
+
+		// -1 is the sentinel for "user didn't pass --port"; 0 is reserved
+		// for "let the kernel pick" (standard Unix idiom).
+		assert.Equal(t, -1, fl.port)
 		assert.Equal(t, "", fl.config)
 		assert.Equal(t, []string{"spec1.yml", "spec2.yml"}, positional)
 	})
