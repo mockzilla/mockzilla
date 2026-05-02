@@ -1,0 +1,15 @@
+.md-header__button.md-logo img {
+    width: auto;
+}
+
+.md-header__inner.md-grid img {
+    /*height: 40px !important;*/
+}
+
+.md-header__title {
+    margin-left: 0 !important;
+}
+
+.md-typeset h1 {
+    font-weight: 800;
+}

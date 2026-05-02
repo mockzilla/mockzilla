@@ -1,0 +1,2181 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../app/">
+      
+      
+        <link rel="next" href="../codegen/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../images/favicon.ico">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Service Config - Mockzilla Documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+  
+  
+  
+  
+  <style>:root{--md-annotation-icon:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2024%2024%22%3E%3Cpath%20d%3D%22M17%2013h-4v4h-2v-4H7v-2h4V7h2v4h4m-5-9A10%2010%200%200%200%202%2012a10%2010%200%200%200%2010%2010%2010%2010%200%200%200%2010-10A10%2010%200%200%200%2012%202%22/%3E%3C/svg%3E');}</style>
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../css/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#service-configuration" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Mockzilla Documentation" class="md-header__button md-logo" aria-label="Mockzilla Documentation" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Mockzilla Documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Service Config
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="blue" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m17.75 4.09-2.53 1.94.91 3.06-2.63-1.81-2.63 1.81.91-3.06-2.53-1.94L12.44 4l1.06-3 1.06 3zm3.5 6.91-1.64 1.25.59 1.98-1.7-1.17-1.7 1.17.59-1.98L15.75 11l2.06-.05L18.5 9l.69 1.95zm-2.28 4.95c.83-.08 1.72 1.1 1.19 1.85-.32.45-.66.87-1.08 1.27C15.17 23 8.84 23 4.94 19.07c-3.91-3.9-3.91-10.24 0-14.14.4-.4.82-.76 1.27-1.08.75-.53 1.93.36 1.85 1.19-.27 2.86.69 5.83 2.89 8.02a9.96 9.96 0 0 0 8.02 2.89m-1.64 2.02a12.08 12.08 0 0 1-7.8-3.47c-2.17-2.19-3.33-5-3.49-7.82-2.81 3.14-2.7 7.96.31 10.98 3.02 3.01 7.84 3.12 10.98.31"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="black" data-md-color-accent="red"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 7a5 5 0 0 1 5 5 5 5 0 0 1-5 5 5 5 0 0 1-5-5 5 5 0 0 1 5-5m0 2a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3m0-7 2.39 3.42C13.65 5.15 12.84 5 12 5s-1.65.15-2.39.42zM3.34 7l4.16-.35A7.2 7.2 0 0 0 5.94 8.5c-.44.74-.69 1.5-.83 2.29zm.02 10 1.76-3.77a7.131 7.131 0 0 0 2.38 4.14zM20.65 7l-1.77 3.79a7.02 7.02 0 0 0-2.38-4.15zm-.01 10-4.14.36c.59-.51 1.12-1.14 1.54-1.86.42-.73.69-1.5.83-2.29zM12 22l-2.41-3.44c.74.27 1.55.44 2.41.44.82 0 1.63-.17 2.37-.44z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/mockzilla/mockzilla" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../.." class="md-tabs__link">
+          
+  
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../usage/portable/" class="md-tabs__link">
+          
+  
+  
+  Usage
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../templates/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Templates
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../services/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Services
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../factory/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Factory
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../app/" class="md-tabs__link">
+          
+  
+  
+  Configuration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../replay/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Replay
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../storage/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Storage
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../../middleware/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Middleware
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../contexts/" class="md-tabs__link">
+          
+  
+  
+  Contexts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../commands/service/" class="md-tabs__link">
+          
+  
+  
+  Commands
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../api/" class="md-tabs__link">
+          
+  
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Mockzilla Documentation" class="md-nav__button md-logo" aria-label="Mockzilla Documentation" data-md-component="logo">
+      
+  <img src="../../images/logo.png" alt="logo">
+
+    </a>
+    Mockzilla Documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/mockzilla/mockzilla" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Welcome
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../how-it-works/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    How It Works
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Usage
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/portable/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Portable Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../usage/codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Codegen Mode
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../templates/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Templates
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../services/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Services
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../factory/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Factory
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Configuration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../app/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    App Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Config
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Service Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#location" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Location
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#service-name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service Name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        History
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Latency
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#latency-simulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Latency Simulation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-injection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Injection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replay
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spec-simplification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec Simplification
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream Proxy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upstream Proxy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sticky-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sticky Source
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fail-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fail-On
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fail-On">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#body-matching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Body Matching
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#response-headers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response Headers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contexts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contexts
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../codegen/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Codegen Config
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../replay/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Replay
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../storage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Storage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../middleware/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Middleware
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_10" id="__nav_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contexts
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Contexts
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../contexts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../fake-list/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Fake Functions
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_11" id="__nav_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Commands
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Commands
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../commands/service/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    service
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../commands/simplify/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    simplify
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_12" id="__nav_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../api/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#location" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Location
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuration-options" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Configuration Options
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Configuration Options">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#service-name" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Service Name
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#history" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        History
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#latency" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Latency
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#latency-simulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Latency Simulation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-injection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Error Injection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#caching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#replay" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Replay
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spec-simplification" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Spec Simplification
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upstream-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upstream Proxy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Upstream Proxy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sticky-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sticky Source
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#fail-on" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Fail-On
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Fail-On">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#body-matching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Body Matching
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#response-headers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Response Headers
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#contexts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contexts
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="service-configuration">Service Configuration<a class="headerlink" href="#service-configuration" title="Permanent link">&para;</a></h1>
+<p>Each service can have its own <code>config.yml</code> file that controls runtime behavior like latency simulation, error injection, validation, and caching.</p>
+<h2 id="location">Location<a class="headerlink" href="#location" title="Permanent link">&para;</a></h2>
+<p>For compiled Go services, place <code>config.yml</code> in the <code>setup/</code> directory:</p>
+<div class="highlight"><pre><span></span><code>services/petstore/
+└── setup/
+    ├── config.yml      # Service configuration
+    ├── codegen.yml     # Code generation settings
+    └── openapi.yml     # OpenAPI specification
+</code></pre></div>
+<p>For the full server mode with mounted specs, use a directory structure with <code>config.yml</code> alongside your spec:</p>
+<div class="highlight"><pre><span></span><code>openapi/
+└── petstore/
+    ├── openapi.yml     # OpenAPI spec (must be named openapi.yml/yaml/json)
+    └── config.yml      # Service config
+</code></pre></div>
+<p>Note: Flat specs like <code>openapi/petstore.yml</code> don't support config files - use the directory structure above.</p>
+<p>For portable mode, use the <code>--config</code> flag instead. See <a href="../../usage/portable/">Portable Mode</a>.</p>
+<h2 id="configuration-options">Configuration Options<a class="headerlink" href="#configuration-options" title="Permanent link">&para;</a></h2>
+<h3 id="service-name">Service Name<a class="headerlink" href="#service-name" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">petstore</span>
+</code></pre></div>
+<p>The <code>name</code> property defines the <strong>URL prefix</strong> for all routes in this service.</p>
+<p>For example, if your OpenAPI spec has <code>/pets</code> and <code>/pets/{id}</code>, they become:
+- <code>GET /petstore/pets</code>
+- <code>GET /petstore/pets/{id}</code></p>
+<p>This allows multiple APIs to coexist on the same server without route conflicts.</p>
+<p><strong>How the name is determined:</strong></p>
+<ol>
+<li>If <code>name</code> is set in <code>config.yml</code> → uses that name</li>
+<li>Otherwise → inferred from directory name (e.g., <code>openapi/stripe/</code> → <code>stripe</code>)</li>
+<li>For flat specs → inferred from filename (e.g., <code>openapi/petstore.yml</code> → <code>petstore</code>)</li>
+</ol>
+<h3 id="history">History<a class="headerlink" href="#history" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="nt">history</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">           </span><span class="c1"># Record request/response history (default: true)</span>
+<span class="w">  </span><span class="nt">mask-headers</span><span class="p">:</span><span class="w">            </span><span class="c1"># Header names to mask in history entries</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Authorization</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Cookie</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Set-Cookie</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">X-Api-Key</span>
+</code></pre></div>
+<p>When enabled (default), incoming requests and their responses are recorded in the service's history table. This data is available via the DB Explorer UI or the history API.</p>
+<p><strong>Header masking:</strong> Headers matching <code>mask-headers</code> patterns have their values replaced with asterisks, keeping only the last 4 characters visible. For example, <code>Bearer sk-proj-abc123</code> becomes <code>***********c123</code>.</p>
+<p>Patterns support two forms:
+- <strong>Exact match</strong> - <code>Authorization</code> matches only that header
+- <strong>Prefix match</strong> - <code>X-Internal-*</code> matches any header starting with <code>X-Internal-</code></p>
+<p>Matching is case-insensitive. By default, <code>Authorization</code>, <code>Cookie</code>, <code>Set-Cookie</code>, and <code>X-Api-Key</code> are masked.</p>
+<p><strong>Shorthand:</strong> to disable history entirely:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">history</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+</code></pre></div>
+<p>The boolean shorthand <code>history: false</code> is also supported for backward compatibility.</p>
+<h3 id="latency">Latency<a class="headerlink" href="#latency" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><span class="c1"># Request/response history</span>
+<span class="nt">history</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">  </span><span class="nt">mask-headers</span><span class="p">:</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Authorization</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Cookie</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">Set-Cookie</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">X-Api-Key</span>
+
+<span class="c1"># Simulated latency for responses</span>
+<span class="nt">latency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100ms</span>
+
+<span class="c1"># Latency distribution by percentile</span>
+<span class="nt">latencies</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">p50</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50ms</span>
+<span class="w">  </span><span class="nt">p90</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100ms</span>
+<span class="w">  </span><span class="nt">p99</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500ms</span>
+
+<span class="c1"># Error injection by percentile</span>
+<span class="nt">errors</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">p5</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span><span class="w">   </span><span class="c1"># 5% of requests return 500</span>
+<span class="w">  </span><span class="nt">p10</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">400</span><span class="w">  </span><span class="c1"># 5% return 400 (p10 - p5)</span>
+
+<span class="c1"># Caching behavior</span>
+<span class="nt">cache</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">requests</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Cache GET request responses</span>
+<span class="w">  </span><span class="nt">replay</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">ttl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">24h</span>
+<span class="w">    </span><span class="nt">auto-replay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">upstream-only</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">endpoints</span><span class="p">:</span>
+<span class="w">      </span><span class="l l-Scalar l-Scalar-Plain">/path/{id}</span><span class="p p-Indicator">:</span>
+<span class="w">        </span><span class="nt">POST</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">match</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">body</span><span class="p">:</span>
+<span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">data.name</span>
+
+<span class="c1"># OpenAPI spec simplification</span>
+<span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">simplify</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">  </span><span class="c1"># optional-properties not set = keep all optional properties</span>
+<span class="w">  </span><span class="c1"># optional-properties:</span>
+<span class="w">  </span><span class="c1">#   min: 5</span>
+<span class="w">  </span><span class="c1">#   max: 5</span>
+</code></pre></div>
+<h2 id="latency-simulation">Latency Simulation<a class="headerlink" href="#latency-simulation" title="Permanent link">&para;</a></h2>
+<p>Simulate real-world network conditions:</p>
+<div class="highlight"><pre><span></span><code><span class="c1"># Fixed latency</span>
+<span class="nt">latency</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100ms</span>
+
+<span class="c1"># Or percentile-based distribution</span>
+<span class="nt">latencies</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">p25</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">10ms</span><span class="w">   </span><span class="c1"># 25% of requests: 10ms</span>
+<span class="w">  </span><span class="nt">p50</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">50ms</span><span class="w">   </span><span class="c1"># 25% of requests: 50ms  </span>
+<span class="w">  </span><span class="nt">p90</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">100ms</span><span class="w">  </span><span class="c1"># 40% of requests: 100ms</span>
+<span class="w">  </span><span class="nt">p99</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500ms</span><span class="w">  </span><span class="c1"># 9% of requests: 500ms</span>
+<span class="w">  </span><span class="nt">p100</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">1s</span><span class="w">    </span><span class="c1"># 1% of requests: 1s</span>
+</code></pre></div>
+<h2 id="error-injection">Error Injection<a class="headerlink" href="#error-injection" title="Permanent link">&para;</a></h2>
+<p>Test error handling by injecting HTTP errors:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">errors</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">p5</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">500</span><span class="w">   </span><span class="c1"># 5% return 500 Internal Server Error</span>
+<span class="w">  </span><span class="nt">p10</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">400</span><span class="w">  </span><span class="c1"># 5% return 400 Bad Request</span>
+<span class="w">  </span><span class="nt">p15</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">429</span><span class="w">  </span><span class="c1"># 5% return 429 Too Many Requests</span>
+</code></pre></div>
+<p>Percentiles are cumulative - <code>p10: 400</code> means requests between p5 and p10 (5%) return 400.</p>
+<h2 id="caching">Caching<a class="headerlink" href="#caching" title="Permanent link">&para;</a></h2>
+<p>Cache responses for GET requests:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">cache</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">requests</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">  </span><span class="c1"># Enable response caching</span>
+</code></pre></div>
+<p>Cached responses are returned for identical GET requests, improving performance.</p>
+<h2 id="replay">Replay<a class="headerlink" href="#replay" title="Permanent link">&para;</a></h2>
+<p>Record and replay API responses based on request fields. See <a href="../../replay/">Replay</a> for full documentation.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">cache</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">replay</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">ttl</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">24h</span>
+<span class="w">    </span><span class="nt">auto-replay</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">false</span>
+<span class="w">    </span><span class="nt">endpoints</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">/search</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">POST</span><span class="p">:</span>
+<span class="w">          </span><span class="nt">match</span><span class="p">:</span>
+<span class="w">            </span><span class="nt">body</span><span class="p">:</span>
+<span class="w">              </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">query</span>
+</code></pre></div>
+<h2 id="spec-simplification">Spec Simplification<a class="headerlink" href="#spec-simplification" title="Permanent link">&para;</a></h2>
+<p>Reduce complexity of large OpenAPI specs:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">spec</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">simplify</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">   </span><span class="c1"># Enable/disable simplification</span>
+<span class="w">  </span><span class="nt">optional-properties</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">min</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span><span class="w">         </span><span class="c1"># Keep exactly 5 optional properties (when min == max)</span>
+<span class="w">    </span><span class="nt">max</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5</span>
+<span class="w">    </span><span class="c1"># OR</span>
+<span class="w">    </span><span class="c1"># min: 2       # Keep random number between 2-8 optional properties</span>
+<span class="w">    </span><span class="c1"># max: 8</span>
+</code></pre></div>
+<p>When <code>optional-properties</code> is not set, all optional properties are kept.
+This helps with specs that have schemas with many optional fields.</p>
+<h2 id="upstream-proxy">Upstream Proxy<a class="headerlink" href="#upstream-proxy" title="Permanent link">&para;</a></h2>
+<p>Forward requests to a real backend:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">upstream</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://api.example.com</span>
+<span class="w">  </span><span class="nt">timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">5s</span><span class="w">               </span><span class="c1"># Request timeout (default: 5s)</span>
+<span class="w">  </span><span class="nt">sticky-timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30s</span><span class="w">       </span><span class="c1"># Sticky source duration (default: 0 = disabled)</span>
+<span class="w">  </span><span class="nt">headers</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">X-Custom-Header</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">value</span>
+<span class="w">  </span><span class="nt">fail-on</span><span class="p">:</span><span class="w">                   </span><span class="c1"># Return these statuses directly (default: 400-499 except 401, 403)</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">range</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;400-499&quot;</span>
+<span class="w">      </span><span class="nt">except</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">401</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">403</span><span class="p p-Indicator">]</span>
+</code></pre></div>
+<p>When configured, requests are proxied to the upstream server.
+If the upstream fails (timeout, network error, or error status), Mockzilla falls back to generating mock responses.</p>
+<h3 id="sticky-source">Sticky Source<a class="headerlink" href="#sticky-source" title="Permanent link">&para;</a></h3>
+<p>When any request to a service receives a generated (fallback) response, all subsequent requests to that service automatically skip upstream for the configured duration. This prevents dependent requests from hitting an upstream that is down or has no state from generated responses.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">upstream</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://api.example.com</span>
+<span class="w">  </span><span class="nt">sticky-timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30s</span><span class="w">   </span><span class="c1"># 0 or omitted = disabled (default)</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Not set / <code>0</code></td>
+<td>Disabled - every request tries upstream normally</td>
+</tr>
+<tr>
+<td><code>sticky-timeout: 30s</code></td>
+<td>After a generator fallback, all requests skip upstream for 30s</td>
+</tr>
+</tbody>
+</table>
+<p>The sticky marker is cleared when the upstream returns a successful response, so normal routing resumes as soon as upstream is working again.</p>
+<h3 id="fail-on">Fail-On<a class="headerlink" href="#fail-on" title="Permanent link">&para;</a></h3>
+<p>Control which upstream error status codes are returned directly to the client instead of falling back to the generator:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">upstream</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">url</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">https://api.example.com</span>
+<span class="w">  </span><span class="nt">fail-on</span><span class="p">:</span><span class="w">                     </span><span class="c1"># Return these statuses directly (no generator fallback)</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">range</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;400-499&quot;</span>
+<span class="w">      </span><span class="nt">except</span><span class="p">:</span><span class="w"> </span><span class="p p-Indicator">[</span><span class="nv">401</span><span class="p p-Indicator">,</span><span class="w"> </span><span class="nv">403</span><span class="p p-Indicator">]</span>
+<span class="w">    </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">exact</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">502</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Configuration</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Not set (omitted)</td>
+<td>Default: <code>400-499</code> except <code>401</code> and <code>403</code> are returned directly</td>
+</tr>
+<tr>
+<td><code>fail-on: []</code></td>
+<td>Disabled - all errors fall back to the generator</td>
+</tr>
+<tr>
+<td><code>fail-on: [{range: "400-499"}]</code></td>
+<td>All 4xx returned directly (no exceptions)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="body-matching">Body Matching<a class="headerlink" href="#body-matching" title="Permanent link">&para;</a></h4>
+<p>You can refine fail-on rules based on the response body using the <code>body</code> field.
+The body is parsed as JSON and fields are matched using dot-notation paths.</p>
+<div class="highlight"><pre><span></span><code><span class="nt">fail-on</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">range</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;400-499&quot;</span>
+<span class="w">    </span><span class="nt">body</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">default</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">fail</span><span class="w">            </span><span class="c1"># &quot;fail&quot; (default) or &quot;except&quot;</span>
+<span class="w">      </span><span class="nt">fail</span><span class="p">:</span><span class="w">                    </span><span class="c1"># Fail when ALL conditions match</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;code&quot;</span>
+<span class="w">          </span><span class="nt">equals</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">496</span>
+<span class="w">      </span><span class="nt">except</span><span class="p">:</span><span class="w">                  </span><span class="c1"># Don&#39;t fail when ALL conditions match</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;code&quot;</span>
+<span class="w">          </span><span class="nt">equals</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">497</span>
+</code></pre></div>
+<ul>
+<li><code>body.fail</code> - always fail when all conditions match (return error to client).</li>
+<li><code>body.except</code> - never fail when all conditions match (fall through to generator).</li>
+<li><code>body.default</code> - decides the outcome when neither <code>fail</code> nor <code>except</code> match, or when both match. Defaults to <code>"fail"</code>.</li>
+<li><code>path</code> uses dot notation for nested fields (e.g. <code>"error.detail.code"</code>).</li>
+<li><code>equals</code> supports any JSON-compatible value: string, number, boolean.</li>
+<li>Multiple conditions within <code>fail</code> or <code>except</code> are AND-ed: all must match.</li>
+</ul>
+<p><strong>Examples:</strong></p>
+<p>Don't fail on 400 when response body contains <code>"code": 496</code> (fall through to generator instead):</p>
+<div class="highlight"><pre><span></span><code><span class="nt">fail-on</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">range</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;400-499&quot;</span>
+<span class="w">    </span><span class="nt">body</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">except</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;code&quot;</span>
+<span class="w">          </span><span class="nt">equals</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">496</span>
+</code></pre></div>
+<p>Only fail on 400 when body contains a specific error code:</p>
+<div class="highlight"><pre><span></span><code><span class="nt">fail-on</span><span class="p">:</span>
+<span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">exact</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">400</span>
+<span class="w">    </span><span class="nt">body</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">default</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">except</span>
+<span class="w">      </span><span class="nt">fail</span><span class="p">:</span>
+<span class="w">        </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">path</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;error.code&quot;</span>
+<span class="w">          </span><span class="nt">equals</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;VALIDATION_ERROR&quot;</span>
+</code></pre></div>
+<h2 id="response-headers">Response Headers<a class="headerlink" href="#response-headers" title="Permanent link">&para;</a></h2>
+<p>Mockzilla adds the following headers to responses:</p>
+<table>
+<thead>
+<tr>
+<th>Header</th>
+<th>Values</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>X-Mockzilla-Source</code></td>
+<td><code>upstream</code>, <code>cache</code>, <code>generated</code>, <code>replay</code></td>
+<td>Indicates where the response came from</td>
+</tr>
+<tr>
+<td><code>X-Mockzilla-Duration</code></td>
+<td>e.g. <code>1.234ms</code></td>
+<td>Request processing time</td>
+</tr>
+</tbody>
+</table>
+<h2 id="contexts">Contexts<a class="headerlink" href="#contexts" title="Permanent link">&para;</a></h2>
+<p>See <a href="../../contexts/">Contexts</a> for details on context files.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["content.code.annotate", "content.code.copy", "content.code.select", "content.tabs.link", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "search.suggest", "search.highlight", "header.autohide"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+        <script src="../../js/extra.js"></script>
+      
+    
+  </body>
+</html>
