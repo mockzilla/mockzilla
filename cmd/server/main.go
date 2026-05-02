@@ -16,6 +16,7 @@ import (
 
 	"github.com/joho/godotenv"
 	"github.com/lmittmann/tint"
+	"github.com/mockzilla/mockzilla/v2/internal/inspect"
 	"github.com/mockzilla/mockzilla/v2/internal/portable"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
@@ -37,6 +38,11 @@ const (
 func main() {
 	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
 		fmt.Println(version)
+		return
+	}
+
+	if len(os.Args) >= 2 && (os.Args[1] == "--help" || os.Args[1] == "-h" || os.Args[1] == "help") {
+		printUsage()
 		return
 	}
 
@@ -84,6 +90,13 @@ func main() {
 }
 
 func runServer() int {
+	// `mockzilla info <url-or-file>` prints a JSON summary of the spec
+	// and exits. Used by the MCP bridge's peek_openapi tool, but also
+	// handy on its own to eyeball a spec before serving it.
+	if len(os.Args) > 1 && os.Args[1] == "info" {
+		return inspect.Run(os.Args[2:])
+	}
+
 	// Check for portable mode: if args contain spec files or directories with spec files
 	if len(os.Args) > 1 && portable.IsPortableMode(os.Args[1:]) {
 		return portable.Run(os.Args[1:])
@@ -236,4 +249,31 @@ func getEnv(key, defaultValue string) string {
 		return value
 	}
 	return defaultValue
+}
+
+func printUsage() {
+	fmt.Print(`mockzilla — generate mock servers from OpenAPI specs
+
+Usage:
+  mockzilla <spec.yaml | dir | https://...>  [flags]   Portable mode: serve a spec or directory of specs
+  mockzilla info <spec.yaml | https://...>            Print a JSON summary of a spec and exit
+  mockzilla [<app-dir>]                                App mode: serve a configured mockzilla project
+  mockzilla --version                                  Print version and exit
+  mockzilla --help                                     Print this message
+
+Portable-mode flags:
+  --port N            Server port (0 = let the OS pick a free port; default 2200)
+  --config PATH       Unified config YAML (app + per-service)
+  --context PATH      Per-service context YAML for value replacements
+  --ready-stamp       Emit a single JSON line on stdout once the listener is bound
+                      (for programmatic supervisors like the mockzilla MCP bridge)
+
+Examples:
+  mockzilla https://petstore3.swagger.io/api/v3/openapi.json
+  mockzilla --port 3000 ./specs/
+  mockzilla info https://petstore3.swagger.io/api/v3/openapi.json
+  mockzilla --ready-stamp --port 0 ./openapi.yml
+
+Docs:  https://github.com/mockzilla/mockzilla
+`)
 }

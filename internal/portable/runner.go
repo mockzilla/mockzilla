@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -81,11 +82,13 @@ func Run(args []string) int {
 		slog.Error("Failed to apply env overrides", "error", err)
 	}
 
-	// --port flag wins over everything
-	if fl.port > 0 {
+	// --port flag wins over everything. -1 is the "not supplied" sentinel
+	// from parseFlags; 0 means the user explicitly wants the kernel to
+	// pick a free port (standard Unix idiom).
+	if fl.port >= 0 {
 		appCfg.Port = fl.port
 	}
-	if appCfg.Port == 0 {
+	if appCfg.Port == 0 && fl.port < 0 {
 		appCfg.Port = 2200
 	}
 
@@ -122,10 +125,36 @@ func Run(args []string) int {
 		slog.Info("Registered service", "path", "/"+name)
 	}
 
-	// Start server
+	// Bind the listener up-front so the readiness stamp can only fire
+	// after the socket is open. Programmatic supervisors race here
+	// otherwise.
 	addr := fmt.Sprintf(":%d", appCfg.Port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		slog.Error("Failed to bind listener", "addr", addr, "error", err)
+		return exitCodeError
+	}
+
+	// `--port 0` lets the kernel pick a free port; record the resolved
+	// port so the ready stamp and the startup log line both reflect it.
+	if tcpAddr, ok := listener.Addr().(*net.TCPAddr); ok {
+		appCfg.Port = tcpAddr.Port
+	}
+
+	if fl.readyStamp {
+		names := make([]string, 0, len(handlers))
+		for name := range handlers {
+			names = append(names, name)
+		}
+		stamp, stampErr := buildReadyStamp(appCfg.Port, appCfg.HomeURL, names)
+		if stampErr != nil {
+			slog.Error("Failed to build ready stamp", "error", stampErr)
+		} else {
+			fmt.Println(stamp)
+		}
+	}
+
 	server := &http.Server{
-		Addr:         addr,
 		Handler:      router,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -134,7 +163,7 @@ func Run(args []string) int {
 
 	go func() {
 		slog.Info(fmt.Sprintf("Mockzilla portable mode on http://localhost:%d%s", appCfg.Port, appCfg.HomeURL))
-		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("Server failed", "error", err)
 			os.Exit(1)
 		}
