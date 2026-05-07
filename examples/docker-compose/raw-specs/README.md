@@ -21,39 +21,36 @@ curl http://localhost:2200/stripe/customers
 ```
 raw-specs/
 ├── docker-compose.yml
+├── app.yml                       # App + per-service config
 ├── openapi/
 │   ├── petstore.yml              # Flat: service name from filename
-│   └── stripe/                   # Nested: service name from directory
-│       ├── openapi.yml           # The OpenAPI spec
-│       └── config.yml            # Optional service config
+│   └── stripe/
+│       └── openapi.yml           # Nested: service name from directory
 └── static/
     └── myapi/
-        ├── config.yml            # Optional service config
         └── users/
             └── get/
                 └── index.json
 ```
 
-## Service Configuration (Optional)
+## Configuration
 
-Add a `config.yml` alongside your spec to customize service behavior:
+Mount `app.yml` to configure app settings and per-service behavior:
 
 ```yaml
-cache:
-  requests: false          # Disable GET request caching
+app:
+  title: Mockzilla
+  history:
+    enabled: false
 
-latency: 50ms              # Add artificial latency
-
-errors:                    # Simulate errors at percentiles
-  p10: 500                 # 10% of requests return 500
-  p5: 429                  # 5% of requests return 429
+services:
+  stripe:
+    latency: 50ms
+    cache:
+      requests: true
 ```
 
-## Hot Reload
-
-Changes to specs and static files are automatically detected:
-- Edit a JSON file → service regenerates → server restarts
-- Add/remove specs → services added/removed automatically
+See `app.yml` in this directory for a full example.
 
 ## Integration with Your App
 
@@ -72,4 +69,3 @@ services:
       mockzilla:
         condition: service_healthy
 ```
-
