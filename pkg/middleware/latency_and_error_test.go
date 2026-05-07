@@ -133,4 +133,95 @@ errors:
 		assert.Equal(http.StatusServiceUnavailable, w.statusCode)
 		assert.True(strings.Contains(string(w.buf), "Simulated error"), "Expected error message")
 	})
+
+	t.Run("endpoint-level latency overrides service latency", func(t *testing.T) {
+		cfgBytes := []byte(`
+name: foo
+latency: 0ms
+endpoints:
+  /users/{id}:
+    GET:
+      latency: 100ms
+`)
+		cfg, _ := config.NewServiceConfigFromBytes(cfgBytes)
+		params := newTestParams(cfg)
+
+		w := NewBufferedResponseWriter()
+		req := httptest.NewRequest(http.MethodGet, "/foo/users/1", nil)
+
+		mw := CreateLatencyAndErrorMiddleware(params)
+		start := time.Now()
+		mw(handler).ServeHTTP(w, req)
+		duration := time.Since(start)
+
+		assert.GreaterOrEqual(duration, 100*time.Millisecond, "Endpoint latency should apply")
+		assert.Equal(http.StatusOK, w.statusCode)
+	})
+
+	t.Run("endpoint-level error overrides service error", func(t *testing.T) {
+		cfgBytes := []byte(`
+name: foo
+endpoints:
+  /users/{id}:
+    POST:
+      errors:
+        p100: 503
+`)
+		cfg, _ := config.NewServiceConfigFromBytes(cfgBytes)
+		params := newTestParams(cfg)
+
+		w := NewBufferedResponseWriter()
+		req := httptest.NewRequest(http.MethodPost, "/foo/users/42", nil)
+
+		mw := CreateLatencyAndErrorMiddleware(params)
+		mw(handler).ServeHTTP(w, req)
+
+		assert.Equal(http.StatusServiceUnavailable, w.statusCode)
+		assert.True(strings.Contains(string(w.buf), "Simulated error"))
+	})
+
+	t.Run("falls back to service config when no endpoint match", func(t *testing.T) {
+		cfgBytes := []byte(`
+name: foo
+latency: 100ms
+endpoints:
+  /users/{id}:
+    GET:
+      latency: 0ms
+`)
+		cfg, _ := config.NewServiceConfigFromBytes(cfgBytes)
+		params := newTestParams(cfg)
+
+		w := NewBufferedResponseWriter()
+		req := httptest.NewRequest(http.MethodGet, "/foo/other/path", nil)
+
+		mw := CreateLatencyAndErrorMiddleware(params)
+		start := time.Now()
+		mw(handler).ServeHTTP(w, req)
+		duration := time.Since(start)
+
+		assert.GreaterOrEqual(duration, 100*time.Millisecond, "Service-level latency should apply for non-matching endpoint")
+		assert.Equal(http.StatusOK, w.statusCode)
+	})
+
+	t.Run("endpoint match is method-specific", func(t *testing.T) {
+		cfgBytes := []byte(`
+name: foo
+endpoints:
+  /users/{id}:
+    POST:
+      errors:
+        p100: 500
+`)
+		cfg, _ := config.NewServiceConfigFromBytes(cfgBytes)
+		params := newTestParams(cfg)
+
+		w := NewBufferedResponseWriter()
+		req := httptest.NewRequest(http.MethodGet, "/foo/users/1", nil)
+
+		mw := CreateLatencyAndErrorMiddleware(params)
+		mw(handler).ServeHTTP(w, req)
+
+		assert.Equal(http.StatusOK, w.statusCode, "GET should not match POST endpoint config")
+	})
 }

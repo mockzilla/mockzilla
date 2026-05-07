@@ -92,6 +92,51 @@ services:
 		assert.Equal(t, "50ms", cfg.Services["petstore"].Latency.String())
 	})
 
+	t.Run("services with endpoint-level config", func(t *testing.T) {
+		content := `
+services:
+  petstore:
+    latency: 0ms
+    endpoints:
+      /pets/{id}:
+        GET:
+          latency: 200ms
+        POST:
+          errors:
+            p10: 500
+  spoonacular:
+    endpoints:
+      /recipes/search:
+        GET:
+          latencies:
+            p50: 50ms
+            p90: 300ms
+`
+		path := filepath.Join(baseDir, "endpoints.yml")
+		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+
+		cfg, err := loadPortableConfig(path, baseDir)
+		require.NoError(t, err)
+
+		require.Len(t, cfg.Services, 2)
+
+		ps := cfg.Services["petstore"]
+		require.NotNil(t, ps.Endpoints)
+		ep := ps.GetEndpointConfig("/pets/42", "GET")
+		require.NotNil(t, ep)
+		assert.Equal(t, "200ms", ep.Latency.String())
+
+		epPost := ps.GetEndpointConfig("/pets/42", "POST")
+		require.NotNil(t, epPost)
+		assert.Equal(t, 500, epPost.Errors["p10"])
+
+		sp := cfg.Services["spoonacular"]
+		require.NotNil(t, sp.Endpoints)
+		epSearch := sp.GetEndpointConfig("/recipes/search", "GET")
+		require.NotNil(t, epSearch)
+		assert.Len(t, epSearch.Latencies, 2)
+	})
+
 	t.Run("empty file", func(t *testing.T) {
 		path := filepath.Join(baseDir, "empty.yml")
 		require.NoError(t, os.WriteFile(path, []byte(""), 0644))

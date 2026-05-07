@@ -27,16 +27,17 @@ type KeyValue[K, V any] struct {
 // ResourcesPrefix is the prefix for helper routes outside OpenAPI spec.
 // SpecOptions allows OpenAPI spec simplifications for code generation.
 type ServiceConfig struct {
-	Name            string                   `yaml:"name,omitempty"`
-	Upstream        *UpstreamConfig          `yaml:"upstream,omitempty"`
-	Latency         time.Duration            `yaml:"latency,omitempty"`
-	Latencies       map[string]time.Duration `yaml:"latencies,omitempty"`
-	Errors          map[string]int           `yaml:"errors,omitempty"`
-	Cache           *CacheConfig             `yaml:"cache,omitempty"`
-	History         *HistoryConfig           `yaml:"history,omitempty"`
-	ResourcesPrefix string                   `yaml:"resources-prefix,omitempty"`
-	SpecOptions     *SpecOptions             `yaml:"spec,omitempty"`
-	Extra           map[string]any           `yaml:"extra,omitempty"`
+	Name            string                                `yaml:"name,omitempty"`
+	Upstream        *UpstreamConfig                       `yaml:"upstream,omitempty"`
+	Latency         time.Duration                         `yaml:"latency,omitempty"`
+	Latencies       map[string]time.Duration              `yaml:"latencies,omitempty"`
+	Errors          map[string]int                        `yaml:"errors,omitempty"`
+	Endpoints       map[string]map[string]*EndpointConfig `yaml:"endpoints,omitempty"`
+	Cache           *CacheConfig                          `yaml:"cache,omitempty"`
+	History         *HistoryConfig                        `yaml:"history,omitempty"`
+	ResourcesPrefix string                                `yaml:"resources-prefix,omitempty"`
+	SpecOptions     *SpecOptions                          `yaml:"spec,omitempty"`
+	Extra           map[string]any                        `yaml:"extra,omitempty"`
 
 	latencies []*KeyValue[int, time.Duration]
 	errors    []*KeyValue[int, int]
@@ -113,6 +114,19 @@ func (s *ServiceConfig) WithDefaults() *ServiceConfig {
 		s.errors = s.parseErrors()
 	}
 
+	s.Endpoints = normalizeMethodKeys(s.Endpoints)
+	for _, methods := range s.Endpoints {
+		for _, ep := range methods {
+			if ep != nil {
+				ep.parse()
+			}
+		}
+	}
+
+	if s.Cache != nil && s.Cache.Replay != nil {
+		s.Cache.Replay.Endpoints = normalizeMethodKeys(s.Cache.Replay.Endpoints)
+	}
+
 	return s
 }
 
@@ -177,6 +191,27 @@ func (s *ServiceConfig) OverwriteWith(other *ServiceConfig) *ServiceConfig {
 		s.SpecOptions = other.SpecOptions
 	}
 
+	if other.Endpoints != nil {
+		if s.Endpoints == nil {
+			s.Endpoints = make(map[string]map[string]*EndpointConfig)
+		}
+		for path, methods := range normalizeMethodKeys(other.Endpoints) {
+			if s.Endpoints[path] == nil {
+				s.Endpoints[path] = make(map[string]*EndpointConfig)
+			}
+			for method, ep := range methods {
+				s.Endpoints[path][method] = ep
+			}
+		}
+		for _, methods := range s.Endpoints {
+			for _, ep := range methods {
+				if ep != nil {
+					ep.parse()
+				}
+			}
+		}
+	}
+
 	if other.Extra != nil {
 		if s.Extra == nil {
 			s.Extra = make(map[string]any)
@@ -231,9 +266,97 @@ func (s *ServiceConfig) HistoryEnabled() bool {
 	return s.History == nil || s.History.Enabled == nil || *s.History.Enabled
 }
 
+// GetEndpointConfig finds the matching endpoint config for a request path and method.
+// Returns nil if no match is found. When matched, the endpoint config completely
+// overrides service-level latency/error settings.
+func (s *ServiceConfig) GetEndpointConfig(requestPath, method string) *EndpointConfig {
+	if len(s.Endpoints) == 0 {
+		return nil
+	}
+
+	for pattern, methods := range s.Endpoints {
+		if !matchesPattern(requestPath, pattern) {
+			continue
+		}
+
+		if methods == nil {
+			return &EndpointConfig{}
+		}
+
+		if ep, ok := methods[method]; ok {
+			if ep == nil {
+				return &EndpointConfig{}
+			}
+			return ep
+		}
+	}
+	return nil
+}
+
 func (s *ServiceConfig) parseLatencies() []*KeyValue[int, time.Duration] {
+	return parsePercentileLatencies(s.Latencies)
+}
+
+func (s *ServiceConfig) parseErrors() []*KeyValue[int, int] {
+	return parsePercentileErrors(s.Errors)
+}
+
+// EndpointConfig defines per-endpoint latency and error overrides.
+// When an endpoint matches, its config completely replaces (not merges with)
+// the service-level latency/error settings.
+type EndpointConfig struct {
+	Latency   time.Duration            `yaml:"latency,omitempty"`
+	Latencies map[string]time.Duration `yaml:"latencies,omitempty"`
+	Errors    map[string]int           `yaml:"errors,omitempty"`
+
+	latencies []*KeyValue[int, time.Duration]
+	errors    []*KeyValue[int, int]
+}
+
+// GetLatency returns the latency for this endpoint.
+func (e *EndpointConfig) GetLatency() time.Duration {
+	if len(e.latencies) == 0 {
+		return e.Latency
+	}
+
+	rnd := rand.Intn(100) + 1
+	for _, kv := range e.latencies {
+		if rnd <= kv.Key {
+			return kv.Value
+		}
+	}
+
+	return 0
+}
+
+// GetError returns the error code for this endpoint.
+func (e *EndpointConfig) GetError() int {
+	if len(e.errors) == 0 {
+		return 0
+	}
+
+	rnd := rand.Intn(100) + 1
+	for _, kv := range e.errors {
+		if rnd <= kv.Key {
+			return kv.Value
+		}
+	}
+
+	return 0
+}
+
+func (e *EndpointConfig) parse() {
+	if len(e.Latencies) > 0 {
+		e.latencies = parsePercentileLatencies(e.Latencies)
+	}
+	if len(e.Errors) > 0 {
+		e.errors = parsePercentileErrors(e.Errors)
+	}
+}
+
+func parsePercentileLatencies(m map[string]time.Duration) []*KeyValue[int, time.Duration] {
 	latencies := make([]*KeyValue[int, time.Duration], 0)
-	for k, v := range s.Latencies {
+	for k, v := range m {
 		if strings.HasPrefix(k, "p") {
 			kNum, err := strconv.Atoi(strings.TrimPrefix(k, "p"))
 			if err == nil {
@@ -249,9 +372,9 @@ func (s *ServiceConfig) parseLatencies() []*KeyValue[int, time.Duration] {
 	return latencies
 }
 
-func (s *ServiceConfig) parseErrors() []*KeyValue[int, int] {
+func parsePercentileErrors(m map[string]int) []*KeyValue[int, int] {
 	errors := make([]*KeyValue[int, int], 0)
-	for k, v := range s.Errors {
+	for k, v := range m {
 		if strings.HasPrefix(k, "p") {
 			kNum, err := strconv.Atoi(strings.TrimPrefix(k, "p"))
 			if err == nil {
@@ -264,6 +387,20 @@ func (s *ServiceConfig) parseErrors() []*KeyValue[int, int] {
 		return errors[i].Key < errors[j].Key
 	})
 	return errors
+}
+
+func normalizeMethodKeys[T any](endpoints map[string]map[string]T) map[string]map[string]T {
+	if len(endpoints) == 0 {
+		return endpoints
+	}
+	for path, methods := range endpoints {
+		normalized := make(map[string]T, len(methods))
+		for method, cfg := range methods {
+			normalized[strings.ToUpper(method)] = cfg
+		}
+		endpoints[path] = normalized
+	}
+	return endpoints
 }
 
 // HistoryConfig controls request/response history recording for a service.

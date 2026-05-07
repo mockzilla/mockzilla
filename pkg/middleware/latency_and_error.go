@@ -12,13 +12,28 @@ func CreateLatencyAndErrorMiddleware(params *Params) func(http.Handler) http.Han
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			reqLog := RequestLog(log, req)
 			cfg := params.GetServiceConfig(req)
-			latency := cfg.GetLatency()
-			if latency > 0 {
-				reqLog.Info("Latency", "delay", latency)
-				time.Sleep(latency)
+			endpointPath := getEndpointPath(req, cfg.Name)
+
+			var latency time.Duration
+			var errorCode int
+
+			if ep := cfg.GetEndpointConfig(endpointPath, req.Method); ep != nil {
+				latency = ep.GetLatency()
+				errorCode = ep.GetError()
+			} else {
+				latency = cfg.GetLatency()
+				errorCode = cfg.GetError()
 			}
 
-			errorCode := cfg.GetError()
+			if latency > 0 {
+				reqLog.Info("Latency", "delay", latency)
+				select {
+				case <-time.After(latency):
+				case <-req.Context().Done():
+					return
+				}
+			}
+
 			if errorCode > 0 {
 				reqLog.Info("Simulated error", "code", errorCode)
 				SetRequestIDHeader(w, req)
