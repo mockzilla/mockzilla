@@ -76,7 +76,6 @@ jobs:
           FILTER_REGEX_INCLUDE: resources/openapi.yml
 
   test:
-    if: github.event_name == 'pull_request'
     needs: fetch-specs
     runs-on: ubuntu-latest
 
