@@ -840,6 +840,314 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 	})
 }
 
+func TestEndpointConfig_GetLatency(t *testing.T) {
+	t.Run("Returns fixed latency when no percentiles defined", func(t *testing.T) {
+		ep := &EndpointConfig{
+			Latency: 500 * time.Millisecond,
+		}
+		assert.Equal(t, 500*time.Millisecond, ep.GetLatency())
+	})
+
+	t.Run("Returns 0 when nothing configured", func(t *testing.T) {
+		ep := &EndpointConfig{}
+		assert.Equal(t, time.Duration(0), ep.GetLatency())
+	})
+
+	t.Run("Returns latency based on percentiles", func(t *testing.T) {
+		ep := &EndpointConfig{
+			latencies: []*KeyValue[int, time.Duration]{
+				{Key: 50, Value: 50 * time.Millisecond},
+				{Key: 100, Value: 200 * time.Millisecond},
+			},
+		}
+
+		seen := make(map[time.Duration]bool)
+		for i := 0; i < 100; i++ {
+			seen[ep.GetLatency()] = true
+		}
+		assert.True(t, seen[50*time.Millisecond])
+		assert.True(t, seen[200*time.Millisecond])
+	})
+}
+
+func TestEndpointConfig_GetError(t *testing.T) {
+	t.Run("Returns 0 when no errors defined", func(t *testing.T) {
+		ep := &EndpointConfig{}
+		assert.Equal(t, 0, ep.GetError())
+	})
+
+	t.Run("Returns error based on percentiles", func(t *testing.T) {
+		ep := &EndpointConfig{
+			errors: []*KeyValue[int, int]{
+				{Key: 50, Value: 500},
+				{Key: 100, Value: 503},
+			},
+		}
+
+		seen := make(map[int]bool)
+		for i := 0; i < 100; i++ {
+			seen[ep.GetError()] = true
+		}
+		assert.True(t, seen[500])
+		assert.True(t, seen[503])
+	})
+}
+
+func TestServiceConfig_GetEndpointConfig(t *testing.T) {
+	t.Run("Returns nil when no endpoints defined", func(t *testing.T) {
+		cfg := &ServiceConfig{}
+		assert.Nil(t, cfg.GetEndpointConfig("/foo", "GET"))
+	})
+
+	t.Run("Returns nil for non-matching path", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+			},
+		}
+		assert.Nil(t, cfg.GetEndpointConfig("/bar", "GET"))
+	})
+
+	t.Run("Returns nil for non-matching method", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+			},
+		}
+		assert.Nil(t, cfg.GetEndpointConfig("/foo", "POST"))
+	})
+
+	t.Run("Matches exact path and method", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+			},
+		}
+		ep := cfg.GetEndpointConfig("/foo", "GET")
+		assert.NotNil(t, ep)
+		assert.Equal(t, 100*time.Millisecond, ep.Latency)
+	})
+
+	t.Run("Matches parameterized path", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/pets/{id}": {"GET": {Latency: 200 * time.Millisecond}},
+			},
+		}
+		ep := cfg.GetEndpointConfig("/pets/123", "GET")
+		assert.NotNil(t, ep)
+		assert.Equal(t, 200*time.Millisecond, ep.Latency)
+	})
+
+	t.Run("Different methods on same path", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {
+					"GET":  {Latency: 100 * time.Millisecond},
+					"POST": {Latency: 500 * time.Millisecond},
+				},
+			},
+		}
+		assert.Equal(t, 100*time.Millisecond, cfg.GetEndpointConfig("/foo", "GET").Latency)
+		assert.Equal(t, 500*time.Millisecond, cfg.GetEndpointConfig("/foo", "POST").Latency)
+	})
+
+	t.Run("Nil methods map returns empty endpoint config", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": nil,
+			},
+		}
+		ep := cfg.GetEndpointConfig("/foo", "GET")
+		assert.NotNil(t, ep)
+		assert.Equal(t, time.Duration(0), ep.Latency)
+	})
+
+	t.Run("Nil endpoint config returns empty endpoint config", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": nil},
+			},
+		}
+		ep := cfg.GetEndpointConfig("/foo", "GET")
+		assert.NotNil(t, ep)
+		assert.Equal(t, time.Duration(0), ep.Latency)
+	})
+
+	t.Run("Method keys are case-insensitive", func(t *testing.T) {
+		yamlData := []byte(`
+endpoints:
+  /foo:
+    get:
+      latency: 100ms
+    Post:
+      latency: 200ms
+`)
+		cfg, err := NewServiceConfigFromBytes(yamlData)
+		assert.NoError(t, err)
+
+		ep := cfg.GetEndpointConfig("/foo", "GET")
+		assert.NotNil(t, ep)
+		assert.Equal(t, 100*time.Millisecond, ep.Latency)
+
+		ep = cfg.GetEndpointConfig("/foo", "POST")
+		assert.NotNil(t, ep)
+		assert.Equal(t, 200*time.Millisecond, ep.Latency)
+	})
+}
+
+func TestServiceConfig_EndpointsYAML(t *testing.T) {
+	t.Run("Parses endpoints from YAML", func(t *testing.T) {
+		yamlData := []byte(`
+latency: 50ms
+endpoints:
+  /foo/bar:
+    GET:
+      latency: 500ms
+    POST:
+      latencies:
+        p50: 100ms
+        p90: 500ms
+      errors:
+        p10: 500
+  /health:
+    GET:
+      latency: 0ms
+`)
+		cfg, err := NewServiceConfigFromBytes(yamlData)
+		assert.NoError(t, err)
+		assert.Equal(t, 50*time.Millisecond, cfg.Latency)
+
+		assert.Len(t, cfg.Endpoints, 2)
+
+		fooGet := cfg.Endpoints["/foo/bar"]["GET"]
+		assert.Equal(t, 500*time.Millisecond, fooGet.Latency)
+
+		fooPost := cfg.Endpoints["/foo/bar"]["POST"]
+		assert.Len(t, fooPost.Latencies, 2)
+		assert.Len(t, fooPost.Errors, 1)
+		assert.NotNil(t, fooPost.latencies)
+		assert.NotNil(t, fooPost.errors)
+
+		healthGet := cfg.Endpoints["/health"]["GET"]
+		assert.Equal(t, time.Duration(0), healthGet.Latency)
+	})
+
+	t.Run("Parses endpoints with parameterized paths", func(t *testing.T) {
+		yamlData := []byte(`
+endpoints:
+  /pets/{id}:
+    GET:
+      latency: 200ms
+`)
+		cfg, err := NewServiceConfigFromBytes(yamlData)
+		assert.NoError(t, err)
+		assert.Len(t, cfg.Endpoints, 1)
+
+		ep := cfg.GetEndpointConfig("/pets/42", "GET")
+		assert.NotNil(t, ep)
+		assert.Equal(t, 200*time.Millisecond, ep.Latency)
+	})
+}
+
+func TestServiceConfig_WithDefaults_Endpoints(t *testing.T) {
+	t.Run("Parses endpoint latencies and errors", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {
+					"GET": {
+						Latencies: map[string]time.Duration{"p50": 50 * time.Millisecond},
+						Errors:    map[string]int{"p10": 400},
+					},
+				},
+			},
+		}
+		cfg.WithDefaults()
+
+		ep := cfg.Endpoints["/foo"]["GET"]
+		assert.Len(t, ep.latencies, 1)
+		assert.Len(t, ep.errors, 1)
+	})
+
+	t.Run("Skips nil endpoint configs", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": nil},
+			},
+		}
+		assert.NotPanics(t, func() { cfg.WithDefaults() })
+	})
+}
+
+func TestServiceConfig_OverwriteWith_Endpoints(t *testing.T) {
+	t.Run("Merges endpoints from other", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {
+					"GET": {Latency: 100 * time.Millisecond},
+				},
+			},
+		}
+		other := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {
+					"POST": {Latency: 200 * time.Millisecond},
+				},
+				"/bar": {
+					"GET": {Latency: 300 * time.Millisecond},
+				},
+			},
+		}
+
+		result := cfg.OverwriteWith(other)
+
+		assert.Len(t, result.Endpoints, 2)
+		assert.Equal(t, 100*time.Millisecond, result.Endpoints["/foo"]["GET"].Latency)
+		assert.Equal(t, 200*time.Millisecond, result.Endpoints["/foo"]["POST"].Latency)
+		assert.Equal(t, 300*time.Millisecond, result.Endpoints["/bar"]["GET"].Latency)
+	})
+
+	t.Run("Other endpoint overrides same path+method", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+			},
+		}
+		other := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": {Latency: 999 * time.Millisecond}},
+			},
+		}
+
+		result := cfg.OverwriteWith(other)
+		assert.Equal(t, 999*time.Millisecond, result.Endpoints["/foo"]["GET"].Latency)
+	})
+
+	t.Run("Creates endpoints map if nil before merge", func(t *testing.T) {
+		cfg := &ServiceConfig{}
+		other := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+			},
+		}
+
+		result := cfg.OverwriteWith(other)
+		assert.Len(t, result.Endpoints, 1)
+	})
+
+	t.Run("Does not touch endpoints when other has nil", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+			},
+		}
+		other := &ServiceConfig{}
+
+		result := cfg.OverwriteWith(other)
+		assert.Len(t, result.Endpoints, 1)
+	})
+}
+
 func TestOptionalProperties_UnmarshalYAML(t *testing.T) {
 	t.Run("parses min and max", func(t *testing.T) {
 		yamlData := []byte(`
@@ -1015,6 +1323,25 @@ func TestReplayConfig_GetEndpoint(t *testing.T) {
 
 		_, ep = rc.GetEndpoint("/pay", "PUT")
 		assert.Nil(t, ep)
+	})
+
+	t.Run("method keys are case-insensitive via WithDefaults", func(t *testing.T) {
+		yamlData := []byte(`
+cache:
+  replay:
+    endpoints:
+      /pay:
+        post:
+          match:
+            body:
+              - reference
+`)
+		cfg, err := NewServiceConfigFromBytes(yamlData)
+		assert.NoError(t, err)
+
+		_, ep := cfg.Cache.Replay.GetEndpoint("/pay", "POST")
+		assert.NotNil(t, ep)
+		assert.Equal(t, []string{"reference"}, ep.Match.Body)
 	})
 }
 

@@ -106,6 +106,15 @@ errors:
   p5: 500   # 5% of requests return 500
   p10: 400  # 5% return 400 (p10 - p5)
 
+# Per-endpoint latency/error overrides
+endpoints:
+  /pets/{id}:
+    GET:
+      latency: 500ms
+    POST:
+      errors:
+        p10: 500
+
 # Caching behavior
 cache:
   requests: true  # Cache GET request responses
@@ -158,6 +167,44 @@ errors:
 ```
 
 Percentiles are cumulative - `p10: 400` means requests between p5 and p10 (5%) return 400.
+
+## Endpoint-Level Overrides
+
+Latency and error settings can be configured per endpoint using the `endpoints` block. Endpoint-level config completely overrides the service-level settings for matched requests.
+
+```yaml
+latency: 50ms  # service default
+
+endpoints:
+  /pets/{id}:
+    GET:
+      latency: 500ms
+    POST:
+      latencies:
+        p50: 100ms
+        p90: 500ms
+      errors:
+        p10: 500
+  /health:
+    GET:
+      latency: 0ms
+```
+
+Each endpoint is matched by path pattern and HTTP method. Path parameters (`{id}`) match any value, just like OpenAPI path parameters.
+
+When a request matches an endpoint, only that endpoint's latency and error config is used — the service-level `latency`, `latencies`, and `errors` are ignored for that request. Requests that don't match any endpoint pattern fall back to the service-level settings.
+
+In portable mode, the same structure goes under `services`:
+
+```yaml
+services:
+  petstore:
+    latency: 0ms
+    endpoints:
+      /pets/{id}:
+        GET:
+          latency: 200ms
+```
 
 ## Caching
 
