@@ -36,6 +36,11 @@
           "description": "Disable the UI.",
           "default": false
         },
+        "disableConfigUI": {
+          "type": "boolean",
+          "description": "Hide the Configuration tab in the UI.",
+          "default": false
+        },
         "history": {
           "type": "object",
           "description": "Request/response history configuration.",

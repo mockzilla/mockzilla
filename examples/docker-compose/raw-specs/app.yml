@@ -1,0 +1,53 @@
+# Mockzilla Configuration
+# Override these values by mounting your own app.yml in Docker
+
+app:
+  title: Mockzilla
+  port: 2200
+  serviceURL: /.services
+  contextAreaPrefix: in-
+  disableUI: false
+  disableConfigUI: false
+
+  editor:
+    theme: chrome
+    darkTheme: cobalt
+    fontSize: 14
+
+  history:
+    enabled: true
+    duration: 1h
+
+  # Uncomment to enable a storage driver.
+  # Built-in drivers: memory (default), redis.
+  # External drivers (e.g. dynamodb) are available via separate packages.
+  #
+  # storage:
+  #   type: redis
+  #   redis:
+  #     address: localhost:6379
+  #     password: ""
+  #     db: 0
+
+services:
+  stripe:
+    cache:
+      requests: true
+    validate:
+      request: true
+      response: false
+    latency: 50ms
+    # errors:
+    #   p5: 500
+    #   p2: 429
+
+  myapi:
+    cache:
+      requests: false
+    validate:
+      request: true
+      response: false
+    latency: 0ms
+    # errors:
+    #   p10: 500
+    #   p5: 400

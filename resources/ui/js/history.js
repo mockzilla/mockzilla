@@ -59,8 +59,9 @@ const showTabs = (service) => {
     config.serviceTabs.style.display = 'flex';
     config.tabResources.href = `#/services/${service}`;
     config.tabHistory.href = `#/history/${service}`;
-    config.tabHistory.style.display = '';
+    config.tabHistory.style.display = config.historyEnabled ? '' : 'none';
     config.tabConfiguration.href = `#/configuration/${service}`;
+    config.tabConfiguration.style.display = config.configEnabled ? '' : 'none';
     config.tabResources.classList.remove('active');
     config.tabHistory.classList.add('active');
     config.tabConfiguration.classList.remove('active');

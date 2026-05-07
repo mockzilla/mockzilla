@@ -81,6 +81,9 @@ func Run(args []string) int {
 	if err := env.Parse(appCfg); err != nil {
 		slog.Error("Failed to apply env overrides", "error", err)
 	}
+	if appCfg.History != nil && appCfg.History.Enabled != nil && !*appCfg.History.Enabled {
+		appCfg.History.URL = ""
+	}
 
 	// --port flag wins over everything. -1 is the "not supplied" sentinel
 	// from parseFlags; 0 means the user explicitly wants the kernel to

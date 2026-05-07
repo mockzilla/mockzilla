@@ -38,9 +38,16 @@ func Discover(opts DiscoverOptions) error {
 	}
 
 	// Read module name from go.mod
-	moduleName, _, err := files.GetModuleInfo(serviceDirAbs)
+	moduleName, moduleRoot, err := files.GetModuleInfo(serviceDirAbs)
 	if err != nil {
 		return fmt.Errorf("reading module name: %w", err)
+	}
+
+	// Compute services path relative to module root so the import path is correct
+	// even when servicesDir is absolute (e.g. /app/resources/data/services).
+	relServicesDir, err := filepath.Rel(moduleRoot, serviceDirAbs)
+	if err != nil {
+		return fmt.Errorf("computing relative services path: %w", err)
 	}
 
 	// Discover services
@@ -50,7 +57,7 @@ func Discover(opts DiscoverOptions) error {
 	}
 
 	// Generate the imports file
-	code := generateImportsFile(moduleName, serviceDir, services)
+	code := generateImportsFile(moduleName, relServicesDir, services)
 
 	// Write to file
 	if err := os.WriteFile(outputFile, []byte(code), 0644); err != nil {
