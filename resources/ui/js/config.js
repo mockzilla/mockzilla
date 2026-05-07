@@ -3,6 +3,7 @@ export const baseUrl = `${url}${appConfig.baseUrl || ''}`;
 export const serviceUrl = `${url}${appConfig.serviceUrl}`;
 export const historyEnabled = !!appConfig.historyUrl;
 export const historyUrl = appConfig.historyUrl ? `${url}${appConfig.historyUrl}` : '';
+export const configEnabled = !appConfig.disableConfigUI;
 export const version = appConfig.version;
 export const editor = appConfig.editor;
 export const homeContents = document.getElementById('home-contents');

@@ -166,6 +166,7 @@ export const show = match => {
     config.tabHistory.href = `#/history/${service}`;
     config.tabHistory.style.display = config.historyEnabled ? '' : 'none';
     config.tabConfiguration.href = `#/configuration/${service}`;
+    config.tabConfiguration.style.display = config.configEnabled ? '' : 'none';
     config.tabResources.classList.add('active');
     config.tabHistory.classList.remove('active');
     config.tabConfiguration.classList.remove('active');

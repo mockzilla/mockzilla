@@ -9,6 +9,7 @@ const showTabs = (service) => {
     config.tabHistory.href = `#/history/${service}`;
     config.tabHistory.style.display = config.historyEnabled ? '' : 'none';
     config.tabConfiguration.href = `#/configuration/${service}`;
+    config.tabConfiguration.style.display = config.configEnabled ? '' : 'none';
     config.tabResources.classList.remove('active');
     config.tabHistory.classList.remove('active');
     config.tabConfiguration.classList.add('active');

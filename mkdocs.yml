@@ -66,6 +66,7 @@ nav:
       - 'How It Works': 'how-it-works.md'
   - Usage:
       - Portable Mode: 'usage/portable.md'
+      - Docker Compose: 'usage/docker-compose.md'
       - Codegen Mode: 'usage/codegen.md'
   - Templates: 'templates.md'
   - Services: 'services.md'

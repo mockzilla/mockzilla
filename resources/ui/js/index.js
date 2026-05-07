@@ -10,9 +10,15 @@ const pageMap = new Map([
     ['', home.home],
     ['#/services/:name*', resources.show],
     ['#/services', services.show],
-    ['#/history/:name*', history.show],
-    ['#/configuration/:name*', configuration.show],
 ]);
+
+if (appConfig.historyUrl) {
+    pageMap.set('#/history/:name*', history.show);
+}
+
+if (!appConfig.disableConfigUI) {
+    pageMap.set('#/configuration/:name*', configuration.show);
+}
 
 async function onLoad() {
     navi.resetContents();
