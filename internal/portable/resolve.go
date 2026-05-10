@@ -1,6 +1,8 @@
 package portable
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"flag"
 	"fmt"
 	"io"
@@ -29,7 +31,7 @@ func IsPortableMode(args []string) bool {
 		if strings.HasPrefix(arg, "-") {
 			continue
 		}
-		if isURL(arg) || isSpecFile(arg) {
+		if isURL(arg) || isSpecFile(arg) || isPackageFile(arg) {
 			return true
 		}
 		info, err := os.Stat(arg)
@@ -54,6 +56,186 @@ func IsPortableMode(args []string) bool {
 // isSpecFile checks if a filename is an OpenAPI spec file.
 func isSpecFile(name string) bool {
 	return strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") || strings.HasSuffix(name, ".json")
+}
+
+// isPackageFile checks if a filename is a mockzilla package (.mock or .tar.gz).
+func isPackageFile(name string) bool {
+	return strings.HasSuffix(name, ".mock") || strings.HasSuffix(name, ".tar.gz")
+}
+
+// resolvePackageArgs checks if any positional arg is a .mock or .tar.gz package.
+// If found, it downloads (if URL), extracts the archive, and rewrites the
+// positional args and flags to point at the extracted directory contents.
+// Only the first package arg is used; the rest are passed through unchanged.
+func resolvePackageArgs(positional []string, fl *flags) []string {
+	for i, arg := range positional {
+		raw := arg
+		if isURL(raw) {
+			u, err := url.Parse(raw)
+			if err != nil {
+				continue
+			}
+			if !isPackageFile(filepath.Base(u.Path)) {
+				continue
+			}
+		} else if !isPackageFile(raw) {
+			continue
+		}
+
+		path := raw
+		if isURL(raw) {
+			downloaded, err := downloadFile(raw)
+			if err != nil {
+				slog.Error("Failed to download package", "url", raw, "error", err)
+				continue
+			}
+			path = downloaded
+		}
+
+		dir, err := extractPackage(path)
+		if err != nil {
+			slog.Error("Failed to extract package", "path", path, "error", err)
+			continue
+		}
+		slog.Info("Extracted package", "path", raw, "dir", dir)
+
+		// Pick up config/context from the package, renaming them so
+		// resolveSpecs doesn't treat them as OpenAPI specs (same
+		// approach as RunFS).
+		for _, name := range []string{"app.yml", "context.yml"} {
+			p := filepath.Join(dir, name)
+			if !fileExists(p) {
+				continue
+			}
+			renamed := p + ".cfg"
+			_ = os.Rename(p, renamed)
+			switch name {
+			case "app.yml":
+				if fl.config == "" {
+					fl.config = renamed
+				}
+			case "context.yml":
+				if fl.context == "" {
+					fl.context = renamed
+				}
+			}
+		}
+
+		// Replace the package arg with the extracted contents.
+		// Pass openapi/ subdir first (where specs live), then the
+		// parent dir (for static/ resolution) -- same layout as
+		// RunFS and init.sh.
+		rewritten := make([]string, 0, len(positional)+1)
+		rewritten = append(rewritten, positional[:i]...)
+		if openapiDir := filepath.Join(dir, "openapi"); fileExists(openapiDir) {
+			rewritten = append(rewritten, openapiDir)
+		}
+		rewritten = append(rewritten, dir)
+		rewritten = append(rewritten, positional[i+1:]...)
+		return rewritten
+	}
+	return positional
+}
+
+// extractPackage unpacks a .mock or .tar.gz archive into a temp directory
+// and returns the path to the extracted root.
+func extractPackage(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", fmt.Errorf("opening package: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	gr, err := gzip.NewReader(f)
+	if err != nil {
+		return "", fmt.Errorf("gzip reader: %w", err)
+	}
+	defer func() { _ = gr.Close() }()
+
+	dir, err := os.MkdirTemp("", "mockzilla-package-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp dir: %w", err)
+	}
+
+	tr := tar.NewReader(gr)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("reading tar: %w", err)
+		}
+
+		target := filepath.Join(dir, filepath.Clean(hdr.Name))
+		if !strings.HasPrefix(target, dir) {
+			continue // path traversal guard
+		}
+
+		switch hdr.Typeflag {
+		case tar.TypeDir:
+			if err := os.MkdirAll(target, 0o755); err != nil {
+				return "", fmt.Errorf("mkdir %s: %w", target, err)
+			}
+		case tar.TypeReg:
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return "", fmt.Errorf("mkdir parent %s: %w", target, err)
+			}
+			out, err := os.Create(target)
+			if err != nil {
+				return "", fmt.Errorf("creating %s: %w", target, err)
+			}
+			if _, err := io.Copy(out, tr); err != nil {
+				_ = out.Close()
+				return "", fmt.Errorf("writing %s: %w", target, err)
+			}
+			_ = out.Close()
+		}
+	}
+
+	return dir, nil
+}
+
+// downloadFile downloads any file from a URL to a temp file and returns the local path.
+func downloadFile(rawURL string) (string, error) {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("parsing URL: %w", err)
+	}
+
+	name := filepath.Base(parsed.Path)
+	if name == "" || name == "." || name == "/" {
+		name = "package.mock"
+	}
+
+	resp, err := http.Get(rawURL) //nolint:gosec
+	if err != nil {
+		return "", fmt.Errorf("fetching: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HTTP %d from %s", resp.StatusCode, rawURL)
+	}
+
+	dir := filepath.Join(os.TempDir(), "mockzilla-portable", "packages")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("creating temp dir: %w", err)
+	}
+
+	path := filepath.Join(dir, name)
+	f, err := os.Create(path)
+	if err != nil {
+		return "", fmt.Errorf("creating file: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	if _, err := io.Copy(f, resp.Body); err != nil {
+		return "", fmt.Errorf("writing file: %w", err)
+	}
+
+	slog.Info("Downloaded package", "url", rawURL, "path", path)
+	return path, nil
 }
 
 // resolveSpecs examines the positional args and returns spec file paths.

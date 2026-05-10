@@ -48,6 +48,7 @@ func Run(args []string) int {
 	slog.SetDefault(logger)
 
 	fl, positional := parseFlags(args)
+	positional = resolvePackageArgs(positional, &fl)
 	specs := resolveSpecs(positional)
 	if len(specs) == 0 {
 		slog.Error("No OpenAPI spec files found")
