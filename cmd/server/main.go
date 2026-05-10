@@ -255,11 +255,12 @@ func printUsage() {
 	fmt.Print(`mockzilla — generate mock servers from OpenAPI specs
 
 Usage:
-  mockzilla <spec.yaml | dir | https://...>  [flags]   Portable mode: serve a spec or directory of specs
-  mockzilla info <spec.yaml | https://...>            Print a JSON summary of a spec and exit
-  mockzilla [<app-dir>]                                App mode: serve a configured mockzilla project
-  mockzilla --version                                  Print version and exit
-  mockzilla --help                                     Print this message
+  mockzilla <spec.yaml | dir | package.mock | https://...>  [flags]
+                                               Portable mode: serve a spec, directory, or package
+  mockzilla info <spec.yaml | https://...>     Print a JSON summary of a spec and exit
+  mockzilla [<app-dir>]                        App mode: serve a configured mockzilla project
+  mockzilla --version                          Print version and exit
+  mockzilla --help                             Print this message
 
 Portable-mode flags:
   --port N            Server port (0 = let the OS pick a free port; default 2200)
@@ -268,9 +269,16 @@ Portable-mode flags:
   --ready-stamp       Emit a single JSON line on stdout once the listener is bound
                       (for programmatic supervisors like the mockzilla MCP bridge)
 
+Packages:
+  A .mock (or .tar.gz) file is a gzipped tarball containing openapi/ specs
+  and optional app.yml / context.yml config. The CLI extracts it to a temp
+  directory and serves it in portable mode. Packages can be local files or URLs.
+
 Examples:
   mockzilla https://petstore3.swagger.io/api/v3/openapi.json
   mockzilla --port 3000 ./specs/
+  mockzilla petstore.mock
+  mockzilla https://example.com/my-api.mock
   mockzilla info https://petstore3.swagger.io/api/v3/openapi.json
   mockzilla --ready-stamp --port 0 ./openapi.yml
 

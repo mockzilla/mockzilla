@@ -1,6 +1,8 @@
 package portable
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -81,6 +83,142 @@ func TestIsSpecFile(t *testing.T) {
 	assert.False(t, isSpecFile("petstore.go"))
 	assert.False(t, isSpecFile("petstore.txt"))
 	assert.False(t, isSpecFile("petstore"))
+}
+
+func TestIsPackageFile(t *testing.T) {
+	assert.True(t, isPackageFile("petstore.mock"))
+	assert.True(t, isPackageFile("specs.tar.gz"))
+	assert.True(t, isPackageFile("/path/to/my-api.mock"))
+	assert.False(t, isPackageFile("petstore.yaml"))
+	assert.False(t, isPackageFile("petstore.gz"))
+	assert.False(t, isPackageFile("petstore.tar"))
+	assert.False(t, isPackageFile("petstore"))
+}
+
+// buildTestPackage creates a .mock (tar.gz) archive in dir with the given files.
+func buildTestPackage(t *testing.T, dir string, name string, files map[string][]byte) string {
+	t.Helper()
+	path := filepath.Join(dir, name)
+	f, err := os.Create(path)
+	require.NoError(t, err)
+	defer func() { _ = f.Close() }()
+
+	gw := gzip.NewWriter(f)
+	tw := tar.NewWriter(gw)
+	for fname, data := range files {
+		require.NoError(t, tw.WriteHeader(&tar.Header{
+			Name: fname,
+			Mode: 0o644,
+			Size: int64(len(data)),
+		}))
+		_, err := tw.Write(data)
+		require.NoError(t, err)
+	}
+	require.NoError(t, tw.Close())
+	require.NoError(t, gw.Close())
+	return path
+}
+
+func TestExtractPackage(t *testing.T) {
+	t.Run("extracts spec and config files", func(t *testing.T) {
+		pkg := buildTestPackage(t, t.TempDir(), "test.mock", map[string][]byte{
+			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
+			"app.yml":              []byte("app:\n  port: 3000"),
+			"context.yml":          []byte("petstore:\n  key: val"),
+		})
+
+		dir, err := extractPackage(pkg)
+		require.NoError(t, err)
+
+		data, err := os.ReadFile(filepath.Join(dir, "openapi", "petstore.yml"))
+		require.NoError(t, err)
+		assert.Equal(t, "openapi: 3.0.0", string(data))
+
+		assert.True(t, fileExists(filepath.Join(dir, "app.yml")))
+		assert.True(t, fileExists(filepath.Join(dir, "context.yml")))
+	})
+
+	t.Run("works with tar.gz extension", func(t *testing.T) {
+		pkg := buildTestPackage(t, t.TempDir(), "specs.tar.gz", map[string][]byte{
+			"openapi/api.yaml": []byte("openapi: 3.1.0"),
+		})
+
+		dir, err := extractPackage(pkg)
+		require.NoError(t, err)
+
+		assert.True(t, fileExists(filepath.Join(dir, "openapi", "api.yaml")))
+	})
+
+	t.Run("returns error for non-existent file", func(t *testing.T) {
+		_, err := extractPackage("/nonexistent/test.mock")
+		assert.Error(t, err)
+	})
+}
+
+func TestResolvePackageArgs(t *testing.T) {
+	t.Run("extracts package and sets config/context flags", func(t *testing.T) {
+		pkg := buildTestPackage(t, t.TempDir(), "test.mock", map[string][]byte{
+			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
+			"app.yml":              []byte("app:\n  port: 3000"),
+			"context.yml":          []byte("petstore:\n  key: val"),
+		})
+
+		fl := flags{}
+		result := resolvePackageArgs([]string{pkg}, &fl)
+
+		// Returns [openapi/ dir, parent dir]
+		require.Len(t, result, 2)
+		assert.True(t, fileExists(filepath.Join(result[0], "petstore.yml")))
+		assert.NotEmpty(t, fl.config)
+		assert.NotEmpty(t, fl.context)
+	})
+
+	t.Run("does not override existing config flag", func(t *testing.T) {
+		pkg := buildTestPackage(t, t.TempDir(), "test.mock", map[string][]byte{
+			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
+			"app.yml":              []byte("app:\n  port: 3000"),
+		})
+
+		fl := flags{config: "/my/config.yml"}
+		resolvePackageArgs([]string{pkg}, &fl)
+
+		assert.Equal(t, "/my/config.yml", fl.config)
+	})
+
+	t.Run("passes through non-package args unchanged", func(t *testing.T) {
+		fl := flags{}
+		args := []string{"petstore.yml", "/some/dir"}
+		result := resolvePackageArgs(args, &fl)
+
+		assert.Equal(t, args, result)
+		assert.Empty(t, fl.config)
+	})
+
+	t.Run("downloads and extracts URL package", func(t *testing.T) {
+		pkgPath := buildTestPackage(t, t.TempDir(), "test.mock", map[string][]byte{
+			"openapi/api.yml": []byte("openapi: 3.0.0"),
+		})
+		pkgData, err := os.ReadFile(pkgPath)
+		require.NoError(t, err)
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write(pkgData)
+		}))
+		defer srv.Close()
+
+		fl := flags{}
+		result := resolvePackageArgs([]string{srv.URL + "/api.mock"}, &fl)
+
+		require.Len(t, result, 2)
+		assert.True(t, fileExists(filepath.Join(result[0], "api.yml")))
+	})
+
+	t.Run("skips URL without package extension", func(t *testing.T) {
+		fl := flags{}
+		args := []string{"https://example.com/petstore.yml"}
+		result := resolvePackageArgs(args, &fl)
+		assert.Equal(t, args, result)
+	})
 }
 
 func TestIsPortableMode(t *testing.T) {
