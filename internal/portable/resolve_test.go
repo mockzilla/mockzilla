@@ -86,16 +86,16 @@ func TestIsSpecFile(t *testing.T) {
 }
 
 func TestIsPackageFile(t *testing.T) {
-	assert.True(t, isPackageFile("petstore.mock"))
+	assert.True(t, isPackageFile("petstore.mockz"))
 	assert.True(t, isPackageFile("specs.tar.gz"))
-	assert.True(t, isPackageFile("/path/to/my-api.mock"))
+	assert.True(t, isPackageFile("/path/to/my-api.mockz"))
 	assert.False(t, isPackageFile("petstore.yaml"))
 	assert.False(t, isPackageFile("petstore.gz"))
 	assert.False(t, isPackageFile("petstore.tar"))
 	assert.False(t, isPackageFile("petstore"))
 }
 
-// buildTestPackage creates a .mock (tar.gz) archive in dir with the given files.
+// buildTestPackage creates a .mockz (tar.gz) archive in dir with the given files.
 func buildTestPackage(t *testing.T, dir string, name string, files map[string][]byte) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
@@ -121,7 +121,7 @@ func buildTestPackage(t *testing.T, dir string, name string, files map[string][]
 
 func TestExtractPackage(t *testing.T) {
 	t.Run("extracts spec and config files", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "test.mock", map[string][]byte{
+		pkg := buildTestPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
 			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
 			"app.yml":              []byte("app:\n  port: 3000"),
 			"context.yml":          []byte("petstore:\n  key: val"),
@@ -150,12 +150,12 @@ func TestExtractPackage(t *testing.T) {
 	})
 
 	t.Run("returns error for non-existent file", func(t *testing.T) {
-		_, err := extractPackage("/nonexistent/test.mock")
+		_, err := extractPackage("/nonexistent/test.mockz")
 		assert.Error(t, err)
 	})
 
 	t.Run("returns error for invalid gzip", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "bad.mock")
+		path := filepath.Join(t.TempDir(), "bad.mockz")
 		require.NoError(t, os.WriteFile(path, []byte("not gzip data"), 0o644))
 
 		_, err := extractPackage(path)
@@ -165,7 +165,7 @@ func TestExtractPackage(t *testing.T) {
 
 	t.Run("returns error for corrupt tar inside valid gzip", func(t *testing.T) {
 		dir := t.TempDir()
-		path := filepath.Join(dir, "corrupt.mock")
+		path := filepath.Join(dir, "corrupt.mockz")
 		f, err := os.Create(path)
 		require.NoError(t, err)
 
@@ -181,7 +181,7 @@ func TestExtractPackage(t *testing.T) {
 
 	t.Run("skips path traversal entries", func(t *testing.T) {
 		dir := t.TempDir()
-		path := filepath.Join(dir, "traversal.mock")
+		path := filepath.Join(dir, "traversal.mockz")
 		f, err := os.Create(path)
 		require.NoError(t, err)
 
@@ -217,7 +217,7 @@ func TestExtractPackage(t *testing.T) {
 
 	t.Run("handles tar with directory entries", func(t *testing.T) {
 		dir := t.TempDir()
-		path := filepath.Join(dir, "dirs.mock")
+		path := filepath.Join(dir, "dirs.mockz")
 		f, err := os.Create(path)
 		require.NoError(t, err)
 
@@ -248,7 +248,7 @@ func TestExtractPackage(t *testing.T) {
 
 func TestResolvePackageArgs(t *testing.T) {
 	t.Run("extracts package and sets config/context flags", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "test.mock", map[string][]byte{
+		pkg := buildTestPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
 			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
 			"app.yml":              []byte("app:\n  port: 3000"),
 			"context.yml":          []byte("petstore:\n  key: val"),
@@ -265,7 +265,7 @@ func TestResolvePackageArgs(t *testing.T) {
 	})
 
 	t.Run("does not override existing config flag", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "test.mock", map[string][]byte{
+		pkg := buildTestPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
 			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
 			"app.yml":              []byte("app:\n  port: 3000"),
 		})
@@ -286,7 +286,7 @@ func TestResolvePackageArgs(t *testing.T) {
 	})
 
 	t.Run("downloads and extracts URL package", func(t *testing.T) {
-		pkgPath := buildTestPackage(t, t.TempDir(), "test.mock", map[string][]byte{
+		pkgPath := buildTestPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
 			"openapi/api.yml": []byte("openapi: 3.0.0"),
 		})
 		pkgData, err := os.ReadFile(pkgPath)
@@ -298,7 +298,7 @@ func TestResolvePackageArgs(t *testing.T) {
 		defer srv.Close()
 
 		fl := flags{}
-		result := resolvePackageArgs([]string{srv.URL + "/api.mock"}, &fl)
+		result := resolvePackageArgs([]string{srv.URL + "/api.mockz"}, &fl)
 
 		require.Len(t, result, 2)
 		assert.True(t, fileExists(filepath.Join(result[0], "api.yml")))
@@ -318,12 +318,12 @@ func TestResolvePackageArgs(t *testing.T) {
 		defer srv.Close()
 
 		fl := flags{}
-		result := resolvePackageArgs([]string{srv.URL + "/fail.mock"}, &fl)
-		assert.Equal(t, []string{srv.URL + "/fail.mock"}, result)
+		result := resolvePackageArgs([]string{srv.URL + "/fail.mockz"}, &fl)
+		assert.Equal(t, []string{srv.URL + "/fail.mockz"}, result)
 	})
 
 	t.Run("skips invalid local package", func(t *testing.T) {
-		bad := filepath.Join(t.TempDir(), "bad.mock")
+		bad := filepath.Join(t.TempDir(), "bad.mockz")
 		require.NoError(t, os.WriteFile(bad, []byte("not a tarball"), 0o644))
 
 		fl := flags{}
@@ -332,7 +332,7 @@ func TestResolvePackageArgs(t *testing.T) {
 	})
 
 	t.Run("package without openapi dir uses root only", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "flat.mock", map[string][]byte{
+		pkg := buildTestPackage(t, t.TempDir(), "flat.mockz", map[string][]byte{
 			"petstore.yml": []byte("openapi: 3.0.0"),
 		})
 
@@ -344,7 +344,7 @@ func TestResolvePackageArgs(t *testing.T) {
 	})
 
 	t.Run("does not override existing context flag", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "test.mock", map[string][]byte{
+		pkg := buildTestPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
 			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
 			"context.yml":          []byte("petstore:\n  key: val"),
 		})
@@ -363,9 +363,9 @@ func TestDownloadFile(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		path, err := downloadFile(srv.URL + "/test.mock")
+		path, err := downloadFile(srv.URL + "/test.mockz")
 		require.NoError(t, err)
-		assert.Contains(t, path, "test.mock")
+		assert.Contains(t, path, "test.mockz")
 
 		data, err := os.ReadFile(path)
 		require.NoError(t, err)
@@ -378,13 +378,13 @@ func TestDownloadFile(t *testing.T) {
 		}))
 		defer srv.Close()
 
-		_, err := downloadFile(srv.URL + "/missing.mock")
+		_, err := downloadFile(srv.URL + "/missing.mockz")
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "404")
 	})
 
 	t.Run("returns error on connection failure", func(t *testing.T) {
-		_, err := downloadFile("http://127.0.0.1:1/test.mock")
+		_, err := downloadFile("http://127.0.0.1:1/test.mockz")
 		assert.Error(t, err)
 	})
 
@@ -396,7 +396,7 @@ func TestDownloadFile(t *testing.T) {
 
 		path, err := downloadFile(srv.URL + "/")
 		require.NoError(t, err)
-		assert.Contains(t, path, "package.mock")
+		assert.Contains(t, path, "package.mockz")
 	})
 }
 
@@ -451,16 +451,16 @@ func TestIsPortableMode(t *testing.T) {
 		assert.True(t, IsPortableMode([]string{staticDir}))
 	})
 
-	t.Run("detects .mock file arg", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{"petstore.mock"}))
+	t.Run("detects .mockz file arg", func(t *testing.T) {
+		assert.True(t, IsPortableMode([]string{"petstore.mockz"}))
 	})
 
 	t.Run("detects .tar.gz file arg", func(t *testing.T) {
 		assert.True(t, IsPortableMode([]string{"specs.tar.gz"}))
 	})
 
-	t.Run("detects .mock URL arg", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{"https://example.com/petstore.mock"}))
+	t.Run("detects .mockz URL arg", func(t *testing.T) {
+		assert.True(t, IsPortableMode([]string{"https://example.com/petstore.mockz"}))
 	})
 }
 

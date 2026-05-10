@@ -58,12 +58,12 @@ func isSpecFile(name string) bool {
 	return strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".yml") || strings.HasSuffix(name, ".json")
 }
 
-// isPackageFile checks if a filename is a mockzilla package (.mock or .tar.gz).
+// isPackageFile checks if a filename is a mockzilla package (.mockz or .tar.gz).
 func isPackageFile(name string) bool {
-	return strings.HasSuffix(name, ".mock") || strings.HasSuffix(name, ".tar.gz")
+	return strings.HasSuffix(name, ".mockz") || strings.HasSuffix(name, ".tar.gz")
 }
 
-// resolvePackageArgs checks if any positional arg is a .mock or .tar.gz package.
+// resolvePackageArgs checks if any positional arg is a .mockz or .tar.gz package.
 // If found, it downloads (if URL), extracts the archive, and rewrites the
 // positional args and flags to point at the extracted directory contents.
 // Only the first package arg is used; the rest are passed through unchanged.
@@ -137,7 +137,7 @@ func resolvePackageArgs(positional []string, fl *flags) []string {
 	return positional
 }
 
-// extractPackage unpacks a .mock or .tar.gz archive into a temp directory
+// extractPackage unpacks a .mockz or .tar.gz archive into a temp directory
 // and returns the path to the extracted root.
 func extractPackage(path string) (string, error) {
 	f, err := os.Open(path)
@@ -205,7 +205,7 @@ func downloadFile(rawURL string) (string, error) {
 
 	name := filepath.Base(parsed.Path)
 	if name == "" || name == "." || name == "/" {
-		name = "package.mock"
+		name = "package.mockz"
 	}
 
 	resp, err := http.Get(rawURL) //nolint:gosec

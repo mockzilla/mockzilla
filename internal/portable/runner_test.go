@@ -85,7 +85,7 @@ func TestExtractFS_withEmbeddedSpec(t *testing.T) {
 	assert.NotEmpty(t, h.Routes())
 }
 
-// buildMockPackage creates a .mock archive from a map of filenames to content.
+// buildMockPackage creates a .mockz archive from a map of filenames to content.
 func buildMockPackage(t *testing.T, name string, files map[string][]byte) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), name)
@@ -109,12 +109,12 @@ func buildMockPackage(t *testing.T, name string, files map[string][]byte) string
 	return path
 }
 
-// TestIntegration_MockPackage exercises the full .mock package flow:
+// TestIntegration_MockPackage exercises the full .mockz package flow:
 // build a package, extract it, resolve specs, register services, hit the API.
 func TestIntegration_MockPackage(t *testing.T) {
 	specBytes := loadTestSpec(t, "petstore.yml")
 
-	pkg := buildMockPackage(t, "petstore.mock", map[string][]byte{
+	pkg := buildMockPackage(t, "petstore.mockz", map[string][]byte{
 		"openapi/petstore.yml": specBytes,
 	})
 
@@ -122,7 +122,7 @@ func TestIntegration_MockPackage(t *testing.T) {
 	fl := flags{}
 	positional := resolvePackageArgs([]string{pkg}, &fl)
 	specs := resolveSpecs(positional)
-	require.Len(t, specs, 1, "expected one spec from .mock package")
+	require.Len(t, specs, 1, "expected one spec from .mockz package")
 
 	// Wire up the router and register the spec
 	router := testRouter(t)
@@ -160,11 +160,11 @@ func TestIntegration_MockPackage(t *testing.T) {
 }
 
 // TestIntegration_MockPackageWithConfig verifies that app.yml and context.yml
-// inside a .mock package are picked up by resolvePackageArgs.
+// inside a .mockz package are picked up by resolvePackageArgs.
 func TestIntegration_MockPackageWithConfig(t *testing.T) {
 	specBytes := loadTestSpec(t, "petstore.yml")
 
-	pkg := buildMockPackage(t, "full.mock", map[string][]byte{
+	pkg := buildMockPackage(t, "full.mockz", map[string][]byte{
 		"openapi/petstore.yml": specBytes,
 		"app.yml":              []byte("app:\n  port: 3000\nservices:\n  petstore:\n    latency: 10ms"),
 		"context.yml":          []byte("petstore:\n  base_url: http://localhost:3000"),
@@ -191,11 +191,11 @@ func TestIntegration_MockPackageWithConfig(t *testing.T) {
 }
 
 // TestIntegration_MockPackageFromURL verifies the full flow when
-// the .mock package is served over HTTP.
+// the .mockz package is served over HTTP.
 func TestIntegration_MockPackageFromURL(t *testing.T) {
 	specBytes := loadTestSpec(t, "petstore.yml")
 
-	pkg := buildMockPackage(t, "remote.mock", map[string][]byte{
+	pkg := buildMockPackage(t, "remote.mockz", map[string][]byte{
 		"openapi/petstore.yml": specBytes,
 	})
 	pkgData, err := os.ReadFile(pkg)
@@ -207,7 +207,7 @@ func TestIntegration_MockPackageFromURL(t *testing.T) {
 	defer srv.Close()
 
 	fl := flags{}
-	positional := resolvePackageArgs([]string{srv.URL + "/petstore.mock"}, &fl)
+	positional := resolvePackageArgs([]string{srv.URL + "/petstore.mockz"}, &fl)
 	specs := resolveSpecs(positional)
 	require.Len(t, specs, 1)
 
