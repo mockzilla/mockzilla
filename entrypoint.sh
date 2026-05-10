@@ -2,7 +2,17 @@
 
 set -e
 
-if [ "$1" = "api" ]; then
+is_portable_arg() {
+  case "$1" in
+    http://*|https://*) return 0 ;;
+    *.yml|*.yaml|*.json|*.mockz|*.tar.gz) return 0 ;;
+  esac
+  return 1
+}
+
+if is_portable_arg "$1"; then
+  exec api "$@"
+elif [ "$1" = "api" ]; then
   cd /app
 
   OPENAPI_DIR="/app/resources/data/openapi"
