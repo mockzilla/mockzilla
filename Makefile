@@ -47,10 +47,11 @@ test:
 fetch-specs:
 	rm -rf ./testdata/specs
 	@if [ -n "$$GITHUB_TOKEN" ]; then \
-		git clone https://x-access-token:$$GITHUB_TOKEN@github.com/mockzilla/specs.git ./testdata/specs; \
+		git clone --filter=blob:none --sparse https://x-access-token:$$GITHUB_TOKEN@github.com/mockzilla/specs.git ./testdata/specs; \
 	else \
-		git clone git@github.com:mockzilla/specs.git ./testdata/specs; \
+		git clone --filter=blob:none --sparse git@github.com:mockzilla/specs.git ./testdata/specs; \
 	fi
+	git -C ./testdata/specs sparse-checkout set 3.0 3.1
 	find ./testdata/specs -mindepth 1 -name ".*" -exec rm -rf {} +
 
 .PHONY: test-integration
