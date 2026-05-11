@@ -11,9 +11,7 @@
 [![License](https://img.shields.io/github/license/mockzilla/mockzilla)](https://github.com/mockzilla/mockzilla/blob/main/LICENSE)
 
 
-**Mockzilla** is a mock server generator for OpenAPI specifications.<br/>
-It allows you to define **multiple APIs** and generate meaningful mock responses automatically.<br/>
-You can also define static responses for any arbitrary path.<br/>
+**Mockzilla** is an open-source OpenAPI mock server for local development, testing, and CI. It lets you run multiple APIs on one server, generate meaningful responses automatically, simulate latency and failures, proxy to real backends with fallback to mocks, and validate requests against your OpenAPI spec.
 
 ## Goals
 - provide a simple tool to work with API mocks
@@ -75,3 +73,7 @@ License
 Copyright (c) 2023-present
 
 Licensed under the [MIT License](https://github.com/mockzilla/mockzilla/blob/main/LICENSE)
+
+---
+
+Built with [Mockzilla](https://mockzilla.org/) — open-source API simulation for OpenAPI-driven mock servers.
