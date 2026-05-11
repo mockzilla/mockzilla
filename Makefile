@@ -37,7 +37,7 @@ build: clean
 .PHONY: test
 test:
 	@if [ -z "$(PKG)" ]; then \
-		go test -race $$(go list ./... | grep -v '/cmd/' | grep -v '/resources/') -skip=TestIntegration -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh; \
+		go test -race $$(go list ./... | grep -v '/resources/') -skip=TestIntegration -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh; \
 	else \
   		go test -race ./... -skip=TestIntegration -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh ./$(PKG)/...; \
 	fi
@@ -119,22 +119,22 @@ gen-fakes:
 	@echo "Generating fake.yml from available fake functions..."
 	@go run ./cmd/gen/fakes
 
-.PHONY: gen-simplify
-gen-simplify:
+.PHONY: simplify
+simplify:
 	@if [ -z "$(filter-out $@,$(MAKECMDGOALS))" ]; then \
 		echo "Error: Please provide a path to the OpenAPI spec."; \
-		echo "Usage: make gen-simplify <path-to-spec>"; \
-		echo "       make gen-simplify <path-to-spec> output=<output-file>"; \
+		echo "Usage: make simplify <path-to-spec>"; \
+		echo "       make simplify <path-to-spec> output=<output-file>"; \
 		exit 1; \
 	fi
 	@SPEC_PATH="$(filter-out $@,$(MAKECMDGOALS))"; \
 	if [ -n "$(output)" ]; then \
-		go run ./cmd/gen/simplify -output "$(output)" "$$SPEC_PATH"; \
+		go run ./cmd/server simplify --output "$(output)" "$$SPEC_PATH"; \
 	else \
-		go run ./cmd/gen/simplify "$$SPEC_PATH"; \
+		go run ./cmd/server simplify "$$SPEC_PATH"; \
 	fi
-# Usage: make gen-simplify openapi.yml
-# Usage: make gen-simplify openapi.yml output=simplified.yml
+# Usage: make simplify openapi.yml
+# Usage: make simplify openapi.yml output=simplified.yml
 
 .PHONY: generate
 generate:
