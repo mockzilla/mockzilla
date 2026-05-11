@@ -49,7 +49,7 @@ fetch-specs:
 	@if [ -n "$$GITHUB_TOKEN" ]; then \
 		git clone https://x-access-token:$$GITHUB_TOKEN@github.com/mockzilla/specs.git ./testdata/specs; \
 	else \
-		git clone https://github.com/mockzilla/specs.git ./testdata/specs; \
+		git clone git@github.com:mockzilla/specs.git ./testdata/specs; \
 	fi
 	find ./testdata/specs -mindepth 1 -name ".*" -exec rm -rf {} +
 

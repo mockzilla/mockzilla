@@ -27,7 +27,7 @@ jobs:
       - name: Fetch specs
         if: steps.cache-specs.outputs.cache-hit != 'true'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         run: make fetch-specs
       - name: Upload specs artifact
         uses: actions/upload-artifact@v4
