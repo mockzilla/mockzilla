@@ -46,7 +46,11 @@ test:
 .PHONY: fetch-specs
 fetch-specs:
 	rm -rf ./testdata/specs
-	git clone https://github.com/mockzilla/specs.git ./testdata/specs
+	@if [ -n "$$GITHUB_TOKEN" ]; then \
+		git clone https://x-access-token:$$GITHUB_TOKEN@github.com/mockzilla/specs.git ./testdata/specs; \
+	else \
+		git clone https://github.com/mockzilla/specs.git ./testdata/specs; \
+	fi
 	find ./testdata/specs -mindepth 1 -name ".*" -exec rm -rf {} +
 
 .PHONY: test-integration
