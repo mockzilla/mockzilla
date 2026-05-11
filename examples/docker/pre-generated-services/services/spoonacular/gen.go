@@ -17728,299 +17728,151 @@ type ID = int64
 type Username = string
 
 type GetRecipeInformationPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetRecipeInformationPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type GetSimilarRecipesPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetSimilarRecipesPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type GetRecipeTasteByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetRecipeTasteByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type RecipeTasteByIDImagePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (r RecipeTasteByIDImagePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(r))
+	ID float32 `json:"id"`
 }
 
 type GetRecipeEquipmentByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetRecipeEquipmentByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type EquipmentByIDImagePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (e EquipmentByIDImagePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(e))
+	ID float32 `json:"id"`
 }
 
 type GetRecipePriceBreakdownByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetRecipePriceBreakdownByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type PriceBreakdownByIDImagePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (p PriceBreakdownByIDImagePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(p))
+	ID float32 `json:"id"`
 }
 
 type GetRecipeIngredientsByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetRecipeIngredientsByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type IngredientsByIDImagePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (i IngredientsByIDImagePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(i))
+	ID float32 `json:"id"`
 }
 
 type GetRecipeNutritionWidgetByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetRecipeNutritionWidgetByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type RecipeNutritionByIDImagePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (r RecipeNutritionByIDImagePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(r))
+	ID float32 `json:"id"`
 }
 
 type RecipeNutritionLabelWidgetPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (r RecipeNutritionLabelWidgetPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(r))
+	ID float32 `json:"id"`
 }
 
 type RecipeNutritionLabelImagePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (r RecipeNutritionLabelImagePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(r))
+	ID float32 `json:"id"`
 }
 
 type GetAnalyzedRecipeInstructionsPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetAnalyzedRecipeInstructionsPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type VisualizeRecipeIngredientsByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (v VisualizeRecipeIngredientsByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(v))
+	ID float32 `json:"id"`
 }
 
 type VisualizeRecipeTasteByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (v VisualizeRecipeTasteByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(v))
+	ID float32 `json:"id"`
 }
 
 type VisualizeRecipeEquipmentByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (v VisualizeRecipeEquipmentByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(v))
+	ID float32 `json:"id"`
 }
 
 type VisualizeRecipePriceBreakdownByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (v VisualizeRecipePriceBreakdownByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(v))
+	ID float32 `json:"id"`
 }
 
 type SummarizeRecipePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (s SummarizeRecipePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(s))
+	ID float32 `json:"id"`
 }
 
 type CreateRecipeCardGetPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (c CreateRecipeCardGetPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(c))
+	ID float32 `json:"id"`
 }
 
 type VisualizeRecipeNutritionByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (v VisualizeRecipeNutritionByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(v))
+	ID float32 `json:"id"`
 }
 
 type GetIngredientInformationPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetIngredientInformationPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type ComputeIngredientAmountPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (c ComputeIngredientAmountPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(c))
+	ID float32 `json:"id"`
 }
 
 type GetIngredientSubstitutesByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetIngredientSubstitutesByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type SearchGroceryProductsByUPCPath struct {
-	Upc float32 `json:"upc" validate:"required"`
-}
-
-func (s SearchGroceryProductsByUPCPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(s))
+	Upc float32 `json:"upc"`
 }
 
 type GetProductInformationPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetProductInformationPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type GetComparableProductsPath struct {
-	Upc float32 `json:"upc" validate:"required"`
-}
-
-func (g GetComparableProductsPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	Upc float32 `json:"upc"`
 }
 
 type VisualizeProductNutritionByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (v VisualizeProductNutritionByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(v))
+	ID float32 `json:"id"`
 }
 
 type ProductNutritionByIDImagePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (p ProductNutritionByIDImagePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(p))
+	ID float32 `json:"id"`
 }
 
 type ProductNutritionLabelWidgetPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (p ProductNutritionLabelWidgetPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(p))
+	ID float32 `json:"id"`
 }
 
 type ProductNutritionLabelImagePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (p ProductNutritionLabelImagePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(p))
+	ID float32 `json:"id"`
 }
 
 type GetMenuItemInformationPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (g GetMenuItemInformationPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	ID float32 `json:"id"`
 }
 
 type VisualizeMenuItemNutritionByIDPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (v VisualizeMenuItemNutritionByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(v))
+	ID float32 `json:"id"`
 }
 
 type MenuItemNutritionByIDImagePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (m MenuItemNutritionByIDImagePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(m))
+	ID float32 `json:"id"`
 }
 
 type MenuItemNutritionLabelWidgetPath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (m MenuItemNutritionLabelWidgetPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(m))
+	ID float32 `json:"id"`
 }
 
 type MenuItemNutritionLabelImagePath struct {
-	ID float32 `json:"id" validate:"required"`
-}
-
-func (m MenuItemNutritionLabelImagePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(m))
+	ID float32 `json:"id"`
 }
 
 type GetMealPlanWeekPath struct {
@@ -18051,7 +17903,7 @@ func (a AddToMealPlanPath) Validate() error {
 
 type DeleteFromMealPlanPath struct {
 	Username string  `json:"username" validate:"required"`
-	ID       float32 `json:"id" validate:"required"`
+	ID       float32 `json:"id"`
 }
 
 func (d DeleteFromMealPlanPath) Validate() error {
@@ -18076,7 +17928,7 @@ func (a AddMealPlanTemplatePath) Validate() error {
 
 type GetMealPlanTemplatePath struct {
 	Username string  `json:"username" validate:"required"`
-	ID       float32 `json:"id" validate:"required"`
+	ID       float32 `json:"id"`
 }
 
 func (g GetMealPlanTemplatePath) Validate() error {
@@ -18085,7 +17937,7 @@ func (g GetMealPlanTemplatePath) Validate() error {
 
 type DeleteMealPlanTemplatePath struct {
 	Username string  `json:"username" validate:"required"`
-	ID       float32 `json:"id" validate:"required"`
+	ID       float32 `json:"id"`
 }
 
 func (d DeleteMealPlanTemplatePath) Validate() error {
@@ -18120,7 +17972,7 @@ func (a AddToShoppingListPath) Validate() error {
 
 type DeleteFromShoppingListPath struct {
 	Username string  `json:"username" validate:"required"`
-	ID       float32 `json:"id" validate:"required"`
+	ID       float32 `json:"id"`
 }
 
 func (d DeleteFromShoppingListPath) Validate() error {
@@ -18194,7 +18046,7 @@ func (c ClassifyGroceryProductBulkBody) Validate() error {
 
 type MapIngredientsToGroceryProductsBody struct {
 	Ingredients []string `json:"ingredients" validate:"required"`
-	Servings    float32  `json:"servings" validate:"required"`
+	Servings    float32  `json:"servings"`
 }
 
 func (m MapIngredientsToGroceryProductsBody) Validate() error {
@@ -18222,7 +18074,7 @@ func (a AddToMealPlanBody) Validate() error {
 
 type DeleteFromMealPlanBody struct {
 	Username string  `json:"username" validate:"required"`
-	ID       float32 `json:"id" validate:"required"`
+	ID       float32 `json:"id"`
 	Hash     string  `json:"hash" validate:"required"`
 }
 
@@ -18241,7 +18093,7 @@ func (a AddMealPlanTemplateBody) Validate() error {
 
 type DeleteMealPlanTemplateBody struct {
 	Username string  `json:"username" validate:"required"`
-	ID       float32 `json:"id" validate:"required"`
+	ID       float32 `json:"id"`
 	Hash     string  `json:"hash" validate:"required"`
 }
 
@@ -18273,7 +18125,7 @@ func (a AddToShoppingListBody) Validate() error {
 
 type DeleteFromShoppingListBody struct {
 	Username string  `json:"username" validate:"required"`
-	ID       float32 `json:"id" validate:"required"`
+	ID       float32 `json:"id"`
 	Hash     string  `json:"hash" validate:"required"`
 }
 
@@ -18703,7 +18555,7 @@ func (a AnalyzeARecipeSearchQueryQuery) Validate() error {
 
 type ConvertAmountsQuery struct {
 	IngredientName string  `json:"ingredientName" validate:"required"`
-	SourceAmount   float32 `json:"sourceAmount" validate:"required"`
+	SourceAmount   float32 `json:"sourceAmount"`
 	SourceUnit     string  `json:"sourceUnit" validate:"required"`
 	TargetUnit     string  `json:"targetUnit" validate:"required"`
 }
@@ -18739,7 +18591,7 @@ type GetIngredientInformationQuery struct {
 
 type ComputeIngredientAmountQuery struct {
 	Nutrient string  `json:"nutrient" validate:"required"`
-	Target   float32 `json:"target" validate:"required"`
+	Target   float32 `json:"target"`
 	Unit     *string `json:"unit,omitempty"`
 }
 
@@ -21566,27 +21418,18 @@ func (r *GetConversationSuggestsResponseData) WithStatus(code int) *GetConversat
 }
 
 type SearchRecipesResponse struct {
-	Offset       int64                          `json:"offset" validate:"required"`
-	Number       int64                          `json:"number" validate:"required"`
+	Offset       int64                          `json:"offset"`
+	Number       int64                          `json:"number"`
 	Results      SearchRecipes_Response_Results `json:"results" validate:"required"`
-	TotalResults int64                          `json:"totalResults" validate:"required"`
+	TotalResults int64                          `json:"totalResults"`
 }
 
 func (s SearchRecipesResponse) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(s.Offset, "required"); err != nil {
-		errors = errors.Append("Offset", err)
-	}
-	if err := typesValidator.Var(s.Number, "required"); err != nil {
-		errors = errors.Append("Number", err)
-	}
 	if v, ok := any(s.Results).(runtime.Validator); ok {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Results", err)
 		}
-	}
-	if err := typesValidator.Var(s.TotalResults, "required"); err != nil {
-		errors = errors.Append("TotalResults", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -21613,20 +21456,20 @@ func (s SearchRecipesByNutrientsResponse) Validate() error {
 }
 
 type GetRecipeInformationResponse struct {
-	ID                       int64                                             `json:"id" validate:"required"`
+	ID                       int64                                             `json:"id"`
 	Title                    string                                            `json:"title" validate:"required,min=1"`
 	Image                    string                                            `json:"image" validate:"required,min=1"`
 	ImageType                string                                            `json:"imageType" validate:"required,min=1"`
-	Servings                 float32                                           `json:"servings" validate:"required"`
-	ReadyInMinutes           int64                                             `json:"readyInMinutes" validate:"required"`
+	Servings                 float32                                           `json:"servings"`
+	ReadyInMinutes           int64                                             `json:"readyInMinutes"`
 	License                  string                                            `json:"license" validate:"required,min=1"`
 	SourceName               string                                            `json:"sourceName" validate:"required,min=1"`
 	SourceURL                string                                            `json:"sourceUrl" validate:"required,min=1"`
 	SpoonacularSourceURL     string                                            `json:"spoonacularSourceUrl" validate:"required,min=1"`
-	AggregateLikes           int64                                             `json:"aggregateLikes" validate:"required"`
-	HealthScore              float32                                           `json:"healthScore" validate:"required"`
-	SpoonacularScore         float32                                           `json:"spoonacularScore" validate:"required"`
-	PricePerServing          float32                                           `json:"pricePerServing" validate:"required"`
+	AggregateLikes           int64                                             `json:"aggregateLikes"`
+	HealthScore              float32                                           `json:"healthScore"`
+	SpoonacularScore         float32                                           `json:"spoonacularScore"`
+	PricePerServing          float32                                           `json:"pricePerServing"`
 	AnalyzedInstructions     []map[string]any                                  `json:"analyzedInstructions" validate:"required"`
 	Cheap                    bool                                              `json:"cheap"`
 	CreditsText              string                                            `json:"creditsText" validate:"required,min=1"`
@@ -21645,7 +21488,7 @@ type GetRecipeInformationResponse struct {
 	VeryHealthy              bool                                              `json:"veryHealthy"`
 	VeryPopular              bool                                              `json:"veryPopular"`
 	Whole30                  bool                                              `json:"whole30"`
-	WeightWatcherSmartPoints float32                                           `json:"weightWatcherSmartPoints" validate:"required"`
+	WeightWatcherSmartPoints float32                                           `json:"weightWatcherSmartPoints"`
 	DishTypes                []string                                          `json:"dishTypes" validate:"required"`
 	ExtendedIngredients      GetRecipeInformation_Response_ExtendedIngredients `json:"extendedIngredients" validate:"required"`
 	Summary                  string                                            `json:"summary" validate:"required,min=1"`
@@ -21654,9 +21497,6 @@ type GetRecipeInformationResponse struct {
 
 func (g GetRecipeInformationResponse) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(g.Title, "required,min=1"); err != nil {
 		errors = errors.Append("Title", err)
 	}
@@ -21665,12 +21505,6 @@ func (g GetRecipeInformationResponse) Validate() error {
 	}
 	if err := typesValidator.Var(g.ImageType, "required,min=1"); err != nil {
 		errors = errors.Append("ImageType", err)
-	}
-	if err := typesValidator.Var(g.Servings, "required"); err != nil {
-		errors = errors.Append("Servings", err)
-	}
-	if err := typesValidator.Var(g.ReadyInMinutes, "required"); err != nil {
-		errors = errors.Append("ReadyInMinutes", err)
 	}
 	if err := typesValidator.Var(g.License, "required,min=1"); err != nil {
 		errors = errors.Append("License", err)
@@ -21683,18 +21517,6 @@ func (g GetRecipeInformationResponse) Validate() error {
 	}
 	if err := typesValidator.Var(g.SpoonacularSourceURL, "required,min=1"); err != nil {
 		errors = errors.Append("SpoonacularSourceURL", err)
-	}
-	if err := typesValidator.Var(g.AggregateLikes, "required"); err != nil {
-		errors = errors.Append("AggregateLikes", err)
-	}
-	if err := typesValidator.Var(g.HealthScore, "required"); err != nil {
-		errors = errors.Append("HealthScore", err)
-	}
-	if err := typesValidator.Var(g.SpoonacularScore, "required"); err != nil {
-		errors = errors.Append("SpoonacularScore", err)
-	}
-	if err := typesValidator.Var(g.PricePerServing, "required"); err != nil {
-		errors = errors.Append("PricePerServing", err)
 	}
 	if err := typesValidator.Var(g.AnalyzedInstructions, "required"); err != nil {
 		errors = errors.Append("AnalyzedInstructions", err)
@@ -21716,9 +21538,6 @@ func (g GetRecipeInformationResponse) Validate() error {
 	}
 	if err := typesValidator.Var(g.Occasions, "required"); err != nil {
 		errors = errors.Append("Occasions", err)
-	}
-	if err := typesValidator.Var(g.WeightWatcherSmartPoints, "required"); err != nil {
-		errors = errors.Append("WeightWatcherSmartPoints", err)
 	}
 	if err := typesValidator.Var(g.DishTypes, "required"); err != nil {
 		errors = errors.Append("DishTypes", err)
@@ -21787,17 +21606,13 @@ func (a AutocompleteRecipeSearchResponse) Validate() error {
 }
 
 type GetRecipeTasteByIDResponse struct {
-	Sweetness  float32 `json:"sweetness" validate:"required"`
-	Saltiness  float32 `json:"saltiness" validate:"required"`
-	Sourness   float32 `json:"sourness" validate:"required"`
-	Bitterness float32 `json:"bitterness" validate:"required"`
-	Savoriness float32 `json:"savoriness" validate:"required"`
-	Fattiness  float32 `json:"fattiness" validate:"required"`
-	Spiciness  float32 `json:"spiciness" validate:"required"`
-}
-
-func (g GetRecipeTasteByIDResponse) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	Sweetness  float32 `json:"sweetness"`
+	Saltiness  float32 `json:"saltiness"`
+	Sourness   float32 `json:"sourness"`
+	Bitterness float32 `json:"bitterness"`
+	Savoriness float32 `json:"savoriness"`
+	Fattiness  float32 `json:"fattiness"`
+	Spiciness  float32 `json:"spiciness"`
 }
 
 type RecipeTasteByIDImageResponse = []byte
@@ -21823,8 +21638,8 @@ type EquipmentByIDImageResponse = []byte
 
 type GetRecipePriceBreakdownByIDResponse struct {
 	Ingredients         GetRecipePriceBreakdownByID_Response_Ingredients `json:"ingredients" validate:"required"`
-	TotalCost           float32                                          `json:"totalCost" validate:"required"`
-	TotalCostPerServing float32                                          `json:"totalCostPerServing" validate:"required"`
+	TotalCost           float32                                          `json:"totalCost"`
+	TotalCostPerServing float32                                          `json:"totalCostPerServing"`
 }
 
 func (g GetRecipePriceBreakdownByIDResponse) Validate() error {
@@ -21833,12 +21648,6 @@ func (g GetRecipePriceBreakdownByIDResponse) Validate() error {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Ingredients", err)
 		}
-	}
-	if err := typesValidator.Var(g.TotalCost, "required"); err != nil {
-		errors = errors.Append("TotalCost", err)
-	}
-	if err := typesValidator.Var(g.TotalCostPerServing, "required"); err != nil {
-		errors = errors.Append("TotalCostPerServing", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -21942,20 +21751,20 @@ func (g GetAnalyzedRecipeInstructionsResponse) Validate() error {
 }
 
 type ExtractRecipeFromWebsiteResponse struct {
-	ID                       int64                                                 `json:"id" validate:"required"`
+	ID                       int64                                                 `json:"id"`
 	Title                    string                                                `json:"title" validate:"required,min=1"`
 	Image                    string                                                `json:"image" validate:"required,min=1"`
 	ImageType                string                                                `json:"imageType" validate:"required,min=1"`
-	Servings                 float32                                               `json:"servings" validate:"required"`
-	ReadyInMinutes           int64                                                 `json:"readyInMinutes" validate:"required"`
+	Servings                 float32                                               `json:"servings"`
+	ReadyInMinutes           int64                                                 `json:"readyInMinutes"`
 	License                  string                                                `json:"license" validate:"required,min=1"`
 	SourceName               string                                                `json:"sourceName" validate:"required,min=1"`
 	SourceURL                string                                                `json:"sourceUrl" validate:"required,min=1"`
 	SpoonacularSourceURL     string                                                `json:"spoonacularSourceUrl" validate:"required,min=1"`
-	AggregateLikes           int64                                                 `json:"aggregateLikes" validate:"required"`
-	HealthScore              float32                                               `json:"healthScore" validate:"required"`
-	SpoonacularScore         float32                                               `json:"spoonacularScore" validate:"required"`
-	PricePerServing          float32                                               `json:"pricePerServing" validate:"required"`
+	AggregateLikes           int64                                                 `json:"aggregateLikes"`
+	HealthScore              float32                                               `json:"healthScore"`
+	SpoonacularScore         float32                                               `json:"spoonacularScore"`
+	PricePerServing          float32                                               `json:"pricePerServing"`
 	AnalyzedInstructions     []map[string]any                                      `json:"analyzedInstructions" validate:"required"`
 	Cheap                    bool                                                  `json:"cheap"`
 	CreditsText              string                                                `json:"creditsText" validate:"required,min=1"`
@@ -21974,7 +21783,7 @@ type ExtractRecipeFromWebsiteResponse struct {
 	VeryHealthy              bool                                                  `json:"veryHealthy"`
 	VeryPopular              bool                                                  `json:"veryPopular"`
 	Whole30                  bool                                                  `json:"whole30"`
-	WeightWatcherSmartPoints float32                                               `json:"weightWatcherSmartPoints" validate:"required"`
+	WeightWatcherSmartPoints float32                                               `json:"weightWatcherSmartPoints"`
 	DishTypes                []string                                              `json:"dishTypes" validate:"required"`
 	ExtendedIngredients      ExtractRecipeFromWebsite_Response_ExtendedIngredients `json:"extendedIngredients" validate:"required"`
 	Summary                  string                                                `json:"summary" validate:"required,min=1"`
@@ -21983,9 +21792,6 @@ type ExtractRecipeFromWebsiteResponse struct {
 
 func (e ExtractRecipeFromWebsiteResponse) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(e.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(e.Title, "required,min=1"); err != nil {
 		errors = errors.Append("Title", err)
 	}
@@ -21994,12 +21800,6 @@ func (e ExtractRecipeFromWebsiteResponse) Validate() error {
 	}
 	if err := typesValidator.Var(e.ImageType, "required,min=1"); err != nil {
 		errors = errors.Append("ImageType", err)
-	}
-	if err := typesValidator.Var(e.Servings, "required"); err != nil {
-		errors = errors.Append("Servings", err)
-	}
-	if err := typesValidator.Var(e.ReadyInMinutes, "required"); err != nil {
-		errors = errors.Append("ReadyInMinutes", err)
 	}
 	if err := typesValidator.Var(e.License, "required,min=1"); err != nil {
 		errors = errors.Append("License", err)
@@ -22012,18 +21812,6 @@ func (e ExtractRecipeFromWebsiteResponse) Validate() error {
 	}
 	if err := typesValidator.Var(e.SpoonacularSourceURL, "required,min=1"); err != nil {
 		errors = errors.Append("SpoonacularSourceURL", err)
-	}
-	if err := typesValidator.Var(e.AggregateLikes, "required"); err != nil {
-		errors = errors.Append("AggregateLikes", err)
-	}
-	if err := typesValidator.Var(e.HealthScore, "required"); err != nil {
-		errors = errors.Append("HealthScore", err)
-	}
-	if err := typesValidator.Var(e.SpoonacularScore, "required"); err != nil {
-		errors = errors.Append("SpoonacularScore", err)
-	}
-	if err := typesValidator.Var(e.PricePerServing, "required"); err != nil {
-		errors = errors.Append("PricePerServing", err)
 	}
 	if err := typesValidator.Var(e.AnalyzedInstructions, "required"); err != nil {
 		errors = errors.Append("AnalyzedInstructions", err)
@@ -22045,9 +21833,6 @@ func (e ExtractRecipeFromWebsiteResponse) Validate() error {
 	}
 	if err := typesValidator.Var(e.Occasions, "required"); err != nil {
 		errors = errors.Append("Occasions", err)
-	}
-	if err := typesValidator.Var(e.WeightWatcherSmartPoints, "required"); err != nil {
-		errors = errors.Append("WeightWatcherSmartPoints", err)
 	}
 	if err := typesValidator.Var(e.DishTypes, "required"); err != nil {
 		errors = errors.Append("DishTypes", err)
@@ -22090,7 +21875,7 @@ type VisualizeEquipmentResponse = string
 type AnalyzeRecipeResponse = map[string]any
 
 type SummarizeRecipeResponse struct {
-	ID      int64  `json:"id" validate:"required"`
+	ID      int64  `json:"id"`
 	Summary string `json:"summary" validate:"required,min=1"`
 	Title   string `json:"title" validate:"required,min=1"`
 }
@@ -22141,7 +21926,7 @@ func (a AnalyzeRecipeInstructionsResponse) Validate() error {
 type ClassifyCuisineResponse struct {
 	Cuisine    string   `json:"cuisine" validate:"required,min=1"`
 	Cuisines   []string `json:"cuisines" validate:"required"`
-	Confidence float32  `json:"confidence" validate:"required"`
+	Confidence float32  `json:"confidence"`
 }
 
 func (c ClassifyCuisineResponse) Validate() error {
@@ -22180,9 +21965,9 @@ func (a AnalyzeARecipeSearchQueryResponse) Validate() error {
 }
 
 type ConvertAmountsResponse struct {
-	SourceAmount float32 `json:"sourceAmount" validate:"required"`
+	SourceAmount float32 `json:"sourceAmount"`
 	SourceUnit   string  `json:"sourceUnit" validate:"required,min=1"`
-	TargetAmount float32 `json:"targetAmount" validate:"required"`
+	TargetAmount float32 `json:"targetAmount"`
 	TargetUnit   string  `json:"targetUnit" validate:"required,min=1"`
 	Answer       string  `json:"answer" validate:"required,min=1"`
 }
@@ -22209,7 +21994,7 @@ type GuessNutritionByDishNameResponse struct {
 	Carbs       GuessNutritionByDishName_Response_Carbs    `json:"carbs"`
 	Fat         GuessNutritionByDishName_Response_Fat      `json:"fat"`
 	Protein     GuessNutritionByDishName_Response_Protein  `json:"protein"`
-	RecipesUsed int64                                      `json:"recipesUsed" validate:"required"`
+	RecipesUsed int64                                      `json:"recipesUsed"`
 }
 
 func (g GuessNutritionByDishNameResponse) Validate() error {
@@ -22234,9 +22019,6 @@ func (g GuessNutritionByDishNameResponse) Validate() error {
 			errors = errors.Append("Protein", err)
 		}
 	}
-	if err := typesValidator.Var(g.RecipesUsed, "required"); err != nil {
-		errors = errors.Append("RecipesUsed", err)
-	}
 	if len(errors) == 0 {
 		return nil
 	}
@@ -22244,12 +22026,12 @@ func (g GuessNutritionByDishNameResponse) Validate() error {
 }
 
 type GetIngredientInformationResponse struct {
-	ID                int64                                           `json:"id" validate:"required"`
+	ID                int64                                           `json:"id"`
 	Original          string                                          `json:"original" validate:"required,min=1"`
 	OriginalName      string                                          `json:"originalName" validate:"required,min=1"`
 	Name              string                                          `json:"name" validate:"required,min=1"`
 	NameClean         string                                          `json:"nameClean" validate:"required,min=1"`
-	Amount            float32                                         `json:"amount" validate:"required"`
+	Amount            float32                                         `json:"amount"`
 	Unit              string                                          `json:"unit" validate:"required"`
 	UnitShort         string                                          `json:"unitShort" validate:"required"`
 	UnitLong          string                                          `json:"unitLong" validate:"required"`
@@ -22266,9 +22048,6 @@ type GetIngredientInformationResponse struct {
 
 func (g GetIngredientInformationResponse) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(g.Original, "required,min=1"); err != nil {
 		errors = errors.Append("Original", err)
 	}
@@ -22280,9 +22059,6 @@ func (g GetIngredientInformationResponse) Validate() error {
 	}
 	if err := typesValidator.Var(g.NameClean, "required,min=1"); err != nil {
 		errors = errors.Append("NameClean", err)
-	}
-	if err := typesValidator.Var(g.Amount, "required"); err != nil {
-		errors = errors.Append("Amount", err)
 	}
 	if err := typesValidator.Var(g.Unit, "required"); err != nil {
 		errors = errors.Append("Unit", err)
@@ -22331,7 +22107,7 @@ func (g GetIngredientInformationResponse) Validate() error {
 }
 
 type ComputeIngredientAmountResponse struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -22340,15 +22116,12 @@ func (c ComputeIngredientAmountResponse) Validate() error {
 }
 
 type ComputeGlycemicLoadResponse struct {
-	TotalGlycemicLoad float32                                  `json:"totalGlycemicLoad" validate:"required"`
+	TotalGlycemicLoad float32                                  `json:"totalGlycemicLoad"`
 	Ingredients       ComputeGlycemicLoad_Response_Ingredients `json:"ingredients" validate:"required"`
 }
 
 func (c ComputeGlycemicLoadResponse) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(c.TotalGlycemicLoad, "required"); err != nil {
-		errors = errors.Append("TotalGlycemicLoad", err)
-	}
 	if v, ok := any(c.Ingredients).(runtime.Validator); ok {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Ingredients", err)
@@ -22371,9 +22144,9 @@ func (a AutocompleteIngredientSearchResponse) Validate() error {
 
 type IngredientSearchResponse struct {
 	Results      IngredientSearch_Response_Results `json:"results" validate:"required"`
-	Offset       int64                             `json:"offset" validate:"required"`
-	Number       int64                             `json:"number" validate:"required"`
-	TotalResults int64                             `json:"totalResults" validate:"required"`
+	Offset       int64                             `json:"offset"`
+	Number       int64                             `json:"number"`
+	TotalResults int64                             `json:"totalResults"`
 }
 
 func (i IngredientSearchResponse) Validate() error {
@@ -22382,15 +22155,6 @@ func (i IngredientSearchResponse) Validate() error {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Results", err)
 		}
-	}
-	if err := typesValidator.Var(i.Offset, "required"); err != nil {
-		errors = errors.Append("Offset", err)
-	}
-	if err := typesValidator.Var(i.Number, "required"); err != nil {
-		errors = errors.Append("Number", err)
-	}
-	if err := typesValidator.Var(i.TotalResults, "required"); err != nil {
-		errors = errors.Append("TotalResults", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -22420,10 +22184,10 @@ func (g GetIngredientSubstitutesByIDResponse) Validate() error {
 
 type SearchGroceryProductsResponse struct {
 	Products      SearchGroceryProducts_Response_Products `json:"products" validate:"required"`
-	TotalProducts int64                                   `json:"totalProducts" validate:"required"`
+	TotalProducts int64                                   `json:"totalProducts"`
 	Type          string                                  `json:"type" validate:"required,min=1"`
-	Offset        int64                                   `json:"offset" validate:"required"`
-	Number        int64                                   `json:"number" validate:"required"`
+	Offset        int64                                   `json:"offset"`
+	Number        int64                                   `json:"number"`
 }
 
 func (s SearchGroceryProductsResponse) Validate() error {
@@ -22433,17 +22197,8 @@ func (s SearchGroceryProductsResponse) Validate() error {
 			errors = errors.Append("Products", err)
 		}
 	}
-	if err := typesValidator.Var(s.TotalProducts, "required"); err != nil {
-		errors = errors.Append("TotalProducts", err)
-	}
 	if err := typesValidator.Var(s.Type, "required,min=1"); err != nil {
 		errors = errors.Append("Type", err)
-	}
-	if err := typesValidator.Var(s.Offset, "required"); err != nil {
-		errors = errors.Append("Offset", err)
-	}
-	if err := typesValidator.Var(s.Number, "required"); err != nil {
-		errors = errors.Append("Number", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -22452,7 +22207,7 @@ func (s SearchGroceryProductsResponse) Validate() error {
 }
 
 type SearchGroceryProductsByUPCResponse struct {
-	ID               int64                                           `json:"id" validate:"required"`
+	ID               int64                                           `json:"id"`
 	Title            string                                          `json:"title" validate:"required,min=1"`
 	Badges           []string                                        `json:"badges" validate:"required"`
 	ImportantBadges  []string                                        `json:"importantBadges" validate:"required"`
@@ -22462,18 +22217,15 @@ type SearchGroceryProductsByUPCResponse struct {
 	IngredientCount  *int64                                          `json:"ingredientCount,omitempty"`
 	IngredientList   string                                          `json:"ingredientList" validate:"required,min=1"`
 	Ingredients      SearchGroceryProductsByUPC_Response_Ingredients `json:"ingredients" validate:"required"`
-	Likes            float32                                         `json:"likes" validate:"required"`
+	Likes            float32                                         `json:"likes"`
 	Nutrition        SearchGroceryProductsByUPC_Response_Nutrition   `json:"nutrition"`
-	Price            float32                                         `json:"price" validate:"required"`
+	Price            float32                                         `json:"price"`
 	Servings         SearchGroceryProductsByUPC_Response_Servings    `json:"servings"`
-	SpoonacularScore float32                                         `json:"spoonacularScore" validate:"required"`
+	SpoonacularScore float32                                         `json:"spoonacularScore"`
 }
 
 func (s SearchGroceryProductsByUPCResponse) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(s.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(s.Title, "required,min=1"); err != nil {
 		errors = errors.Append("Title", err)
 	}
@@ -22500,24 +22252,15 @@ func (s SearchGroceryProductsByUPCResponse) Validate() error {
 			errors = errors.Append("Ingredients", err)
 		}
 	}
-	if err := typesValidator.Var(s.Likes, "required"); err != nil {
-		errors = errors.Append("Likes", err)
-	}
 	if v, ok := any(s.Nutrition).(runtime.Validator); ok {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Nutrition", err)
 		}
 	}
-	if err := typesValidator.Var(s.Price, "required"); err != nil {
-		errors = errors.Append("Price", err)
-	}
 	if v, ok := any(s.Servings).(runtime.Validator); ok {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Servings", err)
 		}
-	}
-	if err := typesValidator.Var(s.SpoonacularScore, "required"); err != nil {
-		errors = errors.Append("SpoonacularScore", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -22528,8 +22271,8 @@ func (s SearchGroceryProductsByUPCResponse) Validate() error {
 type SearchCustomFoodsResponse struct {
 	CustomFoods SearchCustomFoods_Response_CustomFoods `json:"customFoods" validate:"required"`
 	Type        string                                 `json:"type" validate:"required,min=1"`
-	Offset      int64                                  `json:"offset" validate:"required"`
-	Number      int64                                  `json:"number" validate:"required"`
+	Offset      int64                                  `json:"offset"`
+	Number      int64                                  `json:"number"`
 }
 
 func (s SearchCustomFoodsResponse) Validate() error {
@@ -22542,12 +22285,6 @@ func (s SearchCustomFoodsResponse) Validate() error {
 	if err := typesValidator.Var(s.Type, "required,min=1"); err != nil {
 		errors = errors.Append("Type", err)
 	}
-	if err := typesValidator.Var(s.Offset, "required"); err != nil {
-		errors = errors.Append("Offset", err)
-	}
-	if err := typesValidator.Var(s.Number, "required"); err != nil {
-		errors = errors.Append("Number", err)
-	}
 	if len(errors) == 0 {
 		return nil
 	}
@@ -22555,29 +22292,26 @@ func (s SearchCustomFoodsResponse) Validate() error {
 }
 
 type GetProductInformationResponse struct {
-	ID               int64                                      `json:"id" validate:"required"`
+	ID               int64                                      `json:"id"`
 	Title            string                                     `json:"title" validate:"required,min=1"`
 	Breadcrumbs      []string                                   `json:"breadcrumbs" validate:"required"`
 	ImageType        string                                     `json:"imageType" validate:"required,min=1"`
 	Badges           []string                                   `json:"badges" validate:"required"`
 	ImportantBadges  []string                                   `json:"importantBadges" validate:"required"`
-	IngredientCount  int64                                      `json:"ingredientCount" validate:"required"`
+	IngredientCount  int64                                      `json:"ingredientCount"`
 	GeneratedText    *struct{}                                  `json:"generatedText,omitempty"`
 	IngredientList   string                                     `json:"ingredientList" validate:"required,min=1"`
 	Ingredients      GetProductInformation_Response_Ingredients `json:"ingredients" validate:"required"`
-	Likes            float32                                    `json:"likes" validate:"required"`
+	Likes            float32                                    `json:"likes"`
 	Aisle            string                                     `json:"aisle" validate:"required,min=1"`
 	Nutrition        GetProductInformation_Response_Nutrition   `json:"nutrition"`
-	Price            float32                                    `json:"price" validate:"required"`
+	Price            float32                                    `json:"price"`
 	Servings         GetProductInformation_Response_Servings    `json:"servings"`
-	SpoonacularScore float32                                    `json:"spoonacularScore" validate:"required"`
+	SpoonacularScore float32                                    `json:"spoonacularScore"`
 }
 
 func (g GetProductInformationResponse) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(g.Title, "required,min=1"); err != nil {
 		errors = errors.Append("Title", err)
 	}
@@ -22593,9 +22327,6 @@ func (g GetProductInformationResponse) Validate() error {
 	if err := typesValidator.Var(g.ImportantBadges, "required"); err != nil {
 		errors = errors.Append("ImportantBadges", err)
 	}
-	if err := typesValidator.Var(g.IngredientCount, "required"); err != nil {
-		errors = errors.Append("IngredientCount", err)
-	}
 	if err := typesValidator.Var(g.IngredientList, "required,min=1"); err != nil {
 		errors = errors.Append("IngredientList", err)
 	}
@@ -22603,9 +22334,6 @@ func (g GetProductInformationResponse) Validate() error {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Ingredients", err)
 		}
-	}
-	if err := typesValidator.Var(g.Likes, "required"); err != nil {
-		errors = errors.Append("Likes", err)
 	}
 	if err := typesValidator.Var(g.Aisle, "required,min=1"); err != nil {
 		errors = errors.Append("Aisle", err)
@@ -22615,16 +22343,10 @@ func (g GetProductInformationResponse) Validate() error {
 			errors = errors.Append("Nutrition", err)
 		}
 	}
-	if err := typesValidator.Var(g.Price, "required"); err != nil {
-		errors = errors.Append("Price", err)
-	}
 	if v, ok := any(g.Servings).(runtime.Validator); ok {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Servings", err)
 		}
-	}
-	if err := typesValidator.Var(g.SpoonacularScore, "required"); err != nil {
-		errors = errors.Append("SpoonacularScore", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -22679,7 +22401,7 @@ type ClassifyGroceryProductResponse struct {
 	Image       string   `json:"image" validate:"required,min=1"`
 	Category    string   `json:"category" validate:"required,min=1"`
 	Breadcrumbs []string `json:"breadcrumbs" validate:"required"`
-	UsdaCode    int64    `json:"usdaCode" validate:"required"`
+	UsdaCode    int64    `json:"usdaCode"`
 }
 
 func (c ClassifyGroceryProductResponse) Validate() error {
@@ -22723,10 +22445,10 @@ func (a AutocompleteMenuItemSearchResponse) Validate() error {
 
 type SearchMenuItemsResponse struct {
 	MenuItems      SearchMenuItems_Response_MenuItems `json:"menuItems" validate:"required"`
-	TotalMenuItems int64                              `json:"totalMenuItems" validate:"required"`
+	TotalMenuItems int64                              `json:"totalMenuItems"`
 	Type           string                             `json:"type" validate:"required,min=1"`
-	Offset         int64                              `json:"offset" validate:"required"`
-	Number         int64                              `json:"number" validate:"required"`
+	Offset         int64                              `json:"offset"`
+	Number         int64                              `json:"number"`
 }
 
 func (s SearchMenuItemsResponse) Validate() error {
@@ -22736,17 +22458,8 @@ func (s SearchMenuItemsResponse) Validate() error {
 			errors = errors.Append("MenuItems", err)
 		}
 	}
-	if err := typesValidator.Var(s.TotalMenuItems, "required"); err != nil {
-		errors = errors.Append("TotalMenuItems", err)
-	}
 	if err := typesValidator.Var(s.Type, "required,min=1"); err != nil {
 		errors = errors.Append("Type", err)
-	}
-	if err := typesValidator.Var(s.Offset, "required"); err != nil {
-		errors = errors.Append("Offset", err)
-	}
-	if err := typesValidator.Var(s.Number, "required"); err != nil {
-		errors = errors.Append("Number", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -22755,7 +22468,7 @@ func (s SearchMenuItemsResponse) Validate() error {
 }
 
 type GetMenuItemInformationResponse struct {
-	ID               int64                                     `json:"id" validate:"required"`
+	ID               int64                                     `json:"id"`
 	Title            string                                    `json:"title" validate:"required,min=1"`
 	RestaurantChain  string                                    `json:"restaurantChain" validate:"required,min=1"`
 	Nutrition        GetMenuItemInformation_Response_Nutrition `json:"nutrition"`
@@ -22763,7 +22476,7 @@ type GetMenuItemInformationResponse struct {
 	Breadcrumbs      []string                                  `json:"breadcrumbs" validate:"required"`
 	GeneratedText    *string                                   `json:"generatedText,omitempty"`
 	ImageType        string                                    `json:"imageType" validate:"required,min=1"`
-	Likes            float32                                   `json:"likes" validate:"required"`
+	Likes            float32                                   `json:"likes"`
 	Servings         GetMenuItemInformation_Response_Servings  `json:"servings"`
 	Price            *float32                                  `json:"price,omitempty"`
 	SpoonacularScore *float32                                  `json:"spoonacularScore,omitempty"`
@@ -22771,9 +22484,6 @@ type GetMenuItemInformationResponse struct {
 
 func (g GetMenuItemInformationResponse) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(g.Title, "required,min=1"); err != nil {
 		errors = errors.Append("Title", err)
 	}
@@ -22793,9 +22503,6 @@ func (g GetMenuItemInformationResponse) Validate() error {
 	}
 	if err := typesValidator.Var(g.ImageType, "required,min=1"); err != nil {
 		errors = errors.Append("ImageType", err)
-	}
-	if err := typesValidator.Var(g.Likes, "required"); err != nil {
-		errors = errors.Append("Likes", err)
 	}
 	if v, ok := any(g.Servings).(runtime.Validator); ok {
 		if err := v.Validate(); err != nil {
@@ -22902,16 +22609,13 @@ func (a AddMealPlanTemplateResponse) Validate() error {
 }
 
 type GetMealPlanTemplateResponse struct {
-	ID   int64                             `json:"id" validate:"required"`
+	ID   int64                             `json:"id"`
 	Name string                            `json:"name" validate:"required,min=1"`
 	Days GetMealPlanTemplate_Response_Days `json:"days" validate:"required"`
 }
 
 func (g GetMealPlanTemplateResponse) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(g.Name, "required,min=1"); err != nil {
 		errors = errors.Append("Name", err)
 	}
@@ -22930,9 +22634,9 @@ type DeleteMealPlanTemplateResponse = map[string]any
 
 type GetShoppingListResponse struct {
 	Aisles    GetShoppingList_Response_Aisles `json:"aisles" validate:"required"`
-	Cost      float32                         `json:"cost" validate:"required"`
-	StartDate float32                         `json:"startDate" validate:"required"`
-	EndDate   float32                         `json:"endDate" validate:"required"`
+	Cost      float32                         `json:"cost"`
+	StartDate float32                         `json:"startDate"`
+	EndDate   float32                         `json:"endDate"`
 }
 
 func (g GetShoppingListResponse) Validate() error {
@@ -22942,15 +22646,6 @@ func (g GetShoppingListResponse) Validate() error {
 			errors = errors.Append("Aisles", err)
 		}
 	}
-	if err := typesValidator.Var(g.Cost, "required"); err != nil {
-		errors = errors.Append("Cost", err)
-	}
-	if err := typesValidator.Var(g.StartDate, "required"); err != nil {
-		errors = errors.Append("StartDate", err)
-	}
-	if err := typesValidator.Var(g.EndDate, "required"); err != nil {
-		errors = errors.Append("EndDate", err)
-	}
 	if len(errors) == 0 {
 		return nil
 	}
@@ -22959,9 +22654,9 @@ func (g GetShoppingListResponse) Validate() error {
 
 type GenerateShoppingListResponse struct {
 	Aisles    GenerateShoppingList_Response_Aisles `json:"aisles" validate:"required"`
-	Cost      float32                              `json:"cost" validate:"required"`
-	StartDate float32                              `json:"startDate" validate:"required"`
-	EndDate   float32                              `json:"endDate" validate:"required"`
+	Cost      float32                              `json:"cost"`
+	StartDate float32                              `json:"startDate"`
+	EndDate   float32                              `json:"endDate"`
 }
 
 func (g GenerateShoppingListResponse) Validate() error {
@@ -22970,15 +22665,6 @@ func (g GenerateShoppingListResponse) Validate() error {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Aisles", err)
 		}
-	}
-	if err := typesValidator.Var(g.Cost, "required"); err != nil {
-		errors = errors.Append("Cost", err)
-	}
-	if err := typesValidator.Var(g.StartDate, "required"); err != nil {
-		errors = errors.Append("StartDate", err)
-	}
-	if err := typesValidator.Var(g.EndDate, "required"); err != nil {
-		errors = errors.Append("EndDate", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -22997,9 +22683,9 @@ func (c ConnectUserResponse) Validate() error {
 
 type AddToShoppingListResponse struct {
 	Aisles    AddToShoppingList_Response_Aisles `json:"aisles" validate:"required"`
-	Cost      float32                           `json:"cost" validate:"required"`
-	StartDate float32                           `json:"startDate" validate:"required"`
-	EndDate   float32                           `json:"endDate" validate:"required"`
+	Cost      float32                           `json:"cost"`
+	StartDate float32                           `json:"startDate"`
+	EndDate   float32                           `json:"endDate"`
 }
 
 func (a AddToShoppingListResponse) Validate() error {
@@ -23008,15 +22694,6 @@ func (a AddToShoppingListResponse) Validate() error {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Aisles", err)
 		}
-	}
-	if err := typesValidator.Var(a.Cost, "required"); err != nil {
-		errors = errors.Append("Cost", err)
-	}
-	if err := typesValidator.Var(a.StartDate, "required"); err != nil {
-		errors = errors.Append("StartDate", err)
-	}
-	if err := typesValidator.Var(a.EndDate, "required"); err != nil {
-		errors = errors.Append("EndDate", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -23089,7 +22766,7 @@ func (g GetWineDescriptionResponse) Validate() error {
 
 type GetWineRecommendationResponse struct {
 	RecommendedWines GetWineRecommendation_Response_RecommendedWines `json:"recommendedWines" validate:"required"`
-	TotalFound       int64                                           `json:"totalFound" validate:"required"`
+	TotalFound       int64                                           `json:"totalFound"`
 }
 
 func (g GetWineRecommendationResponse) Validate() error {
@@ -23099,9 +22776,6 @@ func (g GetWineRecommendationResponse) Validate() error {
 			errors = errors.Append("RecommendedWines", err)
 		}
 	}
-	if err := typesValidator.Var(g.TotalFound, "required"); err != nil {
-		errors = errors.Append("TotalFound", err)
-	}
 	if len(errors) == 0 {
 		return nil
 	}
@@ -23110,7 +22784,7 @@ func (g GetWineRecommendationResponse) Validate() error {
 
 type ImageClassificationByURLResponse struct {
 	Category    string  `json:"category" validate:"required,min=1"`
-	Probability float32 `json:"probability" validate:"required"`
+	Probability float32 `json:"probability"`
 }
 
 func (i ImageClassificationByURLResponse) Validate() error {
@@ -23209,9 +22883,9 @@ func (s SearchSiteContentResponse) Validate() error {
 
 type SearchAllFoodResponse struct {
 	Query         string                               `json:"query" validate:"required,min=1"`
-	TotalResults  int64                                `json:"totalResults" validate:"required"`
-	Limit         int64                                `json:"limit" validate:"required"`
-	Offset        int64                                `json:"offset" validate:"required"`
+	TotalResults  int64                                `json:"totalResults"`
+	Limit         int64                                `json:"limit"`
+	Offset        int64                                `json:"offset"`
 	SearchResults SearchAllFood_Response_SearchResults `json:"searchResults" validate:"required"`
 }
 
@@ -23219,15 +22893,6 @@ func (s SearchAllFoodResponse) Validate() error {
 	var errors runtime.ValidationErrors
 	if err := typesValidator.Var(s.Query, "required,min=1"); err != nil {
 		errors = errors.Append("Query", err)
-	}
-	if err := typesValidator.Var(s.TotalResults, "required"); err != nil {
-		errors = errors.Append("TotalResults", err)
-	}
-	if err := typesValidator.Var(s.Limit, "required"); err != nil {
-		errors = errors.Append("Limit", err)
-	}
-	if err := typesValidator.Var(s.Offset, "required"); err != nil {
-		errors = errors.Append("Offset", err)
 	}
 	if v, ok := any(s.SearchResults).(runtime.Validator); ok {
 		if err := v.Validate(); err != nil {
@@ -23242,7 +22907,7 @@ func (s SearchAllFoodResponse) Validate() error {
 
 type SearchFoodVideosResponse struct {
 	Videos       SearchFoodVideos_Response_Videos `json:"videos" validate:"required"`
-	TotalResults int64                            `json:"totalResults" validate:"required"`
+	TotalResults int64                            `json:"totalResults"`
 }
 
 func (s SearchFoodVideosResponse) Validate() error {
@@ -23251,9 +22916,6 @@ func (s SearchFoodVideosResponse) Validate() error {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Videos", err)
 		}
-	}
-	if err := typesValidator.Var(s.TotalResults, "required"); err != nil {
-		errors = errors.Append("TotalResults", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -26434,9 +26096,9 @@ func (s SearchRecipes_Response_Results) Validate() error {
 }
 
 type SearchRecipes_Response_Results_Item struct {
-	ID        int64   `json:"id" validate:"required"`
+	ID        int64   `json:"id"`
 	Title     string  `json:"title" validate:"required,min=1"`
-	Calories  float32 `json:"calories" validate:"required"`
+	Calories  float32 `json:"calories"`
 	Carbs     string  `json:"carbs" validate:"required,min=1"`
 	Fat       string  `json:"fat" validate:"required,min=1"`
 	Image     string  `json:"image" validate:"required,min=1"`
@@ -26493,8 +26155,8 @@ func (s SearchRecipesByIngredients_Response_MissedIngredients) Validate() error 
 
 type SearchRecipesByIngredients_Response_MissedIngredients_Item struct {
 	Aisle        string   `json:"aisle" validate:"required,min=1"`
-	Amount       float32  `json:"amount" validate:"required"`
-	ID           int64    `json:"id" validate:"required"`
+	Amount       float32  `json:"amount"`
+	ID           int64    `json:"id"`
 	Image        string   `json:"image" validate:"required,min=1"`
 	Meta         []string `json:"meta,omitempty"`
 	Name         string   `json:"name" validate:"required,min=1"`
@@ -26531,8 +26193,8 @@ func (s SearchRecipesByIngredients_Response_UsedIngredients) Validate() error {
 
 type SearchRecipesByIngredients_Response_UsedIngredients_Item struct {
 	Aisle        string   `json:"aisle" validate:"required,min=1"`
-	Amount       float32  `json:"amount" validate:"required"`
-	ID           int64    `json:"id" validate:"required"`
+	Amount       float32  `json:"amount"`
+	ID           int64    `json:"id"`
 	Image        string   `json:"image" validate:"required,min=1"`
 	Meta         []string `json:"meta,omitempty"`
 	Name         string   `json:"name" validate:"required,min=1"`
@@ -26548,34 +26210,25 @@ func (s SearchRecipesByIngredients_Response_UsedIngredients_Item) Validate() err
 }
 
 type SearchRecipesByIngredients_Response_Item struct {
-	ID                    int64                                                 `json:"id" validate:"required"`
+	ID                    int64                                                 `json:"id"`
 	Image                 string                                                `json:"image" validate:"required,min=1"`
 	ImageType             string                                                `json:"imageType" validate:"required,min=1"`
-	Likes                 int64                                                 `json:"likes" validate:"required"`
-	MissedIngredientCount int64                                                 `json:"missedIngredientCount" validate:"required"`
+	Likes                 int64                                                 `json:"likes"`
+	MissedIngredientCount int64                                                 `json:"missedIngredientCount"`
 	MissedIngredients     SearchRecipesByIngredients_Response_MissedIngredients `json:"missedIngredients" validate:"required"`
 	Title                 string                                                `json:"title" validate:"required,min=1"`
 	UnusedIngredients     []map[string]any                                      `json:"unusedIngredients" validate:"required"`
-	UsedIngredientCount   float32                                               `json:"usedIngredientCount" validate:"required"`
+	UsedIngredientCount   float32                                               `json:"usedIngredientCount"`
 	UsedIngredients       SearchRecipesByIngredients_Response_UsedIngredients   `json:"usedIngredients" validate:"required"`
 }
 
 func (s SearchRecipesByIngredients_Response_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(s.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(s.Image, "required,min=1"); err != nil {
 		errors = errors.Append("Image", err)
 	}
 	if err := typesValidator.Var(s.ImageType, "required,min=1"); err != nil {
 		errors = errors.Append("ImageType", err)
-	}
-	if err := typesValidator.Var(s.Likes, "required"); err != nil {
-		errors = errors.Append("Likes", err)
-	}
-	if err := typesValidator.Var(s.MissedIngredientCount, "required"); err != nil {
-		errors = errors.Append("MissedIngredientCount", err)
 	}
 	if v, ok := any(s.MissedIngredients).(runtime.Validator); ok {
 		if err := v.Validate(); err != nil {
@@ -26587,9 +26240,6 @@ func (s SearchRecipesByIngredients_Response_Item) Validate() error {
 	}
 	if err := typesValidator.Var(s.UnusedIngredients, "required"); err != nil {
 		errors = errors.Append("UnusedIngredients", err)
-	}
-	if err := typesValidator.Var(s.UsedIngredientCount, "required"); err != nil {
-		errors = errors.Append("UsedIngredientCount", err)
 	}
 	if v, ok := any(s.UsedIngredients).(runtime.Validator); ok {
 		if err := v.Validate(); err != nil {
@@ -26626,10 +26276,10 @@ func (s SearchRecipesByNutrients_Response) Validate() error {
 }
 
 type SearchRecipesByNutrients_Response_Item struct {
-	Calories  float32 `json:"calories" validate:"required"`
+	Calories  float32 `json:"calories"`
 	Carbs     string  `json:"carbs" validate:"required,min=1"`
 	Fat       string  `json:"fat" validate:"required,min=1"`
-	ID        int64   `json:"id" validate:"required"`
+	ID        int64   `json:"id"`
 	Image     string  `json:"image" validate:"required,min=1"`
 	ImageType string  `json:"imageType" validate:"required,min=1"`
 	Protein   string  `json:"protein" validate:"required,min=1"`
@@ -26684,7 +26334,7 @@ func (g GetRecipeInformation_Response_ExtendedIngredients_Measures) Validate() e
 }
 
 type GetRecipeInformation_Response_ExtendedIngredients_Measures_Metric struct {
-	Amount    float32 `json:"amount" validate:"required"`
+	Amount    float32 `json:"amount"`
 	UnitLong  string  `json:"unitLong" validate:"required,min=0"`
 	UnitShort string  `json:"unitShort" validate:"required,min=0"`
 }
@@ -26694,7 +26344,7 @@ func (g GetRecipeInformation_Response_ExtendedIngredients_Measures_Metric) Valid
 }
 
 type GetRecipeInformation_Response_ExtendedIngredients_Measures_Us struct {
-	Amount    float32 `json:"amount" validate:"required"`
+	Amount    float32 `json:"amount"`
 	UnitLong  string  `json:"unitLong" validate:"required,min=0"`
 	UnitShort string  `json:"unitShort" validate:"required,min=0"`
 }
@@ -26705,9 +26355,9 @@ func (g GetRecipeInformation_Response_ExtendedIngredients_Measures_Us) Validate(
 
 type GetRecipeInformation_Response_ExtendedIngredients_Item struct {
 	Aisle        string                                                      `json:"aisle" validate:"required,min=1"`
-	Amount       float32                                                     `json:"amount" validate:"required"`
+	Amount       float32                                                     `json:"amount"`
 	Consitency   string                                                      `json:"consitency" validate:"required,min=1"`
-	ID           int64                                                       `json:"id" validate:"required"`
+	ID           int64                                                       `json:"id"`
 	Image        string                                                      `json:"image" validate:"required,min=1"`
 	Measures     *GetRecipeInformation_Response_ExtendedIngredients_Measures `json:"measures,omitempty"`
 	Meta         []string                                                    `json:"meta,omitempty"`
@@ -26722,14 +26372,8 @@ func (g GetRecipeInformation_Response_ExtendedIngredients_Item) Validate() error
 	if err := typesValidator.Var(g.Aisle, "required,min=1"); err != nil {
 		errors = errors.Append("Aisle", err)
 	}
-	if err := typesValidator.Var(g.Amount, "required"); err != nil {
-		errors = errors.Append("Amount", err)
-	}
 	if err := typesValidator.Var(g.Consitency, "required,min=1"); err != nil {
 		errors = errors.Append("Consitency", err)
-	}
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
 	}
 	if err := typesValidator.Var(g.Image, "required,min=1"); err != nil {
 		errors = errors.Append("Image", err)
@@ -26805,14 +26449,14 @@ func (g GetRecipeInformation_Response_WinePairing_ProductMatches) Validate() err
 }
 
 type GetRecipeInformation_Response_WinePairing_ProductMatches_Item struct {
-	ID            int64   `json:"id" validate:"required"`
+	ID            int64   `json:"id"`
 	Title         string  `json:"title" validate:"required,min=1"`
 	Description   string  `json:"description" validate:"required,min=1"`
 	Price         string  `json:"price" validate:"required,min=1"`
 	ImageURL      string  `json:"imageUrl" validate:"required,min=1"`
-	AverageRating float32 `json:"averageRating" validate:"required"`
-	RatingCount   int64   `json:"ratingCount" validate:"required"`
-	Score         float32 `json:"score" validate:"required"`
+	AverageRating float32 `json:"averageRating"`
+	RatingCount   int64   `json:"ratingCount"`
+	Score         float32 `json:"score"`
 	Link          string  `json:"link" validate:"required,min=1"`
 }
 
@@ -26887,7 +26531,7 @@ func (g GetRecipeInformationBulk_Response_ExtendedIngredients_Measures) Validate
 }
 
 type GetRecipeInformationBulk_Response_ExtendedIngredients_Measures_Metric struct {
-	Amount    float32 `json:"amount" validate:"required"`
+	Amount    float32 `json:"amount"`
 	UnitLong  string  `json:"unitLong" validate:"required,min=0"`
 	UnitShort string  `json:"unitShort" validate:"required,min=0"`
 }
@@ -26897,7 +26541,7 @@ func (g GetRecipeInformationBulk_Response_ExtendedIngredients_Measures_Metric) V
 }
 
 type GetRecipeInformationBulk_Response_ExtendedIngredients_Measures_Us struct {
-	Amount    float32 `json:"amount" validate:"required"`
+	Amount    float32 `json:"amount"`
 	UnitLong  string  `json:"unitLong" validate:"required,min=0"`
 	UnitShort string  `json:"unitShort" validate:"required,min=0"`
 }
@@ -26908,9 +26552,9 @@ func (g GetRecipeInformationBulk_Response_ExtendedIngredients_Measures_Us) Valid
 
 type GetRecipeInformationBulk_Response_ExtendedIngredients_Item struct {
 	Aisle        string                                                          `json:"aisle" validate:"required,min=1"`
-	Amount       float32                                                         `json:"amount" validate:"required"`
+	Amount       float32                                                         `json:"amount"`
 	Consitency   string                                                          `json:"consitency" validate:"required,min=1"`
-	ID           int64                                                           `json:"id" validate:"required"`
+	ID           int64                                                           `json:"id"`
 	Image        string                                                          `json:"image" validate:"required,min=1"`
 	Measures     *GetRecipeInformationBulk_Response_ExtendedIngredients_Measures `json:"measures,omitempty"`
 	Meta         []string                                                        `json:"meta,omitempty"`
@@ -26925,14 +26569,8 @@ func (g GetRecipeInformationBulk_Response_ExtendedIngredients_Item) Validate() e
 	if err := typesValidator.Var(g.Aisle, "required,min=1"); err != nil {
 		errors = errors.Append("Aisle", err)
 	}
-	if err := typesValidator.Var(g.Amount, "required"); err != nil {
-		errors = errors.Append("Amount", err)
-	}
 	if err := typesValidator.Var(g.Consitency, "required,min=1"); err != nil {
 		errors = errors.Append("Consitency", err)
-	}
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
 	}
 	if err := typesValidator.Var(g.Image, "required,min=1"); err != nil {
 		errors = errors.Append("Image", err)
@@ -27008,14 +26646,14 @@ func (g GetRecipeInformationBulk_Response_WinePairing_ProductMatches) Validate()
 }
 
 type GetRecipeInformationBulk_Response_WinePairing_ProductMatches_Item struct {
-	ID            int64   `json:"id" validate:"required"`
+	ID            int64   `json:"id"`
 	Title         string  `json:"title" validate:"required,min=1"`
 	Description   string  `json:"description" validate:"required,min=1"`
 	Price         string  `json:"price" validate:"required,min=1"`
 	ImageURL      string  `json:"imageUrl" validate:"required,min=1"`
-	AverageRating float32 `json:"averageRating" validate:"required"`
-	RatingCount   int64   `json:"ratingCount" validate:"required"`
-	Score         float32 `json:"score" validate:"required"`
+	AverageRating float32 `json:"averageRating"`
+	RatingCount   int64   `json:"ratingCount"`
+	Score         float32 `json:"score"`
 	Link          string  `json:"link" validate:"required,min=1"`
 }
 
@@ -27024,20 +26662,20 @@ func (g GetRecipeInformationBulk_Response_WinePairing_ProductMatches_Item) Valid
 }
 
 type GetRecipeInformationBulk_Response_Item struct {
-	ID                       int64                                                 `json:"id" validate:"required"`
+	ID                       int64                                                 `json:"id"`
 	Title                    string                                                `json:"title" validate:"required,min=1"`
 	Image                    string                                                `json:"image" validate:"required,min=1"`
 	ImageType                string                                                `json:"imageType" validate:"required,min=1"`
-	Servings                 float32                                               `json:"servings" validate:"required"`
-	ReadyInMinutes           int64                                                 `json:"readyInMinutes" validate:"required"`
+	Servings                 float32                                               `json:"servings"`
+	ReadyInMinutes           int64                                                 `json:"readyInMinutes"`
 	License                  string                                                `json:"license" validate:"required,min=1"`
 	SourceName               string                                                `json:"sourceName" validate:"required,min=1"`
 	SourceURL                string                                                `json:"sourceUrl" validate:"required,min=1"`
 	SpoonacularSourceURL     string                                                `json:"spoonacularSourceUrl" validate:"required,min=1"`
-	AggregateLikes           int64                                                 `json:"aggregateLikes" validate:"required"`
-	HealthScore              float32                                               `json:"healthScore" validate:"required"`
-	SpoonacularScore         float32                                               `json:"spoonacularScore" validate:"required"`
-	PricePerServing          float32                                               `json:"pricePerServing" validate:"required"`
+	AggregateLikes           int64                                                 `json:"aggregateLikes"`
+	HealthScore              float32                                               `json:"healthScore"`
+	SpoonacularScore         float32                                               `json:"spoonacularScore"`
+	PricePerServing          float32                                               `json:"pricePerServing"`
 	AnalyzedInstructions     []string                                              `json:"analyzedInstructions" validate:"required"`
 	Cheap                    bool                                                  `json:"cheap"`
 	CreditsText              string                                                `json:"creditsText" validate:"required,min=1"`
@@ -27056,7 +26694,7 @@ type GetRecipeInformationBulk_Response_Item struct {
 	VeryHealthy              bool                                                  `json:"veryHealthy"`
 	VeryPopular              bool                                                  `json:"veryPopular"`
 	Whole30                  bool                                                  `json:"whole30"`
-	WeightWatcherSmartPoints float32                                               `json:"weightWatcherSmartPoints" validate:"required"`
+	WeightWatcherSmartPoints float32                                               `json:"weightWatcherSmartPoints"`
 	DishTypes                []string                                              `json:"dishTypes" validate:"required"`
 	ExtendedIngredients      GetRecipeInformationBulk_Response_ExtendedIngredients `json:"extendedIngredients" validate:"required"`
 	Summary                  string                                                `json:"summary" validate:"required,min=1"`
@@ -27065,9 +26703,6 @@ type GetRecipeInformationBulk_Response_Item struct {
 
 func (g GetRecipeInformationBulk_Response_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(g.Title, "required,min=1"); err != nil {
 		errors = errors.Append("Title", err)
 	}
@@ -27076,12 +26711,6 @@ func (g GetRecipeInformationBulk_Response_Item) Validate() error {
 	}
 	if err := typesValidator.Var(g.ImageType, "required,min=1"); err != nil {
 		errors = errors.Append("ImageType", err)
-	}
-	if err := typesValidator.Var(g.Servings, "required"); err != nil {
-		errors = errors.Append("Servings", err)
-	}
-	if err := typesValidator.Var(g.ReadyInMinutes, "required"); err != nil {
-		errors = errors.Append("ReadyInMinutes", err)
 	}
 	if err := typesValidator.Var(g.License, "required,min=1"); err != nil {
 		errors = errors.Append("License", err)
@@ -27094,18 +26723,6 @@ func (g GetRecipeInformationBulk_Response_Item) Validate() error {
 	}
 	if err := typesValidator.Var(g.SpoonacularSourceURL, "required,min=1"); err != nil {
 		errors = errors.Append("SpoonacularSourceURL", err)
-	}
-	if err := typesValidator.Var(g.AggregateLikes, "required"); err != nil {
-		errors = errors.Append("AggregateLikes", err)
-	}
-	if err := typesValidator.Var(g.HealthScore, "required"); err != nil {
-		errors = errors.Append("HealthScore", err)
-	}
-	if err := typesValidator.Var(g.SpoonacularScore, "required"); err != nil {
-		errors = errors.Append("SpoonacularScore", err)
-	}
-	if err := typesValidator.Var(g.PricePerServing, "required"); err != nil {
-		errors = errors.Append("PricePerServing", err)
 	}
 	if err := typesValidator.Var(g.AnalyzedInstructions, "required"); err != nil {
 		errors = errors.Append("AnalyzedInstructions", err)
@@ -27127,9 +26744,6 @@ func (g GetRecipeInformationBulk_Response_Item) Validate() error {
 	}
 	if err := typesValidator.Var(g.Occasions, "required"); err != nil {
 		errors = errors.Append("Occasions", err)
-	}
-	if err := typesValidator.Var(g.WeightWatcherSmartPoints, "required"); err != nil {
-		errors = errors.Append("WeightWatcherSmartPoints", err)
 	}
 	if err := typesValidator.Var(g.DishTypes, "required"); err != nil {
 		errors = errors.Append("DishTypes", err)
@@ -27177,11 +26791,11 @@ func (g GetSimilarRecipes_Response) Validate() error {
 }
 
 type GetSimilarRecipes_Response_Item struct {
-	ID             int64   `json:"id" validate:"required"`
+	ID             int64   `json:"id"`
 	Title          string  `json:"title" validate:"required,min=1"`
 	ImageType      string  `json:"imageType" validate:"required,min=1"`
-	ReadyInMinutes int64   `json:"readyInMinutes" validate:"required"`
-	Servings       float32 `json:"servings" validate:"required"`
+	ReadyInMinutes int64   `json:"readyInMinutes"`
+	Servings       float32 `json:"servings"`
 	SourceURL      string  `json:"sourceUrl" validate:"required,min=1"`
 }
 
@@ -27256,7 +26870,7 @@ func (g GetRandomRecipes_Response_Recipes_ExtendedIngredients_Measures) Validate
 }
 
 type GetRandomRecipes_Response_Recipes_ExtendedIngredients_Measures_Metric struct {
-	Amount    float32 `json:"amount" validate:"required"`
+	Amount    float32 `json:"amount"`
 	UnitLong  string  `json:"unitLong" validate:"required,min=0"`
 	UnitShort string  `json:"unitShort" validate:"required,min=0"`
 }
@@ -27266,7 +26880,7 @@ func (g GetRandomRecipes_Response_Recipes_ExtendedIngredients_Measures_Metric) V
 }
 
 type GetRandomRecipes_Response_Recipes_ExtendedIngredients_Measures_Us struct {
-	Amount    float32 `json:"amount" validate:"required"`
+	Amount    float32 `json:"amount"`
 	UnitLong  string  `json:"unitLong" validate:"required,min=0"`
 	UnitShort string  `json:"unitShort" validate:"required,min=0"`
 }
@@ -27277,9 +26891,9 @@ func (g GetRandomRecipes_Response_Recipes_ExtendedIngredients_Measures_Us) Valid
 
 type GetRandomRecipes_Response_Recipes_ExtendedIngredients_Item struct {
 	Aisle        string                                                          `json:"aisle" validate:"required,min=1"`
-	Amount       float32                                                         `json:"amount" validate:"required"`
+	Amount       float32                                                         `json:"amount"`
 	Consitency   string                                                          `json:"consitency" validate:"required,min=1"`
-	ID           int64                                                           `json:"id" validate:"required"`
+	ID           int64                                                           `json:"id"`
 	Image        string                                                          `json:"image" validate:"required,min=1"`
 	Measures     *GetRandomRecipes_Response_Recipes_ExtendedIngredients_Measures `json:"measures,omitempty"`
 	Meta         []string                                                        `json:"meta,omitempty"`
@@ -27294,14 +26908,8 @@ func (g GetRandomRecipes_Response_Recipes_ExtendedIngredients_Item) Validate() e
 	if err := typesValidator.Var(g.Aisle, "required,min=1"); err != nil {
 		errors = errors.Append("Aisle", err)
 	}
-	if err := typesValidator.Var(g.Amount, "required"); err != nil {
-		errors = errors.Append("Amount", err)
-	}
 	if err := typesValidator.Var(g.Consitency, "required,min=1"); err != nil {
 		errors = errors.Append("Consitency", err)
-	}
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
 	}
 	if err := typesValidator.Var(g.Image, "required,min=1"); err != nil {
 		errors = errors.Append("Image", err)
@@ -27377,14 +26985,14 @@ func (g GetRandomRecipes_Response_Recipes_WinePairing_ProductMatches) Validate()
 }
 
 type GetRandomRecipes_Response_Recipes_WinePairing_ProductMatches_Item struct {
-	ID            int64   `json:"id" validate:"required"`
+	ID            int64   `json:"id"`
 	Title         string  `json:"title" validate:"required,min=1"`
 	Description   string  `json:"description" validate:"required,min=1"`
 	Price         string  `json:"price" validate:"required,min=1"`
 	ImageURL      string  `json:"imageUrl" validate:"required,min=1"`
-	AverageRating float32 `json:"averageRating" validate:"required"`
-	RatingCount   int64   `json:"ratingCount" validate:"required"`
-	Score         float32 `json:"score" validate:"required"`
+	AverageRating float32 `json:"averageRating"`
+	RatingCount   int64   `json:"ratingCount"`
+	Score         float32 `json:"score"`
 	Link          string  `json:"link" validate:"required,min=1"`
 }
 
@@ -27393,20 +27001,20 @@ func (g GetRandomRecipes_Response_Recipes_WinePairing_ProductMatches_Item) Valid
 }
 
 type GetRandomRecipes_Response_Recipes_Item struct {
-	ID                       int64                                                  `json:"id" validate:"required"`
+	ID                       int64                                                  `json:"id"`
 	Title                    string                                                 `json:"title" validate:"required,min=1"`
 	Image                    string                                                 `json:"image" validate:"required,min=1"`
 	ImageType                string                                                 `json:"imageType" validate:"required,min=1"`
-	Servings                 float32                                                `json:"servings" validate:"required"`
-	ReadyInMinutes           int64                                                  `json:"readyInMinutes" validate:"required"`
+	Servings                 float32                                                `json:"servings"`
+	ReadyInMinutes           int64                                                  `json:"readyInMinutes"`
 	License                  string                                                 `json:"license" validate:"required,min=1"`
 	SourceName               string                                                 `json:"sourceName" validate:"required,min=1"`
 	SourceURL                string                                                 `json:"sourceUrl" validate:"required,min=1"`
 	SpoonacularSourceURL     string                                                 `json:"spoonacularSourceUrl" validate:"required,min=1"`
-	AggregateLikes           float32                                                `json:"aggregateLikes" validate:"required"`
-	HealthScore              float32                                                `json:"healthScore" validate:"required"`
-	SpoonacularScore         float32                                                `json:"spoonacularScore" validate:"required"`
-	PricePerServing          float32                                                `json:"pricePerServing" validate:"required"`
+	AggregateLikes           float32                                                `json:"aggregateLikes"`
+	HealthScore              float32                                                `json:"healthScore"`
+	SpoonacularScore         float32                                                `json:"spoonacularScore"`
+	PricePerServing          float32                                                `json:"pricePerServing"`
 	AnalyzedInstructions     []map[string]any                                       `json:"analyzedInstructions,omitempty"`
 	Cheap                    bool                                                   `json:"cheap"`
 	CreditsText              string                                                 `json:"creditsText" validate:"required,min=1"`
@@ -27425,7 +27033,7 @@ type GetRandomRecipes_Response_Recipes_Item struct {
 	VeryHealthy              bool                                                   `json:"veryHealthy"`
 	VeryPopular              bool                                                   `json:"veryPopular"`
 	Whole30                  bool                                                   `json:"whole30"`
-	WeightWatcherSmartPoints float32                                                `json:"weightWatcherSmartPoints" validate:"required"`
+	WeightWatcherSmartPoints float32                                                `json:"weightWatcherSmartPoints"`
 	DishTypes                []string                                               `json:"dishTypes,omitempty"`
 	ExtendedIngredients      *GetRandomRecipes_Response_Recipes_ExtendedIngredients `json:"extendedIngredients,omitempty"`
 	Summary                  string                                                 `json:"summary" validate:"required,min=1"`
@@ -27434,9 +27042,6 @@ type GetRandomRecipes_Response_Recipes_Item struct {
 
 func (g GetRandomRecipes_Response_Recipes_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(g.Title, "required,min=1"); err != nil {
 		errors = errors.Append("Title", err)
 	}
@@ -27445,12 +27050,6 @@ func (g GetRandomRecipes_Response_Recipes_Item) Validate() error {
 	}
 	if err := typesValidator.Var(g.ImageType, "required,min=1"); err != nil {
 		errors = errors.Append("ImageType", err)
-	}
-	if err := typesValidator.Var(g.Servings, "required"); err != nil {
-		errors = errors.Append("Servings", err)
-	}
-	if err := typesValidator.Var(g.ReadyInMinutes, "required"); err != nil {
-		errors = errors.Append("ReadyInMinutes", err)
 	}
 	if err := typesValidator.Var(g.License, "required,min=1"); err != nil {
 		errors = errors.Append("License", err)
@@ -27464,18 +27063,6 @@ func (g GetRandomRecipes_Response_Recipes_Item) Validate() error {
 	if err := typesValidator.Var(g.SpoonacularSourceURL, "required,min=1"); err != nil {
 		errors = errors.Append("SpoonacularSourceURL", err)
 	}
-	if err := typesValidator.Var(g.AggregateLikes, "required"); err != nil {
-		errors = errors.Append("AggregateLikes", err)
-	}
-	if err := typesValidator.Var(g.HealthScore, "required"); err != nil {
-		errors = errors.Append("HealthScore", err)
-	}
-	if err := typesValidator.Var(g.SpoonacularScore, "required"); err != nil {
-		errors = errors.Append("SpoonacularScore", err)
-	}
-	if err := typesValidator.Var(g.PricePerServing, "required"); err != nil {
-		errors = errors.Append("PricePerServing", err)
-	}
 	if err := typesValidator.Var(g.CreditsText, "required,min=1"); err != nil {
 		errors = errors.Append("CreditsText", err)
 	}
@@ -27484,9 +27071,6 @@ func (g GetRandomRecipes_Response_Recipes_Item) Validate() error {
 	}
 	if err := typesValidator.Var(g.Instructions, "required"); err != nil {
 		errors = errors.Append("Instructions", err)
-	}
-	if err := typesValidator.Var(g.WeightWatcherSmartPoints, "required"); err != nil {
-		errors = errors.Append("WeightWatcherSmartPoints", err)
 	}
 	if g.ExtendedIngredients != nil {
 		if v, ok := any(g.ExtendedIngredients).(runtime.Validator); ok {
@@ -27535,7 +27119,7 @@ func (a AutocompleteRecipeSearch_Response) Validate() error {
 }
 
 type AutocompleteRecipeSearch_Response_Item struct {
-	ID        int64  `json:"id" validate:"required"`
+	ID        int64  `json:"id"`
 	Title     string `json:"title" validate:"required,min=1"`
 	ImageType string `json:"imageType" validate:"required,min=1"`
 }
@@ -27618,7 +27202,7 @@ func (g GetRecipePriceBreakdownByID_Response_Ingredients_Amount) Validate() erro
 
 type GetRecipePriceBreakdownByID_Response_Ingredients_Amount_Metric struct {
 	Unit  string  `json:"unit" validate:"required,min=0"`
-	Value float32 `json:"value" validate:"required"`
+	Value float32 `json:"value"`
 }
 
 func (g GetRecipePriceBreakdownByID_Response_Ingredients_Amount_Metric) Validate() error {
@@ -27627,7 +27211,7 @@ func (g GetRecipePriceBreakdownByID_Response_Ingredients_Amount_Metric) Validate
 
 type GetRecipePriceBreakdownByID_Response_Ingredients_Amount_Us struct {
 	Unit  string  `json:"unit" validate:"required,min=0"`
-	Value float32 `json:"value" validate:"required"`
+	Value float32 `json:"value"`
 }
 
 func (g GetRecipePriceBreakdownByID_Response_Ingredients_Amount_Us) Validate() error {
@@ -27638,7 +27222,7 @@ type GetRecipePriceBreakdownByID_Response_Ingredients_Item struct {
 	Amount *GetRecipePriceBreakdownByID_Response_Ingredients_Amount `json:"amount,omitempty"`
 	Image  string                                                   `json:"image" validate:"required,min=1"`
 	Name   string                                                   `json:"name" validate:"required,min=1"`
-	Price  float32                                                  `json:"price" validate:"required"`
+	Price  float32                                                  `json:"price"`
 }
 
 func (g GetRecipePriceBreakdownByID_Response_Ingredients_Item) Validate() error {
@@ -27655,9 +27239,6 @@ func (g GetRecipePriceBreakdownByID_Response_Ingredients_Item) Validate() error 
 	}
 	if err := typesValidator.Var(g.Name, "required,min=1"); err != nil {
 		errors = errors.Append("Name", err)
-	}
-	if err := typesValidator.Var(g.Price, "required"); err != nil {
-		errors = errors.Append("Price", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -27710,7 +27291,7 @@ func (g GetRecipeIngredientsByID_Response_Ingredients_Amount) Validate() error {
 
 type GetRecipeIngredientsByID_Response_Ingredients_Amount_Metric struct {
 	Unit  string  `json:"unit" validate:"required,min=0"`
-	Value float32 `json:"value" validate:"required"`
+	Value float32 `json:"value"`
 }
 
 func (g GetRecipeIngredientsByID_Response_Ingredients_Amount_Metric) Validate() error {
@@ -27719,7 +27300,7 @@ func (g GetRecipeIngredientsByID_Response_Ingredients_Amount_Metric) Validate() 
 
 type GetRecipeIngredientsByID_Response_Ingredients_Amount_Us struct {
 	Unit  string  `json:"unit" validate:"required,min=0"`
-	Value float32 `json:"value" validate:"required"`
+	Value float32 `json:"value"`
 }
 
 func (g GetRecipeIngredientsByID_Response_Ingredients_Amount_Us) Validate() error {
@@ -27777,7 +27358,7 @@ type GetRecipeNutritionWidgetByID_Response_Bad_Item struct {
 	Name                string  `json:"name" validate:"required,min=1"`
 	Amount              string  `json:"amount" validate:"required,min=1"`
 	Indented            bool    `json:"indented"`
-	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds" validate:"required"`
+	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds"`
 }
 
 func (g GetRecipeNutritionWidgetByID_Response_Bad_Item) Validate() error {
@@ -27807,7 +27388,7 @@ func (g GetRecipeNutritionWidgetByID_Response_Good) Validate() error {
 type GetRecipeNutritionWidgetByID_Response_Good_Item struct {
 	Amount              string  `json:"amount" validate:"required,min=1"`
 	Indented            bool    `json:"indented"`
-	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds" validate:"required"`
+	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds"`
 	Name                string  `json:"name" validate:"required,min=1"`
 }
 
@@ -27882,7 +27463,7 @@ func (g GetAnalyzedRecipeInstructions_Response_ParsedInstructions_Steps_Ingredie
 }
 
 type GetAnalyzedRecipeInstructions_Response_ParsedInstructions_Steps_Ingredients_Item struct {
-	ID            int64  `json:"id" validate:"required"`
+	ID            int64  `json:"id"`
 	Name          string `json:"name" validate:"required,min=1"`
 	LocalizedName string `json:"localizedName" validate:"required,min=1"`
 	Image         string `json:"image" validate:"required,min=1"`
@@ -27916,7 +27497,7 @@ func (g GetAnalyzedRecipeInstructions_Response_ParsedInstructions_Steps_Equipmen
 }
 
 type GetAnalyzedRecipeInstructions_Response_ParsedInstructions_Steps_Equipment_Item struct {
-	ID            int64  `json:"id" validate:"required"`
+	ID            int64  `json:"id"`
 	Name          string `json:"name" validate:"required,min=1"`
 	LocalizedName string `json:"localizedName" validate:"required,min=1"`
 	Image         string `json:"image" validate:"required,min=1"`
@@ -27927,7 +27508,7 @@ func (g GetAnalyzedRecipeInstructions_Response_ParsedInstructions_Steps_Equipmen
 }
 
 type GetAnalyzedRecipeInstructions_Response_ParsedInstructions_Steps_Item struct {
-	Number      float32                                                                      `json:"number" validate:"required"`
+	Number      float32                                                                      `json:"number"`
 	Step        string                                                                       `json:"step" validate:"required,min=1"`
 	Ingredients *GetAnalyzedRecipeInstructions_Response_ParsedInstructions_Steps_Ingredients `json:"ingredients,omitempty"`
 	Equipment   *GetAnalyzedRecipeInstructions_Response_ParsedInstructions_Steps_Equipment   `json:"equipment,omitempty"`
@@ -27935,9 +27516,6 @@ type GetAnalyzedRecipeInstructions_Response_ParsedInstructions_Steps_Item struct
 
 func (g GetAnalyzedRecipeInstructions_Response_ParsedInstructions_Steps_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.Number, "required"); err != nil {
-		errors = errors.Append("Number", err)
-	}
 	if err := typesValidator.Var(g.Step, "required,min=1"); err != nil {
 		errors = errors.Append("Step", err)
 	}
@@ -28005,7 +27583,7 @@ func (g GetAnalyzedRecipeInstructions_Response_Ingredients) Validate() error {
 }
 
 type GetAnalyzedRecipeInstructions_Response_Ingredients_Item struct {
-	ID   int64  `json:"id" validate:"required"`
+	ID   int64  `json:"id"`
 	Name string `json:"name" validate:"required,min=1"`
 }
 
@@ -28034,7 +27612,7 @@ func (g GetAnalyzedRecipeInstructions_Response_Equipment) Validate() error {
 }
 
 type GetAnalyzedRecipeInstructions_Response_Equipment_Item struct {
-	ID   int64  `json:"id" validate:"required"`
+	ID   int64  `json:"id"`
 	Name string `json:"name" validate:"required,min=1"`
 }
 
@@ -28086,7 +27664,7 @@ func (e ExtractRecipeFromWebsite_Response_ExtendedIngredients_Measures) Validate
 }
 
 type ExtractRecipeFromWebsite_Response_ExtendedIngredients_Measures_Metric struct {
-	Amount    float32 `json:"amount" validate:"required"`
+	Amount    float32 `json:"amount"`
 	UnitLong  string  `json:"unitLong" validate:"required,min=0"`
 	UnitShort string  `json:"unitShort" validate:"required,min=0"`
 }
@@ -28096,7 +27674,7 @@ func (e ExtractRecipeFromWebsite_Response_ExtendedIngredients_Measures_Metric) V
 }
 
 type ExtractRecipeFromWebsite_Response_ExtendedIngredients_Measures_Us struct {
-	Amount    float32 `json:"amount" validate:"required"`
+	Amount    float32 `json:"amount"`
 	UnitLong  string  `json:"unitLong" validate:"required,min=0"`
 	UnitShort string  `json:"unitShort" validate:"required,min=0"`
 }
@@ -28107,9 +27685,9 @@ func (e ExtractRecipeFromWebsite_Response_ExtendedIngredients_Measures_Us) Valid
 
 type ExtractRecipeFromWebsite_Response_ExtendedIngredients_Item struct {
 	Aisle        string                                                          `json:"aisle" validate:"required,min=1"`
-	Amount       float32                                                         `json:"amount" validate:"required"`
+	Amount       float32                                                         `json:"amount"`
 	Consitency   string                                                          `json:"consitency" validate:"required,min=1"`
-	ID           int64                                                           `json:"id" validate:"required"`
+	ID           int64                                                           `json:"id"`
 	Image        string                                                          `json:"image" validate:"required,min=1"`
 	Measures     *ExtractRecipeFromWebsite_Response_ExtendedIngredients_Measures `json:"measures,omitempty"`
 	Meta         []string                                                        `json:"meta,omitempty"`
@@ -28124,14 +27702,8 @@ func (e ExtractRecipeFromWebsite_Response_ExtendedIngredients_Item) Validate() e
 	if err := typesValidator.Var(e.Aisle, "required,min=1"); err != nil {
 		errors = errors.Append("Aisle", err)
 	}
-	if err := typesValidator.Var(e.Amount, "required"); err != nil {
-		errors = errors.Append("Amount", err)
-	}
 	if err := typesValidator.Var(e.Consitency, "required,min=1"); err != nil {
 		errors = errors.Append("Consitency", err)
-	}
-	if err := typesValidator.Var(e.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
 	}
 	if err := typesValidator.Var(e.Image, "required,min=1"); err != nil {
 		errors = errors.Append("Image", err)
@@ -28207,14 +27779,14 @@ func (e ExtractRecipeFromWebsite_Response_WinePairing_ProductMatches) Validate()
 }
 
 type ExtractRecipeFromWebsite_Response_WinePairing_ProductMatches_Item struct {
-	ID            int64   `json:"id" validate:"required"`
+	ID            int64   `json:"id"`
 	Title         string  `json:"title" validate:"required,min=1"`
 	Description   string  `json:"description" validate:"required,min=1"`
 	Price         string  `json:"price" validate:"required,min=1"`
 	ImageURL      string  `json:"imageUrl" validate:"required,min=1"`
-	AverageRating float32 `json:"averageRating" validate:"required"`
-	RatingCount   int64   `json:"ratingCount" validate:"required"`
-	Score         float32 `json:"score" validate:"required"`
+	AverageRating float32 `json:"averageRating"`
+	RatingCount   int64   `json:"ratingCount"`
+	Score         float32 `json:"score"`
 	Link          string  `json:"link" validate:"required,min=1"`
 }
 
@@ -28289,7 +27861,7 @@ func (a AnalyzeRecipeInstructions_Response_ParsedInstructions_Steps_Ingredients)
 }
 
 type AnalyzeRecipeInstructions_Response_ParsedInstructions_Steps_Ingredients_Item struct {
-	ID            float32 `json:"id" validate:"required"`
+	ID            float32 `json:"id"`
 	Name          string  `json:"name" validate:"required,min=1"`
 	LocalizedName string  `json:"localizedName" validate:"required,min=1"`
 	Image         string  `json:"image" validate:"required,min=1"`
@@ -28323,7 +27895,7 @@ func (a AnalyzeRecipeInstructions_Response_ParsedInstructions_Steps_Equipment) V
 }
 
 type AnalyzeRecipeInstructions_Response_ParsedInstructions_Steps_Equipment_Item struct {
-	ID            float32 `json:"id" validate:"required"`
+	ID            float32 `json:"id"`
 	Name          string  `json:"name" validate:"required,min=1"`
 	LocalizedName string  `json:"localizedName" validate:"required,min=1"`
 	Image         string  `json:"image" validate:"required,min=1"`
@@ -28334,7 +27906,7 @@ func (a AnalyzeRecipeInstructions_Response_ParsedInstructions_Steps_Equipment_It
 }
 
 type AnalyzeRecipeInstructions_Response_ParsedInstructions_Steps_Item struct {
-	Number      float32                                                                  `json:"number" validate:"required"`
+	Number      float32                                                                  `json:"number"`
 	Step        string                                                                   `json:"step" validate:"required,min=1"`
 	Ingredients *AnalyzeRecipeInstructions_Response_ParsedInstructions_Steps_Ingredients `json:"ingredients,omitempty"`
 	Equipment   *AnalyzeRecipeInstructions_Response_ParsedInstructions_Steps_Equipment   `json:"equipment,omitempty"`
@@ -28342,9 +27914,6 @@ type AnalyzeRecipeInstructions_Response_ParsedInstructions_Steps_Item struct {
 
 func (a AnalyzeRecipeInstructions_Response_ParsedInstructions_Steps_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(a.Number, "required"); err != nil {
-		errors = errors.Append("Number", err)
-	}
 	if err := typesValidator.Var(a.Step, "required,min=1"); err != nil {
 		errors = errors.Append("Step", err)
 	}
@@ -28412,7 +27981,7 @@ func (a AnalyzeRecipeInstructions_Response_Ingredients) Validate() error {
 }
 
 type AnalyzeRecipeInstructions_Response_Ingredients_Item struct {
-	ID   float32 `json:"id" validate:"required"`
+	ID   float32 `json:"id"`
 	Name string  `json:"name" validate:"required,min=1"`
 }
 
@@ -28441,7 +28010,7 @@ func (a AnalyzeRecipeInstructions_Response_Equipment) Validate() error {
 }
 
 type AnalyzeRecipeInstructions_Response_Equipment_Item struct {
-	ID   float32 `json:"id" validate:"required"`
+	ID   float32 `json:"id"`
 	Name string  `json:"name" validate:"required,min=1"`
 }
 
@@ -28532,7 +28101,7 @@ func (p ParseIngredients_Response) Validate() error {
 }
 
 type ParseIngredients_Response_EstimatedCost struct {
-	Value float32 `json:"value" validate:"required"`
+	Value float32 `json:"value"`
 	Unit  string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -28603,9 +28172,9 @@ func (p ParseIngredients_Response_Nutrition_Nutrients) Validate() error {
 
 type ParseIngredients_Response_Nutrition_Nutrients_Item struct {
 	Name                string  `json:"name" validate:"required,min=1"`
-	Amount              float32 `json:"amount" validate:"required"`
+	Amount              float32 `json:"amount"`
 	Unit                string  `json:"unit" validate:"required,min=1"`
-	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds" validate:"required"`
+	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds"`
 }
 
 func (p ParseIngredients_Response_Nutrition_Nutrients_Item) Validate() error {
@@ -28634,7 +28203,7 @@ func (p ParseIngredients_Response_Nutrition_Properties) Validate() error {
 
 type ParseIngredients_Response_Nutrition_Properties_Item struct {
 	Name   string  `json:"name" validate:"required,min=1"`
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required"`
 }
 
@@ -28664,7 +28233,7 @@ func (p ParseIngredients_Response_Nutrition_Flavonoids) Validate() error {
 
 type ParseIngredients_Response_Nutrition_Flavonoids_Item struct {
 	Name   string  `json:"name" validate:"required,min=1"`
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required"`
 }
 
@@ -28673,17 +28242,13 @@ func (p ParseIngredients_Response_Nutrition_Flavonoids_Item) Validate() error {
 }
 
 type ParseIngredients_Response_Nutrition_CaloricBreakdown struct {
-	PercentProtein float32 `json:"percentProtein" validate:"required"`
-	PercentFat     float32 `json:"percentFat" validate:"required"`
-	PercentCarbs   float32 `json:"percentCarbs" validate:"required"`
-}
-
-func (p ParseIngredients_Response_Nutrition_CaloricBreakdown) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(p))
+	PercentProtein float32 `json:"percentProtein"`
+	PercentFat     float32 `json:"percentFat"`
+	PercentCarbs   float32 `json:"percentCarbs"`
 }
 
 type ParseIngredients_Response_Nutrition_WeightPerServing struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -28692,12 +28257,12 @@ func (p ParseIngredients_Response_Nutrition_WeightPerServing) Validate() error {
 }
 
 type ParseIngredients_Response_Item struct {
-	ID            int64                                   `json:"id" validate:"required"`
+	ID            int64                                   `json:"id"`
 	Original      string                                  `json:"original" validate:"required,min=1"`
 	OriginalName  string                                  `json:"originalName" validate:"required,min=1"`
 	Name          string                                  `json:"name" validate:"required,min=1"`
 	NameClean     string                                  `json:"nameClean" validate:"required,min=1"`
-	Amount        float32                                 `json:"amount" validate:"required"`
+	Amount        float32                                 `json:"amount"`
 	Unit          string                                  `json:"unit" validate:"required,min=1"`
 	UnitShort     string                                  `json:"unitShort" validate:"required,min=1"`
 	UnitLong      string                                  `json:"unitLong" validate:"required,min=1"`
@@ -28712,9 +28277,6 @@ type ParseIngredients_Response_Item struct {
 
 func (p ParseIngredients_Response_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(p.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(p.Original, "required,min=1"); err != nil {
 		errors = errors.Append("Original", err)
 	}
@@ -28726,9 +28288,6 @@ func (p ParseIngredients_Response_Item) Validate() error {
 	}
 	if err := typesValidator.Var(p.NameClean, "required,min=1"); err != nil {
 		errors = errors.Append("NameClean", err)
-	}
-	if err := typesValidator.Var(p.Amount, "required"); err != nil {
-		errors = errors.Append("Amount", err)
 	}
 	if err := typesValidator.Var(p.Unit, "required,min=1"); err != nil {
 		errors = errors.Append("Unit", err)
@@ -28772,9 +28331,9 @@ func (p ParseIngredients_Response_Item) Validate() error {
 
 type GuessNutritionByDishName_Response_Calories struct {
 	ConfidenceRange95Percent GuessNutritionByDishName_Response_Calories_ConfidenceRange95Percent `json:"confidenceRange95Percent"`
-	StandardDeviation        float32                                                             `json:"standardDeviation" validate:"required"`
+	StandardDeviation        float32                                                             `json:"standardDeviation"`
 	Unit                     string                                                              `json:"unit" validate:"required,min=1"`
-	Value                    float32                                                             `json:"value" validate:"required"`
+	Value                    float32                                                             `json:"value"`
 }
 
 func (g GuessNutritionByDishName_Response_Calories) Validate() error {
@@ -28784,14 +28343,8 @@ func (g GuessNutritionByDishName_Response_Calories) Validate() error {
 			errors = errors.Append("ConfidenceRange95Percent", err)
 		}
 	}
-	if err := typesValidator.Var(g.StandardDeviation, "required"); err != nil {
-		errors = errors.Append("StandardDeviation", err)
-	}
 	if err := typesValidator.Var(g.Unit, "required,min=1"); err != nil {
 		errors = errors.Append("Unit", err)
-	}
-	if err := typesValidator.Var(g.Value, "required"); err != nil {
-		errors = errors.Append("Value", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -28800,19 +28353,15 @@ func (g GuessNutritionByDishName_Response_Calories) Validate() error {
 }
 
 type GuessNutritionByDishName_Response_Calories_ConfidenceRange95Percent struct {
-	Max float32 `json:"max" validate:"required"`
-	Min float32 `json:"min" validate:"required"`
-}
-
-func (g GuessNutritionByDishName_Response_Calories_ConfidenceRange95Percent) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	Max float32 `json:"max"`
+	Min float32 `json:"min"`
 }
 
 type GuessNutritionByDishName_Response_Carbs struct {
 	ConfidenceRange95Percent GuessNutritionByDishName_Response_Carbs_ConfidenceRange95Percent `json:"confidenceRange95Percent"`
-	StandardDeviation        float32                                                          `json:"standardDeviation" validate:"required"`
+	StandardDeviation        float32                                                          `json:"standardDeviation"`
 	Unit                     string                                                           `json:"unit" validate:"required,min=1"`
-	Value                    float32                                                          `json:"value" validate:"required"`
+	Value                    float32                                                          `json:"value"`
 }
 
 func (g GuessNutritionByDishName_Response_Carbs) Validate() error {
@@ -28822,14 +28371,8 @@ func (g GuessNutritionByDishName_Response_Carbs) Validate() error {
 			errors = errors.Append("ConfidenceRange95Percent", err)
 		}
 	}
-	if err := typesValidator.Var(g.StandardDeviation, "required"); err != nil {
-		errors = errors.Append("StandardDeviation", err)
-	}
 	if err := typesValidator.Var(g.Unit, "required,min=1"); err != nil {
 		errors = errors.Append("Unit", err)
-	}
-	if err := typesValidator.Var(g.Value, "required"); err != nil {
-		errors = errors.Append("Value", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -28838,19 +28381,15 @@ func (g GuessNutritionByDishName_Response_Carbs) Validate() error {
 }
 
 type GuessNutritionByDishName_Response_Carbs_ConfidenceRange95Percent struct {
-	Max float32 `json:"max" validate:"required"`
-	Min float32 `json:"min" validate:"required"`
-}
-
-func (g GuessNutritionByDishName_Response_Carbs_ConfidenceRange95Percent) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	Max float32 `json:"max"`
+	Min float32 `json:"min"`
 }
 
 type GuessNutritionByDishName_Response_Fat struct {
 	ConfidenceRange95Percent GuessNutritionByDishName_Response_Fat_ConfidenceRange95Percent `json:"confidenceRange95Percent"`
-	StandardDeviation        float32                                                        `json:"standardDeviation" validate:"required"`
+	StandardDeviation        float32                                                        `json:"standardDeviation"`
 	Unit                     string                                                         `json:"unit" validate:"required,min=1"`
-	Value                    float32                                                        `json:"value" validate:"required"`
+	Value                    float32                                                        `json:"value"`
 }
 
 func (g GuessNutritionByDishName_Response_Fat) Validate() error {
@@ -28860,14 +28399,8 @@ func (g GuessNutritionByDishName_Response_Fat) Validate() error {
 			errors = errors.Append("ConfidenceRange95Percent", err)
 		}
 	}
-	if err := typesValidator.Var(g.StandardDeviation, "required"); err != nil {
-		errors = errors.Append("StandardDeviation", err)
-	}
 	if err := typesValidator.Var(g.Unit, "required,min=1"); err != nil {
 		errors = errors.Append("Unit", err)
-	}
-	if err := typesValidator.Var(g.Value, "required"); err != nil {
-		errors = errors.Append("Value", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -28876,19 +28409,15 @@ func (g GuessNutritionByDishName_Response_Fat) Validate() error {
 }
 
 type GuessNutritionByDishName_Response_Fat_ConfidenceRange95Percent struct {
-	Max float32 `json:"max" validate:"required"`
-	Min float32 `json:"min" validate:"required"`
-}
-
-func (g GuessNutritionByDishName_Response_Fat_ConfidenceRange95Percent) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	Max float32 `json:"max"`
+	Min float32 `json:"min"`
 }
 
 type GuessNutritionByDishName_Response_Protein struct {
 	ConfidenceRange95Percent GuessNutritionByDishName_Response_Protein_ConfidenceRange95Percent `json:"confidenceRange95Percent"`
-	StandardDeviation        float32                                                            `json:"standardDeviation" validate:"required"`
+	StandardDeviation        float32                                                            `json:"standardDeviation"`
 	Unit                     string                                                             `json:"unit" validate:"required,min=1"`
-	Value                    float32                                                            `json:"value" validate:"required"`
+	Value                    float32                                                            `json:"value"`
 }
 
 func (g GuessNutritionByDishName_Response_Protein) Validate() error {
@@ -28898,14 +28427,8 @@ func (g GuessNutritionByDishName_Response_Protein) Validate() error {
 			errors = errors.Append("ConfidenceRange95Percent", err)
 		}
 	}
-	if err := typesValidator.Var(g.StandardDeviation, "required"); err != nil {
-		errors = errors.Append("StandardDeviation", err)
-	}
 	if err := typesValidator.Var(g.Unit, "required,min=1"); err != nil {
 		errors = errors.Append("Unit", err)
-	}
-	if err := typesValidator.Var(g.Value, "required"); err != nil {
-		errors = errors.Append("Value", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -28914,16 +28437,12 @@ func (g GuessNutritionByDishName_Response_Protein) Validate() error {
 }
 
 type GuessNutritionByDishName_Response_Protein_ConfidenceRange95Percent struct {
-	Max float32 `json:"max" validate:"required"`
-	Min float32 `json:"min" validate:"required"`
-}
-
-func (g GuessNutritionByDishName_Response_Protein_ConfidenceRange95Percent) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	Max float32 `json:"max"`
+	Min float32 `json:"min"`
 }
 
 type GetIngredientInformation_Response_EstimatedCost struct {
-	Value float32 `json:"value" validate:"required"`
+	Value float32 `json:"value"`
 	Unit  string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -28988,9 +28507,9 @@ func (g GetIngredientInformation_Response_Nutrition_Nutrients) Validate() error 
 
 type GetIngredientInformation_Response_Nutrition_Nutrients_Item struct {
 	Name                string  `json:"name" validate:"required,min=1"`
-	Amount              float32 `json:"amount" validate:"required"`
+	Amount              float32 `json:"amount"`
 	Unit                string  `json:"unit" validate:"required,min=1"`
-	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds" validate:"required"`
+	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds"`
 }
 
 func (g GetIngredientInformation_Response_Nutrition_Nutrients_Item) Validate() error {
@@ -29019,7 +28538,7 @@ func (g GetIngredientInformation_Response_Nutrition_Properties) Validate() error
 
 type GetIngredientInformation_Response_Nutrition_Properties_Item struct {
 	Name   string  `json:"name" validate:"required,min=1"`
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required"`
 }
 
@@ -29028,17 +28547,13 @@ func (g GetIngredientInformation_Response_Nutrition_Properties_Item) Validate() 
 }
 
 type GetIngredientInformation_Response_Nutrition_CaloricBreakdown struct {
-	PercentProtein float32 `json:"percentProtein" validate:"required"`
-	PercentFat     float32 `json:"percentFat" validate:"required"`
-	PercentCarbs   float32 `json:"percentCarbs" validate:"required"`
-}
-
-func (g GetIngredientInformation_Response_Nutrition_CaloricBreakdown) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	PercentProtein float32 `json:"percentProtein"`
+	PercentFat     float32 `json:"percentFat"`
+	PercentCarbs   float32 `json:"percentCarbs"`
 }
 
 type GetIngredientInformation_Response_Nutrition_WeightPerServing struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -29067,10 +28582,10 @@ func (c ComputeGlycemicLoad_Response_Ingredients) Validate() error {
 }
 
 type ComputeGlycemicLoad_Response_Ingredients_Item struct {
-	ID            int64   `json:"id" validate:"required"`
+	ID            int64   `json:"id"`
 	Original      string  `json:"original" validate:"required,min=1"`
-	GlycemicIndex float32 `json:"glycemicIndex" validate:"required"`
-	GlycemicLoad  float32 `json:"glycemicLoad" validate:"required"`
+	GlycemicIndex float32 `json:"glycemicIndex"`
+	GlycemicLoad  float32 `json:"glycemicLoad"`
 }
 
 func (c ComputeGlycemicLoad_Response_Ingredients_Item) Validate() error {
@@ -29133,7 +28648,7 @@ func (i IngredientSearch_Response_Results) Validate() error {
 }
 
 type IngredientSearch_Response_Results_Item struct {
-	ID    int64  `json:"id" validate:"required"`
+	ID    int64  `json:"id"`
 	Name  string `json:"name" validate:"required,min=1"`
 	Image string `json:"image" validate:"required,min=1"`
 }
@@ -29163,7 +28678,7 @@ func (s SearchGroceryProducts_Response_Products) Validate() error {
 }
 
 type SearchGroceryProducts_Response_Products_Item struct {
-	ID        int64  `json:"id" validate:"required"`
+	ID        int64  `json:"id"`
 	Title     string `json:"title" validate:"required,min=1"`
 	ImageType string `json:"imageType" validate:"required,min=1"`
 }
@@ -29247,9 +28762,9 @@ func (s SearchGroceryProductsByUPC_Response_Nutrition_Nutrients) Validate() erro
 
 type SearchGroceryProductsByUPC_Response_Nutrition_Nutrients_Item struct {
 	Name                string  `json:"name" validate:"required,min=1"`
-	Amount              float32 `json:"amount" validate:"required"`
+	Amount              float32 `json:"amount"`
 	Unit                string  `json:"unit" validate:"required,min=1"`
-	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds" validate:"required"`
+	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds"`
 }
 
 func (s SearchGroceryProductsByUPC_Response_Nutrition_Nutrients_Item) Validate() error {
@@ -29257,18 +28772,14 @@ func (s SearchGroceryProductsByUPC_Response_Nutrition_Nutrients_Item) Validate()
 }
 
 type SearchGroceryProductsByUPC_Response_Nutrition_CaloricBreakdown struct {
-	PercentProtein float32 `json:"percentProtein" validate:"required"`
-	PercentFat     float32 `json:"percentFat" validate:"required"`
-	PercentCarbs   float32 `json:"percentCarbs" validate:"required"`
-}
-
-func (s SearchGroceryProductsByUPC_Response_Nutrition_CaloricBreakdown) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(s))
+	PercentProtein float32 `json:"percentProtein"`
+	PercentFat     float32 `json:"percentFat"`
+	PercentCarbs   float32 `json:"percentCarbs"`
 }
 
 type SearchGroceryProductsByUPC_Response_Servings struct {
-	Number float32 `json:"number" validate:"required"`
-	Size   float32 `json:"size" validate:"required"`
+	Number float32 `json:"number"`
+	Size   float32 `json:"size"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -29297,11 +28808,11 @@ func (s SearchCustomFoods_Response_CustomFoods) Validate() error {
 }
 
 type SearchCustomFoods_Response_CustomFoods_Item struct {
-	ID       int64   `json:"id" validate:"required"`
+	ID       int64   `json:"id"`
 	Title    string  `json:"title" validate:"required,min=1"`
-	Servings float32 `json:"servings" validate:"required"`
+	Servings float32 `json:"servings"`
 	ImageURL string  `json:"imageUrl" validate:"required,min=1"`
-	Price    float32 `json:"price" validate:"required"`
+	Price    float32 `json:"price"`
 }
 
 func (s SearchCustomFoods_Response_CustomFoods_Item) Validate() error {
@@ -29383,9 +28894,9 @@ func (g GetProductInformation_Response_Nutrition_Nutrients) Validate() error {
 
 type GetProductInformation_Response_Nutrition_Nutrients_Item struct {
 	Name                string  `json:"name" validate:"required,min=1"`
-	Amount              float32 `json:"amount" validate:"required"`
+	Amount              float32 `json:"amount"`
 	Unit                string  `json:"unit" validate:"required,min=1"`
-	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds" validate:"required"`
+	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds"`
 }
 
 func (g GetProductInformation_Response_Nutrition_Nutrients_Item) Validate() error {
@@ -29393,18 +28904,14 @@ func (g GetProductInformation_Response_Nutrition_Nutrients_Item) Validate() erro
 }
 
 type GetProductInformation_Response_Nutrition_CaloricBreakdown struct {
-	PercentProtein float32 `json:"percentProtein" validate:"required"`
-	PercentFat     float32 `json:"percentFat" validate:"required"`
-	PercentCarbs   float32 `json:"percentCarbs" validate:"required"`
-}
-
-func (g GetProductInformation_Response_Nutrition_CaloricBreakdown) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	PercentProtein float32 `json:"percentProtein"`
+	PercentFat     float32 `json:"percentFat"`
+	PercentCarbs   float32 `json:"percentCarbs"`
 }
 
 type GetProductInformation_Response_Servings struct {
-	Number float32 `json:"number" validate:"required"`
-	Size   float32 `json:"size" validate:"required"`
+	Number float32 `json:"number"`
+	Size   float32 `json:"size"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -29472,8 +28979,8 @@ func (g GetComparableProducts_Response_ComparableProducts_Protein) Validate() er
 }
 
 type GetComparableProducts_Response_ComparableProducts_Protein_Item struct {
-	Difference float32 `json:"difference" validate:"required"`
-	ID         int64   `json:"id" validate:"required"`
+	Difference float32 `json:"difference"`
+	ID         int64   `json:"id"`
 	Image      string  `json:"image" validate:"required,min=1"`
 	Title      string  `json:"title" validate:"required,min=1"`
 }
@@ -29503,8 +29010,8 @@ func (g GetComparableProducts_Response_ComparableProducts_SpoonacularScore) Vali
 }
 
 type GetComparableProducts_Response_ComparableProducts_SpoonacularScore_Item struct {
-	Difference float32 `json:"difference" validate:"required"`
-	ID         int64   `json:"id" validate:"required"`
+	Difference float32 `json:"difference"`
+	ID         int64   `json:"id"`
 	Image      string  `json:"image" validate:"required,min=1"`
 	Title      string  `json:"title" validate:"required,min=1"`
 }
@@ -29534,7 +29041,7 @@ func (a AutocompleteProductSearch_Response_Results) Validate() error {
 }
 
 type AutocompleteProductSearch_Response_Results_Item struct {
-	ID    int64  `json:"id" validate:"required"`
+	ID    int64  `json:"id"`
 	Title string `json:"title" validate:"required,min=1"`
 }
 
@@ -29580,7 +29087,7 @@ type ClassifyGroceryProductBulk_Response_Item struct {
 	Image       string   `json:"image" validate:"required,min=1"`
 	Category    string   `json:"category" validate:"required,min=1"`
 	Breadcrumbs []string `json:"breadcrumbs" validate:"required"`
-	UsdaCode    int64    `json:"usdaCode" validate:"required"`
+	UsdaCode    int64    `json:"usdaCode"`
 }
 
 func (c ClassifyGroceryProductBulk_Response_Item) Validate() error {
@@ -29631,7 +29138,7 @@ func (m MapIngredientsToGroceryProducts_Response_Products) Validate() error {
 }
 
 type MapIngredientsToGroceryProducts_Response_Products_Item struct {
-	ID    int64  `json:"id" validate:"required"`
+	ID    int64  `json:"id"`
 	Title string `json:"title" validate:"required,min=1"`
 	Upc   string `json:"upc" validate:"required,min=1"`
 }
@@ -29694,7 +29201,7 @@ func (a AutocompleteMenuItemSearch_Response_Results) Validate() error {
 }
 
 type AutocompleteMenuItemSearch_Response_Results_Item struct {
-	ID    int64  `json:"id" validate:"required"`
+	ID    int64  `json:"id"`
 	Title string `json:"title" validate:"required,min=1"`
 }
 
@@ -29723,8 +29230,8 @@ func (s SearchMenuItems_Response_MenuItems) Validate() error {
 }
 
 type SearchMenuItems_Response_MenuItems_Servings struct {
-	Number float32 `json:"number" validate:"required"`
-	Size   float32 `json:"size" validate:"required"`
+	Number float32 `json:"number"`
+	Size   float32 `json:"size"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -29733,7 +29240,7 @@ func (s SearchMenuItems_Response_MenuItems_Servings) Validate() error {
 }
 
 type SearchMenuItems_Response_MenuItems_Item struct {
-	ID              int64                                        `json:"id" validate:"required"`
+	ID              int64                                        `json:"id"`
 	Title           string                                       `json:"title" validate:"required,min=1"`
 	RestaurantChain string                                       `json:"restaurantChain" validate:"required,min=1"`
 	Image           string                                       `json:"image" validate:"required,min=1"`
@@ -29743,9 +29250,6 @@ type SearchMenuItems_Response_MenuItems_Item struct {
 
 func (s SearchMenuItems_Response_MenuItems_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(s.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(s.Title, "required,min=1"); err != nil {
 		errors = errors.Append("Title", err)
 	}
@@ -29816,9 +29320,9 @@ func (g GetMenuItemInformation_Response_Nutrition_Nutrients) Validate() error {
 
 type GetMenuItemInformation_Response_Nutrition_Nutrients_Item struct {
 	Name                string  `json:"name" validate:"required,min=1"`
-	Amount              float32 `json:"amount" validate:"required"`
+	Amount              float32 `json:"amount"`
 	Unit                string  `json:"unit" validate:"required,min=1"`
-	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds" validate:"required"`
+	PercentOfDailyNeeds float32 `json:"percentOfDailyNeeds"`
 }
 
 func (g GetMenuItemInformation_Response_Nutrition_Nutrients_Item) Validate() error {
@@ -29826,18 +29330,14 @@ func (g GetMenuItemInformation_Response_Nutrition_Nutrients_Item) Validate() err
 }
 
 type GetMenuItemInformation_Response_Nutrition_CaloricBreakdown struct {
-	PercentProtein float32 `json:"percentProtein" validate:"required"`
-	PercentFat     float32 `json:"percentFat" validate:"required"`
-	PercentCarbs   float32 `json:"percentCarbs" validate:"required"`
-}
-
-func (g GetMenuItemInformation_Response_Nutrition_CaloricBreakdown) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	PercentProtein float32 `json:"percentProtein"`
+	PercentFat     float32 `json:"percentFat"`
+	PercentCarbs   float32 `json:"percentCarbs"`
 }
 
 type GetMenuItemInformation_Response_Servings struct {
-	Number float32 `json:"number" validate:"required"`
-	Size   float32 `json:"size" validate:"required"`
+	Number float32 `json:"number"`
+	Size   float32 `json:"size"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -29866,11 +29366,11 @@ func (g GenerateMealPlan_Response_Meals) Validate() error {
 }
 
 type GenerateMealPlan_Response_Meals_Item struct {
-	ID             int64   `json:"id" validate:"required"`
+	ID             int64   `json:"id"`
 	Title          string  `json:"title" validate:"required,min=1"`
 	ImageType      string  `json:"imageType" validate:"required,min=1"`
-	ReadyInMinutes int64   `json:"readyInMinutes" validate:"required"`
-	Servings       float32 `json:"servings" validate:"required"`
+	ReadyInMinutes int64   `json:"readyInMinutes"`
+	Servings       float32 `json:"servings"`
 	SourceURL      string  `json:"sourceUrl" validate:"required,min=1"`
 }
 
@@ -29879,14 +29379,10 @@ func (g GenerateMealPlan_Response_Meals_Item) Validate() error {
 }
 
 type GenerateMealPlan_Response_Nutrients struct {
-	Calories      float32 `json:"calories" validate:"required"`
-	Carbohydrates float32 `json:"carbohydrates" validate:"required"`
-	Fat           float32 `json:"fat" validate:"required"`
-	Protein       float32 `json:"protein" validate:"required"`
-}
-
-func (g GenerateMealPlan_Response_Nutrients) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	Calories      float32 `json:"calories"`
+	Carbohydrates float32 `json:"carbohydrates"`
+	Fat           float32 `json:"fat"`
+	Protein       float32 `json:"protein"`
 }
 
 type GetMealPlanWeek_Response_Days []GetMealPlanWeek_Response_Days_Item
@@ -29948,9 +29444,9 @@ func (g GetMealPlanWeek_Response_Days_NutritionSummary_Nutrients) Validate() err
 
 type GetMealPlanWeek_Response_Days_NutritionSummary_Nutrients_Item struct {
 	Name              string  `json:"name" validate:"required,min=1"`
-	Amount            float32 `json:"amount" validate:"required"`
+	Amount            float32 `json:"amount"`
 	Unit              string  `json:"unit" validate:"required,min=1"`
-	PercentDailyNeeds float32 `json:"percentDailyNeeds" validate:"required"`
+	PercentDailyNeeds float32 `json:"percentDailyNeeds"`
 }
 
 func (g GetMealPlanWeek_Response_Days_NutritionSummary_Nutrients_Item) Validate() error {
@@ -29996,9 +29492,9 @@ func (g GetMealPlanWeek_Response_Days_NutritionSummaryBreakfast_Nutrients) Valid
 
 type GetMealPlanWeek_Response_Days_NutritionSummaryBreakfast_Nutrients_Item struct {
 	Name              string  `json:"name" validate:"required,min=1"`
-	Amount            float32 `json:"amount" validate:"required"`
+	Amount            float32 `json:"amount"`
 	Unit              string  `json:"unit" validate:"required,min=1"`
-	PercentDailyNeeds float32 `json:"percentDailyNeeds" validate:"required"`
+	PercentDailyNeeds float32 `json:"percentDailyNeeds"`
 }
 
 func (g GetMealPlanWeek_Response_Days_NutritionSummaryBreakfast_Nutrients_Item) Validate() error {
@@ -30044,9 +29540,9 @@ func (g GetMealPlanWeek_Response_Days_NutritionSummaryLunch_Nutrients) Validate(
 
 type GetMealPlanWeek_Response_Days_NutritionSummaryLunch_Nutrients_Item struct {
 	Name              string  `json:"name" validate:"required,min=1"`
-	Amount            float32 `json:"amount" validate:"required"`
+	Amount            float32 `json:"amount"`
 	Unit              string  `json:"unit" validate:"required,min=1"`
-	PercentDailyNeeds float32 `json:"percentDailyNeeds" validate:"required"`
+	PercentDailyNeeds float32 `json:"percentDailyNeeds"`
 }
 
 func (g GetMealPlanWeek_Response_Days_NutritionSummaryLunch_Nutrients_Item) Validate() error {
@@ -30092,9 +29588,9 @@ func (g GetMealPlanWeek_Response_Days_NutritionSummaryDinner_Nutrients) Validate
 
 type GetMealPlanWeek_Response_Days_NutritionSummaryDinner_Nutrients_Item struct {
 	Name              string  `json:"name" validate:"required,min=1"`
-	Amount            float32 `json:"amount" validate:"required"`
+	Amount            float32 `json:"amount"`
 	Unit              string  `json:"unit" validate:"required,min=1"`
-	PercentDailyNeeds float32 `json:"percentDailyNeeds" validate:"required"`
+	PercentDailyNeeds float32 `json:"percentDailyNeeds"`
 }
 
 func (g GetMealPlanWeek_Response_Days_NutritionSummaryDinner_Nutrients_Item) Validate() error {
@@ -30125,8 +29621,8 @@ func (g GetMealPlanWeek_Response_Days_Items) Validate() error {
 }
 
 type GetMealPlanWeek_Response_Days_Items_Value struct {
-	Servings  float32 `json:"servings" validate:"required"`
-	ID        float32 `json:"id" validate:"required"`
+	Servings  float32 `json:"servings"`
+	ID        float32 `json:"id"`
 	Title     string  `json:"title" validate:"required,min=1"`
 	ImageType string  `json:"imageType" validate:"required"`
 }
@@ -30136,24 +29632,15 @@ func (g GetMealPlanWeek_Response_Days_Items_Value) Validate() error {
 }
 
 type GetMealPlanWeek_Response_Days_Items_Item struct {
-	ID       int64                                      `json:"id" validate:"required"`
-	Slot     int64                                      `json:"slot" validate:"required"`
-	Position int64                                      `json:"position" validate:"required"`
+	ID       int64                                      `json:"id"`
+	Slot     int64                                      `json:"slot"`
+	Position int64                                      `json:"position"`
 	Type     string                                     `json:"type" validate:"required,min=1"`
 	Value    *GetMealPlanWeek_Response_Days_Items_Value `json:"value,omitempty"`
 }
 
 func (g GetMealPlanWeek_Response_Days_Items_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
-	if err := typesValidator.Var(g.Slot, "required"); err != nil {
-		errors = errors.Append("Slot", err)
-	}
-	if err := typesValidator.Var(g.Position, "required"); err != nil {
-		errors = errors.Append("Position", err)
-	}
 	if err := typesValidator.Var(g.Type, "required,min=1"); err != nil {
 		errors = errors.Append("Type", err)
 	}
@@ -30175,7 +29662,7 @@ type GetMealPlanWeek_Response_Days_Item struct {
 	NutritionSummaryBreakfast *GetMealPlanWeek_Response_Days_NutritionSummaryBreakfast `json:"nutritionSummaryBreakfast,omitempty"`
 	NutritionSummaryLunch     *GetMealPlanWeek_Response_Days_NutritionSummaryLunch     `json:"nutritionSummaryLunch,omitempty"`
 	NutritionSummaryDinner    *GetMealPlanWeek_Response_Days_NutritionSummaryDinner    `json:"nutritionSummaryDinner,omitempty"`
-	Date                      float32                                                  `json:"date" validate:"required"`
+	Date                      float32                                                  `json:"date"`
 	Day                       string                                                   `json:"day" validate:"required,min=1"`
 	Items                     *GetMealPlanWeek_Response_Days_Items                     `json:"items,omitempty"`
 }
@@ -30209,9 +29696,6 @@ func (g GetMealPlanWeek_Response_Days_Item) Validate() error {
 				errors = errors.Append("NutritionSummaryDinner", err)
 			}
 		}
-	}
-	if err := typesValidator.Var(g.Date, "required"); err != nil {
-		errors = errors.Append("Date", err)
 	}
 	if err := typesValidator.Var(g.Day, "required,min=1"); err != nil {
 		errors = errors.Append("Day", err)
@@ -30250,7 +29734,7 @@ func (g GetMealPlanTemplates_Response_Templates) Validate() error {
 }
 
 type GetMealPlanTemplates_Response_Templates_Item struct {
-	ID   int64  `json:"id" validate:"required"`
+	ID   int64  `json:"id"`
 	Name string `json:"name" validate:"required,min=1"`
 }
 
@@ -30293,24 +29777,15 @@ func (a AddMealPlanTemplate_Response_Items_Value) Validate() error {
 }
 
 type AddMealPlanTemplate_Response_Items_Item struct {
-	Day      int64                                     `json:"day" validate:"required"`
-	Slot     int64                                     `json:"slot" validate:"required"`
-	Position int64                                     `json:"position" validate:"required"`
+	Day      int64                                     `json:"day"`
+	Slot     int64                                     `json:"slot"`
+	Position int64                                     `json:"position"`
 	Type     string                                    `json:"type" validate:"required,min=1"`
 	Value    *AddMealPlanTemplate_Response_Items_Value `json:"value,omitempty"`
 }
 
 func (a AddMealPlanTemplate_Response_Items_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(a.Day, "required"); err != nil {
-		errors = errors.Append("Day", err)
-	}
-	if err := typesValidator.Var(a.Slot, "required"); err != nil {
-		errors = errors.Append("Slot", err)
-	}
-	if err := typesValidator.Var(a.Position, "required"); err != nil {
-		errors = errors.Append("Position", err)
-	}
 	if err := typesValidator.Var(a.Type, "required,min=1"); err != nil {
 		errors = errors.Append("Type", err)
 	}
@@ -30386,9 +29861,9 @@ func (g GetMealPlanTemplate_Response_Days_NutritionSummary_Nutrients) Validate()
 
 type GetMealPlanTemplate_Response_Days_NutritionSummary_Nutrients_Item struct {
 	Name              string  `json:"name" validate:"required,min=1"`
-	Amount            float32 `json:"amount" validate:"required"`
+	Amount            float32 `json:"amount"`
 	Unit              string  `json:"unit" validate:"required,min=1"`
-	PercentDailyNeeds float32 `json:"percentDailyNeeds" validate:"required"`
+	PercentDailyNeeds float32 `json:"percentDailyNeeds"`
 }
 
 func (g GetMealPlanTemplate_Response_Days_NutritionSummary_Nutrients_Item) Validate() error {
@@ -30434,9 +29909,9 @@ func (g GetMealPlanTemplate_Response_Days_NutritionSummaryBreakfast_Nutrients) V
 
 type GetMealPlanTemplate_Response_Days_NutritionSummaryBreakfast_Nutrients_Item struct {
 	Name              string  `json:"name" validate:"required,min=1"`
-	Amount            float32 `json:"amount" validate:"required"`
+	Amount            float32 `json:"amount"`
 	Unit              string  `json:"unit" validate:"required,min=1"`
-	PercentDailyNeeds float32 `json:"percentDailyNeeds" validate:"required"`
+	PercentDailyNeeds float32 `json:"percentDailyNeeds"`
 }
 
 func (g GetMealPlanTemplate_Response_Days_NutritionSummaryBreakfast_Nutrients_Item) Validate() error {
@@ -30482,9 +29957,9 @@ func (g GetMealPlanTemplate_Response_Days_NutritionSummaryLunch_Nutrients) Valid
 
 type GetMealPlanTemplate_Response_Days_NutritionSummaryLunch_Nutrients_Item struct {
 	Name              string  `json:"name" validate:"required,min=1"`
-	Amount            float32 `json:"amount" validate:"required"`
+	Amount            float32 `json:"amount"`
 	Unit              string  `json:"unit" validate:"required,min=1"`
-	PercentDailyNeeds float32 `json:"percentDailyNeeds" validate:"required"`
+	PercentDailyNeeds float32 `json:"percentDailyNeeds"`
 }
 
 func (g GetMealPlanTemplate_Response_Days_NutritionSummaryLunch_Nutrients_Item) Validate() error {
@@ -30530,9 +30005,9 @@ func (g GetMealPlanTemplate_Response_Days_NutritionSummaryDinner_Nutrients) Vali
 
 type GetMealPlanTemplate_Response_Days_NutritionSummaryDinner_Nutrients_Item struct {
 	Name              string  `json:"name" validate:"required,min=1"`
-	Amount            float32 `json:"amount" validate:"required"`
+	Amount            float32 `json:"amount"`
 	Unit              string  `json:"unit" validate:"required,min=1"`
-	PercentDailyNeeds float32 `json:"percentDailyNeeds" validate:"required"`
+	PercentDailyNeeds float32 `json:"percentDailyNeeds"`
 }
 
 func (g GetMealPlanTemplate_Response_Days_NutritionSummaryDinner_Nutrients_Item) Validate() error {
@@ -30563,7 +30038,7 @@ func (g GetMealPlanTemplate_Response_Days_Items) Validate() error {
 }
 
 type GetMealPlanTemplate_Response_Days_Items_Value struct {
-	ID        float32 `json:"id" validate:"required"`
+	ID        float32 `json:"id"`
 	Title     string  `json:"title" validate:"required,min=1"`
 	ImageType string  `json:"imageType" validate:"required,min=1"`
 }
@@ -30573,24 +30048,15 @@ func (g GetMealPlanTemplate_Response_Days_Items_Value) Validate() error {
 }
 
 type GetMealPlanTemplate_Response_Days_Items_Item struct {
-	ID       int64                                          `json:"id" validate:"required"`
-	Slot     int64                                          `json:"slot" validate:"required"`
-	Position int64                                          `json:"position" validate:"required"`
+	ID       int64                                          `json:"id"`
+	Slot     int64                                          `json:"slot"`
+	Position int64                                          `json:"position"`
 	Type     string                                         `json:"type" validate:"required,min=1"`
 	Value    *GetMealPlanTemplate_Response_Days_Items_Value `json:"value,omitempty"`
 }
 
 func (g GetMealPlanTemplate_Response_Days_Items_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
-	if err := typesValidator.Var(g.Slot, "required"); err != nil {
-		errors = errors.Append("Slot", err)
-	}
-	if err := typesValidator.Var(g.Position, "required"); err != nil {
-		errors = errors.Append("Position", err)
-	}
 	if err := typesValidator.Var(g.Type, "required,min=1"); err != nil {
 		errors = errors.Append("Type", err)
 	}
@@ -30735,7 +30201,7 @@ func (g GetShoppingList_Response_Aisles_Items_Measures) Validate() error {
 }
 
 type GetShoppingList_Response_Aisles_Items_Measures_Original struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -30744,7 +30210,7 @@ func (g GetShoppingList_Response_Aisles_Items_Measures_Original) Validate() erro
 }
 
 type GetShoppingList_Response_Aisles_Items_Measures_Metric struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -30753,7 +30219,7 @@ func (g GetShoppingList_Response_Aisles_Items_Measures_Metric) Validate() error 
 }
 
 type GetShoppingList_Response_Aisles_Items_Measures_Us struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -30762,20 +30228,17 @@ func (g GetShoppingList_Response_Aisles_Items_Measures_Us) Validate() error {
 }
 
 type GetShoppingList_Response_Aisles_Items_Item struct {
-	ID           int64                                           `json:"id" validate:"required"`
+	ID           int64                                           `json:"id"`
 	Name         string                                          `json:"name" validate:"required,min=1"`
 	Measures     *GetShoppingList_Response_Aisles_Items_Measures `json:"measures,omitempty"`
 	PantryItem   bool                                            `json:"pantryItem"`
 	Aisle        string                                          `json:"aisle" validate:"required,min=1"`
-	Cost         float32                                         `json:"cost" validate:"required"`
-	IngredientID int64                                           `json:"ingredientId" validate:"required"`
+	Cost         float32                                         `json:"cost"`
+	IngredientID int64                                           `json:"ingredientId"`
 }
 
 func (g GetShoppingList_Response_Aisles_Items_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(g.Name, "required,min=1"); err != nil {
 		errors = errors.Append("Name", err)
 	}
@@ -30788,12 +30251,6 @@ func (g GetShoppingList_Response_Aisles_Items_Item) Validate() error {
 	}
 	if err := typesValidator.Var(g.Aisle, "required,min=1"); err != nil {
 		errors = errors.Append("Aisle", err)
-	}
-	if err := typesValidator.Var(g.Cost, "required"); err != nil {
-		errors = errors.Append("Cost", err)
-	}
-	if err := typesValidator.Var(g.IngredientID, "required"); err != nil {
-		errors = errors.Append("IngredientID", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -30897,7 +30354,7 @@ func (g GenerateShoppingList_Response_Aisles_Items_Measures) Validate() error {
 }
 
 type GenerateShoppingList_Response_Aisles_Items_Measures_Original struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -30906,7 +30363,7 @@ func (g GenerateShoppingList_Response_Aisles_Items_Measures_Original) Validate()
 }
 
 type GenerateShoppingList_Response_Aisles_Items_Measures_Metric struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -30915,7 +30372,7 @@ func (g GenerateShoppingList_Response_Aisles_Items_Measures_Metric) Validate() e
 }
 
 type GenerateShoppingList_Response_Aisles_Items_Measures_Us struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -30924,20 +30381,17 @@ func (g GenerateShoppingList_Response_Aisles_Items_Measures_Us) Validate() error
 }
 
 type GenerateShoppingList_Response_Aisles_Items_Item struct {
-	ID           int64                                                `json:"id" validate:"required"`
+	ID           int64                                                `json:"id"`
 	Name         string                                               `json:"name" validate:"required,min=1"`
 	Measures     *GenerateShoppingList_Response_Aisles_Items_Measures `json:"measures,omitempty"`
 	PantryItem   bool                                                 `json:"pantryItem"`
 	Aisle        string                                               `json:"aisle" validate:"required,min=1"`
-	Cost         float32                                              `json:"cost" validate:"required"`
-	IngredientID int64                                                `json:"ingredientId" validate:"required"`
+	Cost         float32                                              `json:"cost"`
+	IngredientID int64                                                `json:"ingredientId"`
 }
 
 func (g GenerateShoppingList_Response_Aisles_Items_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(g.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(g.Name, "required,min=1"); err != nil {
 		errors = errors.Append("Name", err)
 	}
@@ -30950,12 +30404,6 @@ func (g GenerateShoppingList_Response_Aisles_Items_Item) Validate() error {
 	}
 	if err := typesValidator.Var(g.Aisle, "required,min=1"); err != nil {
 		errors = errors.Append("Aisle", err)
-	}
-	if err := typesValidator.Var(g.Cost, "required"); err != nil {
-		errors = errors.Append("Cost", err)
-	}
-	if err := typesValidator.Var(g.IngredientID, "required"); err != nil {
-		errors = errors.Append("IngredientID", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -31059,7 +30507,7 @@ func (a AddToShoppingList_Response_Aisles_Items_Measures) Validate() error {
 }
 
 type AddToShoppingList_Response_Aisles_Items_Measures_Original struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -31068,7 +30516,7 @@ func (a AddToShoppingList_Response_Aisles_Items_Measures_Original) Validate() er
 }
 
 type AddToShoppingList_Response_Aisles_Items_Measures_Metric struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -31077,7 +30525,7 @@ func (a AddToShoppingList_Response_Aisles_Items_Measures_Metric) Validate() erro
 }
 
 type AddToShoppingList_Response_Aisles_Items_Measures_Us struct {
-	Amount float32 `json:"amount" validate:"required"`
+	Amount float32 `json:"amount"`
 	Unit   string  `json:"unit" validate:"required,min=1"`
 }
 
@@ -31086,20 +30534,17 @@ func (a AddToShoppingList_Response_Aisles_Items_Measures_Us) Validate() error {
 }
 
 type AddToShoppingList_Response_Aisles_Items_Item struct {
-	ID           int64                                             `json:"id" validate:"required"`
+	ID           int64                                             `json:"id"`
 	Name         string                                            `json:"name" validate:"required,min=1"`
 	Measures     *AddToShoppingList_Response_Aisles_Items_Measures `json:"measures,omitempty"`
 	PantryItem   bool                                              `json:"pantryItem"`
 	Aisle        string                                            `json:"aisle" validate:"required,min=1"`
-	Cost         float32                                           `json:"cost" validate:"required"`
-	IngredientID int64                                             `json:"ingredientId" validate:"required"`
+	Cost         float32                                           `json:"cost"`
+	IngredientID int64                                             `json:"ingredientId"`
 }
 
 func (a AddToShoppingList_Response_Aisles_Items_Item) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(a.ID, "required"); err != nil {
-		errors = errors.Append("ID", err)
-	}
 	if err := typesValidator.Var(a.Name, "required,min=1"); err != nil {
 		errors = errors.Append("Name", err)
 	}
@@ -31112,12 +30557,6 @@ func (a AddToShoppingList_Response_Aisles_Items_Item) Validate() error {
 	}
 	if err := typesValidator.Var(a.Aisle, "required,min=1"); err != nil {
 		errors = errors.Append("Aisle", err)
-	}
-	if err := typesValidator.Var(a.Cost, "required"); err != nil {
-		errors = errors.Append("Cost", err)
-	}
-	if err := typesValidator.Var(a.IngredientID, "required"); err != nil {
-		errors = errors.Append("IngredientID", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -31330,15 +30769,15 @@ func (g GetWinePairing_Response_ProductMatches) Validate() error {
 }
 
 type GetWinePairing_Response_ProductMatches_Item struct {
-	ID            int64     `json:"id" validate:"required"`
+	ID            int64     `json:"id"`
 	Title         string    `json:"title" validate:"required,min=1"`
-	AverageRating float32   `json:"averageRating" validate:"required"`
+	AverageRating float32   `json:"averageRating"`
 	Description   *struct{} `json:"description,omitempty"`
 	ImageURL      string    `json:"imageUrl" validate:"required,min=1"`
 	Link          string    `json:"link" validate:"required,min=1"`
 	Price         string    `json:"price" validate:"required,min=1"`
-	RatingCount   int64     `json:"ratingCount" validate:"required"`
-	Score         float32   `json:"score" validate:"required"`
+	RatingCount   int64     `json:"ratingCount"`
+	Score         float32   `json:"score"`
 }
 
 func (g GetWinePairing_Response_ProductMatches_Item) Validate() error {
@@ -31366,15 +30805,15 @@ func (g GetWineRecommendation_Response_RecommendedWines) Validate() error {
 }
 
 type GetWineRecommendation_Response_RecommendedWines_Item struct {
-	ID            int64   `json:"id" validate:"required"`
+	ID            int64   `json:"id"`
 	Title         string  `json:"title" validate:"required,min=1"`
-	AverageRating float32 `json:"averageRating" validate:"required"`
+	AverageRating float32 `json:"averageRating"`
 	Description   string  `json:"description" validate:"required,min=1"`
 	ImageURL      string  `json:"imageUrl" validate:"required,min=1"`
 	Link          string  `json:"link" validate:"required,min=1"`
 	Price         string  `json:"price" validate:"required,min=1"`
-	RatingCount   int64   `json:"ratingCount" validate:"required"`
-	Score         float32 `json:"score" validate:"required"`
+	RatingCount   int64   `json:"ratingCount"`
+	Score         float32 `json:"score"`
 }
 
 func (g GetWineRecommendation_Response_RecommendedWines_Item) Validate() error {
@@ -31382,7 +30821,7 @@ func (g GetWineRecommendation_Response_RecommendedWines_Item) Validate() error {
 }
 
 type ImageAnalysisByURL_Response_Nutrition struct {
-	RecipesUsed int64                                          `json:"recipesUsed" validate:"required"`
+	RecipesUsed int64                                          `json:"recipesUsed"`
 	Calories    ImageAnalysisByURL_Response_Nutrition_Calories `json:"calories"`
 	Fat         ImageAnalysisByURL_Response_Nutrition_Fat      `json:"fat"`
 	Protein     ImageAnalysisByURL_Response_Nutrition_Protein  `json:"protein"`
@@ -31391,9 +30830,6 @@ type ImageAnalysisByURL_Response_Nutrition struct {
 
 func (i ImageAnalysisByURL_Response_Nutrition) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(i.RecipesUsed, "required"); err != nil {
-		errors = errors.Append("RecipesUsed", err)
-	}
 	if v, ok := any(i.Calories).(runtime.Validator); ok {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("Calories", err)
@@ -31421,17 +30857,14 @@ func (i ImageAnalysisByURL_Response_Nutrition) Validate() error {
 }
 
 type ImageAnalysisByURL_Response_Nutrition_Calories struct {
-	Value                    float32                                                                 `json:"value" validate:"required"`
+	Value                    float32                                                                 `json:"value"`
 	Unit                     string                                                                  `json:"unit" validate:"required,min=1"`
 	ConfidenceRange95Percent ImageAnalysisByURL_Response_Nutrition_Calories_ConfidenceRange95Percent `json:"confidenceRange95Percent"`
-	StandardDeviation        float32                                                                 `json:"standardDeviation" validate:"required"`
+	StandardDeviation        float32                                                                 `json:"standardDeviation"`
 }
 
 func (i ImageAnalysisByURL_Response_Nutrition_Calories) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(i.Value, "required"); err != nil {
-		errors = errors.Append("Value", err)
-	}
 	if err := typesValidator.Var(i.Unit, "required,min=1"); err != nil {
 		errors = errors.Append("Unit", err)
 	}
@@ -31439,9 +30872,6 @@ func (i ImageAnalysisByURL_Response_Nutrition_Calories) Validate() error {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("ConfidenceRange95Percent", err)
 		}
-	}
-	if err := typesValidator.Var(i.StandardDeviation, "required"); err != nil {
-		errors = errors.Append("StandardDeviation", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -31450,26 +30880,19 @@ func (i ImageAnalysisByURL_Response_Nutrition_Calories) Validate() error {
 }
 
 type ImageAnalysisByURL_Response_Nutrition_Calories_ConfidenceRange95Percent struct {
-	Min float32 `json:"min" validate:"required"`
-	Max float32 `json:"max" validate:"required"`
-}
-
-func (i ImageAnalysisByURL_Response_Nutrition_Calories_ConfidenceRange95Percent) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(i))
+	Min float32 `json:"min"`
+	Max float32 `json:"max"`
 }
 
 type ImageAnalysisByURL_Response_Nutrition_Fat struct {
-	Value                    float32                                                            `json:"value" validate:"required"`
+	Value                    float32                                                            `json:"value"`
 	Unit                     string                                                             `json:"unit" validate:"required,min=1"`
 	ConfidenceRange95Percent ImageAnalysisByURL_Response_Nutrition_Fat_ConfidenceRange95Percent `json:"confidenceRange95Percent"`
-	StandardDeviation        float32                                                            `json:"standardDeviation" validate:"required"`
+	StandardDeviation        float32                                                            `json:"standardDeviation"`
 }
 
 func (i ImageAnalysisByURL_Response_Nutrition_Fat) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(i.Value, "required"); err != nil {
-		errors = errors.Append("Value", err)
-	}
 	if err := typesValidator.Var(i.Unit, "required,min=1"); err != nil {
 		errors = errors.Append("Unit", err)
 	}
@@ -31477,9 +30900,6 @@ func (i ImageAnalysisByURL_Response_Nutrition_Fat) Validate() error {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("ConfidenceRange95Percent", err)
 		}
-	}
-	if err := typesValidator.Var(i.StandardDeviation, "required"); err != nil {
-		errors = errors.Append("StandardDeviation", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -31488,26 +30908,19 @@ func (i ImageAnalysisByURL_Response_Nutrition_Fat) Validate() error {
 }
 
 type ImageAnalysisByURL_Response_Nutrition_Fat_ConfidenceRange95Percent struct {
-	Min float32 `json:"min" validate:"required"`
-	Max float32 `json:"max" validate:"required"`
-}
-
-func (i ImageAnalysisByURL_Response_Nutrition_Fat_ConfidenceRange95Percent) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(i))
+	Min float32 `json:"min"`
+	Max float32 `json:"max"`
 }
 
 type ImageAnalysisByURL_Response_Nutrition_Protein struct {
-	Value                    float32                                                                `json:"value" validate:"required"`
+	Value                    float32                                                                `json:"value"`
 	Unit                     string                                                                 `json:"unit" validate:"required,min=1"`
 	ConfidenceRange95Percent ImageAnalysisByURL_Response_Nutrition_Protein_ConfidenceRange95Percent `json:"confidenceRange95Percent"`
-	StandardDeviation        float32                                                                `json:"standardDeviation" validate:"required"`
+	StandardDeviation        float32                                                                `json:"standardDeviation"`
 }
 
 func (i ImageAnalysisByURL_Response_Nutrition_Protein) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(i.Value, "required"); err != nil {
-		errors = errors.Append("Value", err)
-	}
 	if err := typesValidator.Var(i.Unit, "required,min=1"); err != nil {
 		errors = errors.Append("Unit", err)
 	}
@@ -31515,9 +30928,6 @@ func (i ImageAnalysisByURL_Response_Nutrition_Protein) Validate() error {
 		if err := v.Validate(); err != nil {
 			errors = errors.Append("ConfidenceRange95Percent", err)
 		}
-	}
-	if err := typesValidator.Var(i.StandardDeviation, "required"); err != nil {
-		errors = errors.Append("StandardDeviation", err)
 	}
 	if len(errors) == 0 {
 		return nil
@@ -31526,26 +30936,19 @@ func (i ImageAnalysisByURL_Response_Nutrition_Protein) Validate() error {
 }
 
 type ImageAnalysisByURL_Response_Nutrition_Protein_ConfidenceRange95Percent struct {
-	Min float32 `json:"min" validate:"required"`
-	Max float32 `json:"max" validate:"required"`
-}
-
-func (i ImageAnalysisByURL_Response_Nutrition_Protein_ConfidenceRange95Percent) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(i))
+	Min float32 `json:"min"`
+	Max float32 `json:"max"`
 }
 
 type ImageAnalysisByURL_Response_Nutrition_Carbs struct {
-	Value                    float32                                                              `json:"value" validate:"required"`
+	Value                    float32                                                              `json:"value"`
 	Unit                     string                                                               `json:"unit" validate:"required,min=1"`
 	ConfidenceRange95Percent ImageAnalysisByURL_Response_Nutrition_Carbs_ConfidenceRange95Percent `json:"confidenceRange95Percent"`
-	StandardDeviation        float32                                                              `json:"standardDeviation" validate:"required"`
+	StandardDeviation        float32                                                              `json:"standardDeviation"`
 }
 
 func (i ImageAnalysisByURL_Response_Nutrition_Carbs) Validate() error {
 	var errors runtime.ValidationErrors
-	if err := typesValidator.Var(i.Value, "required"); err != nil {
-		errors = errors.Append("Value", err)
-	}
 	if err := typesValidator.Var(i.Unit, "required,min=1"); err != nil {
 		errors = errors.Append("Unit", err)
 	}
@@ -31554,9 +30957,6 @@ func (i ImageAnalysisByURL_Response_Nutrition_Carbs) Validate() error {
 			errors = errors.Append("ConfidenceRange95Percent", err)
 		}
 	}
-	if err := typesValidator.Var(i.StandardDeviation, "required"); err != nil {
-		errors = errors.Append("StandardDeviation", err)
-	}
 	if len(errors) == 0 {
 		return nil
 	}
@@ -31564,17 +30964,13 @@ func (i ImageAnalysisByURL_Response_Nutrition_Carbs) Validate() error {
 }
 
 type ImageAnalysisByURL_Response_Nutrition_Carbs_ConfidenceRange95Percent struct {
-	Min float32 `json:"min" validate:"required"`
-	Max float32 `json:"max" validate:"required"`
-}
-
-func (i ImageAnalysisByURL_Response_Nutrition_Carbs_ConfidenceRange95Percent) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(i))
+	Min float32 `json:"min"`
+	Max float32 `json:"max"`
 }
 
 type ImageAnalysisByURL_Response_Category struct {
 	Name        string  `json:"name" validate:"required,min=1"`
-	Probability float32 `json:"probability" validate:"required"`
+	Probability float32 `json:"probability"`
 }
 
 func (i ImageAnalysisByURL_Response_Category) Validate() error {
@@ -31602,7 +30998,7 @@ func (i ImageAnalysisByURL_Response_Recipes) Validate() error {
 }
 
 type ImageAnalysisByURL_Response_Recipes_Item struct {
-	ID        int64  `json:"id" validate:"required"`
+	ID        int64  `json:"id"`
 	Title     string `json:"title" validate:"required,min=1"`
 	ImageType string `json:"imageType" validate:"required,min=1"`
 	URL       string `json:"url" validate:"required,min=1"`
@@ -31971,7 +31367,7 @@ type SearchAllFood_Response_SearchResults_Results_Item struct {
 	Image     *string `json:"image,omitempty" validate:"required,min=1"`
 	Link      *string `json:"link,omitempty" validate:"required,min=1"`
 	Type      string  `json:"type" validate:"required,min=1"`
-	Relevance float32 `json:"relevance" validate:"required"`
+	Relevance float32 `json:"relevance"`
 	Content   *string `json:"content,omitempty" validate:"required,min=0"`
 }
 
@@ -31981,7 +31377,7 @@ func (s SearchAllFood_Response_SearchResults_Results_Item) Validate() error {
 
 type SearchAllFood_Response_SearchResults_Item struct {
 	Name         string                                        `json:"name" validate:"required,min=1"`
-	TotalResults int64                                         `json:"totalResults" validate:"required"`
+	TotalResults int64                                         `json:"totalResults"`
 	Results      *SearchAllFood_Response_SearchResults_Results `json:"results,omitempty"`
 }
 
@@ -31989,9 +31385,6 @@ func (s SearchAllFood_Response_SearchResults_Item) Validate() error {
 	var errors runtime.ValidationErrors
 	if err := typesValidator.Var(s.Name, "required,min=1"); err != nil {
 		errors = errors.Append("Name", err)
-	}
-	if err := typesValidator.Var(s.TotalResults, "required"); err != nil {
-		errors = errors.Append("TotalResults", err)
 	}
 	if s.Results != nil {
 		if v, ok := any(s.Results).(runtime.Validator); ok {
@@ -32028,11 +31421,11 @@ func (s SearchFoodVideos_Response_Videos) Validate() error {
 
 type SearchFoodVideos_Response_Videos_Item struct {
 	Title      string  `json:"title" validate:"required,min=1"`
-	Length     int64   `json:"length" validate:"required"`
-	Rating     float32 `json:"rating" validate:"required"`
+	Length     int64   `json:"length"`
+	Rating     float32 `json:"rating"`
 	ShortTitle string  `json:"shortTitle" validate:"required,min=1"`
 	Thumbnail  string  `json:"thumbnail" validate:"required,min=1"`
-	Views      int64   `json:"views" validate:"required"`
+	Views      int64   `json:"views"`
 	YouTubeID  string  `json:"youTubeId" validate:"required,min=1"`
 }
 
