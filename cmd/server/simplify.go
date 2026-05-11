@@ -6,13 +6,10 @@ import (
 	"io"
 	"os"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 	"github.com/mockzilla/mockzilla/v2/internal/files"
+	"github.com/mockzilla/mockzilla/v2/internal/simplify"
 	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
-	"github.com/pb33f/libopenapi"
-	"github.com/pb33f/libopenapi/datamodel"
 	"github.com/spf13/cobra"
-	"go.yaml.in/yaml/v4"
 )
 
 func simplifyCommand() *cobra.Command {
@@ -59,32 +56,28 @@ Examples:
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			specContents, err := readSpec(args[0])
+			specBytes, err := readSpec(args[0])
 			if err != nil {
 				return fmt.Errorf("reading spec: %w", err)
 			}
 
-			doc, err := loadSpecDocument(specContents, flagConfig)
+			var configBytes []byte
+			if flagConfig != "" {
+				configBytes, err = os.ReadFile(flagConfig)
+				if err != nil {
+					return fmt.Errorf("reading config %q: %w", flagConfig, err)
+				}
+			}
+
+			output, err := simplify.Simplify(specBytes, simplify.Options{
+				ConfigYAML:         configBytes,
+				OptionalProperties: buildOptionalConfig(cmd, flagOptional, flagOptionalMin, flagOptionalMax),
+			})
 			if err != nil {
-				return fmt.Errorf("loading OpenAPI spec: %w", err)
+				return err
 			}
 
-			optConfig := buildOptionalConfig(cmd, flagOptional, flagOptionalMin, flagOptionalMax)
-
-			model, err := typedef.BuildModel(doc, true, optConfig)
-			if err != nil {
-				return fmt.Errorf("simplifying document: %w", err)
-			}
-
-			// Preserve the source spec's indentation. libopenapi's v3 Render() goes
-			// straight through yaml.Marshal which defaults to 4 spaces; that bloats
-			// 2-space specs (most hand-written ones) on round-trip even when the
-			// simplifier makes no structural changes.
-			indent := doc.GetSpecInfo().OriginalIndentation
-			if indent <= 0 {
-				indent = 2
-			}
-			return writeOutput(model.RenderWithIndention(indent), flagOutput)
+			return writeOutput(output, flagOutput)
 		},
 	}
 
@@ -122,9 +115,8 @@ Run 'mockzilla simplify --help' for all options`)
 	}
 }
 
-// buildOptionalConfig translates the three CLI flags into a typedef.OptionalPropertyConfig.
-// Returns nil when the user supplied no optional-property flags, which tells the library
-// to keep every optional property (the simplify pass still strips unions/extensions).
+// buildOptionalConfig translates the three CLI flags into the typedef config.
+// Returns nil when the user supplied no optional-property flags (= keep all).
 func buildOptionalConfig(cmd *cobra.Command, fixed, min, max int) *typedef.OptionalPropertyConfig {
 	switch {
 	case cmd.Flags().Changed("optional-min"), cmd.Flags().Changed("optional-max"):
@@ -153,29 +145,4 @@ func writeOutput(content []byte, out string) error {
 	}
 	fmt.Fprintf(os.Stderr, "Simplified spec written to: %s\n", out)
 	return nil
-}
-
-// loadSpecDocument parses the OpenAPI bytes and, when configPath is supplied,
-// runs them through oapi-codegen-dd's filter + overlay + prune pipeline
-// before simplification. Without a config it falls back to a plain
-// libopenapi document with circular-ref check disabled.
-func loadSpecDocument(specContents []byte, configPath string) (libopenapi.Document, error) {
-	if configPath == "" {
-		return libopenapi.NewDocumentWithConfiguration(specContents, &datamodel.DocumentConfiguration{
-			SkipCircularReferenceCheck: true,
-		})
-	}
-
-	cfgBytes, err := os.ReadFile(configPath)
-	if err != nil {
-		return nil, fmt.Errorf("reading config %q: %w", configPath, err)
-	}
-
-	var cfg codegen.Configuration
-	if err := yaml.Unmarshal(cfgBytes, &cfg); err != nil {
-		return nil, fmt.Errorf("parsing config %q: %w", configPath, err)
-	}
-	cfg = cfg.WithDefaults()
-
-	return codegen.CreateDocument(specContents, cfg)
 }

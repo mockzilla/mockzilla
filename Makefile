@@ -37,7 +37,7 @@ build: clean
 .PHONY: test
 test:
 	@if [ -z "$(PKG)" ]; then \
-		go test -race $$(go list ./... | grep -v '/resources/') -skip=TestIntegration -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh; \
+		go test -race $$(go list ./... | grep -Ev '/cmd/(api|fake_list|gen/)|/resources/') -skip=TestIntegration -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh; \
 	else \
   		go test -race ./... -skip=TestIntegration -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh ./$(PKG)/...; \
 	fi
