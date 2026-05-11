@@ -227,10 +227,16 @@ func extractRouteInfo(specBytes []byte, cfg codegen.Configuration) ([]RouteInfo,
 			// Uppercase method to match oapi-codegen behavior
 			upperMethod := strings.ToUpper(method)
 
+			// Use the spec's literal operationId when present so codegen's
+			// OperationIDs filter (which matches the raw field) keeps working.
+			// Synthesise a canonical, Go-friendly ID only when the spec omits one.
 			opID := op.OperationId
 			if opID == "" {
-				// Generate operation ID if not provided
-				opID = method + "_" + path
+				var opErr error
+				opID, opErr = codegen.CreateOperationID(upperMethod, path, "")
+				if opErr != nil {
+					return nil, fmt.Errorf("creating operation ID: %w", opErr)
+				}
 			}
 
 			routes = append(routes, RouteInfo{

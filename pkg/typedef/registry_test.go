@@ -850,7 +850,8 @@ paths:
 		assert.NoError(t, err)
 		assert.Len(t, routes, 3)
 
-		// Check that routes have correct info
+		// Spec-provided operationIds are kept as-is; missing ones are
+		// synthesised via codegen.CreateOperationID.
 		var foundGetUsers, foundCreateUser, foundGetUserById bool
 		for _, r := range routes {
 			if r.ID == "getUsers" && r.Method == "GET" && r.Path == "/users" {
@@ -859,10 +860,9 @@ paths:
 			if r.ID == "createUser" && r.Method == "POST" && r.Path == "/users" {
 				foundCreateUser = true
 			}
-			// Generated operation ID for missing operationId
 			if r.Method == "GET" && r.Path == "/users/{id}" {
 				foundGetUserById = true
-				assert.Equal(t, "get_/users/{id}", r.ID)
+				assert.Equal(t, "GetUsersID", r.ID)
 			}
 		}
 		assert.True(t, foundGetUsers)

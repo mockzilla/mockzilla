@@ -21,6 +21,7 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/loader"
+	"github.com/spf13/cobra"
 
 	// Imports to ensure it's vendored for generated code
 	_ "github.com/go-playground/validator/v10"
@@ -95,6 +96,10 @@ func runServer() int {
 	// handy on its own to eyeball a spec before serving it.
 	if len(os.Args) > 1 && os.Args[1] == "info" {
 		return inspect.Run(os.Args[2:])
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "simplify" {
+		return runCobraSubcommand(simplifyCommand(), os.Args[1:])
 	}
 
 	// Check for portable mode: if args contain spec files or directories with spec files
@@ -244,6 +249,21 @@ func runServer() int {
 	return exitCode
 }
 
+// runCobraSubcommand attaches a cobra subcommand to a stub root and executes
+// it with the given args (which should start with the subcommand name).
+// Used to slot new cobra-based subcommands alongside the legacy if-based
+// dispatch in runServer.
+func runCobraSubcommand(sub *cobra.Command, args []string) int {
+	root := &cobra.Command{Use: "mockzilla", SilenceUsage: true, SilenceErrors: true}
+	root.AddCommand(sub)
+	root.SetArgs(args)
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		return exitCodeError
+	}
+	return exitCodeShutdown
+}
+
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
@@ -258,6 +278,7 @@ Usage:
   mockzilla <spec.yaml | dir | package.mockz | https://...>  [flags]
                                                Portable mode: serve a spec, directory, or package
   mockzilla info <spec.yaml | https://...>     Print a JSON summary of a spec and exit
+  mockzilla simplify <spec.yaml | https://...> Simplify a spec (drop unions, limit optional props)
   mockzilla [<app-dir>]                        App mode: serve a configured mockzilla project
   mockzilla --version                          Print version and exit
   mockzilla --help                             Print this message
@@ -280,7 +301,10 @@ Examples:
   mockzilla petstore.mockz
   mockzilla https://example.com/my-api.mockz
   mockzilla info https://petstore3.swagger.io/api/v3/openapi.json
+  mockzilla simplify --output simplified.yml --optional 5 ./openapi.yml
   mockzilla --ready-stamp --port 0 ./openapi.yml
+
+Run 'mockzilla <subcommand> --help' for subcommand-specific flags (e.g. 'mockzilla simplify --help').
 
 Docs:  https://github.com/mockzilla/mockzilla
 `)
