@@ -2744,51 +2744,27 @@ type DeletePetHeaders struct {
 }
 
 type GetPetByIDPath struct {
-	PetID int64 `json:"petId" validate:"required"`
-}
-
-func (g GetPetByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	PetID int64 `json:"petId"`
 }
 
 type UpdatePetWithFormPath struct {
-	PetID int64 `json:"petId" validate:"required"`
-}
-
-func (u UpdatePetWithFormPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(u))
+	PetID int64 `json:"petId"`
 }
 
 type DeletePetPath struct {
-	PetID int64 `json:"petId" validate:"required"`
-}
-
-func (d DeletePetPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(d))
+	PetID int64 `json:"petId"`
 }
 
 type UploadFilePath struct {
-	PetID int64 `json:"petId" validate:"required"`
-}
-
-func (u UploadFilePath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(u))
+	PetID int64 `json:"petId"`
 }
 
 type GetOrderByIDPath struct {
-	OrderID int64 `json:"orderId" validate:"required"`
-}
-
-func (g GetOrderByIDPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(g))
+	OrderID int64 `json:"orderId"`
 }
 
 type DeleteOrderPath struct {
-	OrderID int64 `json:"orderId" validate:"required"`
-}
-
-func (d DeleteOrderPath) Validate() error {
-	return runtime.ConvertValidatorError(typesValidator.Struct(d))
+	OrderID int64 `json:"orderId"`
 }
 
 type GetUserByNamePath struct {
