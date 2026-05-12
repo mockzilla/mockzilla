@@ -24,7 +24,9 @@ type KeyValue[K, V any] struct {
 // Errors is a map of percentiles to error codes.
 // Validate is the validation configuration.
 // Cache is the cache configuration.
-// ResourcesPrefix is the prefix for helper routes outside OpenAPI spec.
+// ResourcesPrefix is the URL prefix at which the service mounts. May
+// contain `/` to allow multi-segment prefixes (e.g. "pets/v2"). When
+// empty, the service mounts at "/<Name>".
 // SpecOptions allows OpenAPI spec simplifications for code generation.
 type ServiceConfig struct {
 	Name            string                                `yaml:"name,omitempty"`

@@ -215,6 +215,87 @@ func TestRouter_RegisterService(t *testing.T) {
 	})
 }
 
+func TestRouter_RegisterService_MountsAtResourcesPrefix(t *testing.T) {
+	t.Run("ResourcesPrefix overrides Name as mount", func(t *testing.T) {
+		router := newTestRouter(t)
+
+		cfg := config.NewServiceConfig()
+		cfg.Name = "petstore"
+		cfg.ResourcesPrefix = "/pets/v2"
+		service := &mockService{
+			name:   "petstore",
+			config: cfg,
+			routes: func(r chi.Router) {
+				r.Get("/ping", func(w http.ResponseWriter, req *http.Request) {
+					_, _ = w.Write([]byte("pong"))
+				})
+			},
+		}
+
+		router.RegisterService(cfg, service)
+
+		// Mounted at the multi-segment prefix, not at /petstore.
+		req := httptest.NewRequest(http.MethodGet, "/pets/v2/ping", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "pong", w.Body.String())
+
+		// The Name-derived path is NOT registered.
+		req2 := httptest.NewRequest(http.MethodGet, "/petstore/ping", nil)
+		w2 := httptest.NewRecorder()
+		router.ServeHTTP(w2, req2)
+		assert.Equal(t, http.StatusNotFound, w2.Code)
+	})
+
+	t.Run("ResourcesPrefix without leading slash is normalized", func(t *testing.T) {
+		router := newTestRouter(t)
+
+		cfg := config.NewServiceConfig()
+		cfg.Name = "petstore"
+		cfg.ResourcesPrefix = "pets/v2"
+		service := &mockService{
+			name:   "petstore",
+			config: cfg,
+			routes: func(r chi.Router) {
+				r.Get("/ping", func(w http.ResponseWriter, req *http.Request) {
+					_, _ = w.Write([]byte("pong"))
+				})
+			},
+		}
+
+		router.RegisterService(cfg, service)
+
+		req := httptest.NewRequest(http.MethodGet, "/pets/v2/ping", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("Empty ResourcesPrefix falls back to Name", func(t *testing.T) {
+		router := newTestRouter(t)
+
+		cfg := config.NewServiceConfig()
+		cfg.Name = "petstore"
+		service := &mockService{
+			name:   "petstore",
+			config: cfg,
+			routes: func(r chi.Router) {
+				r.Get("/ping", func(w http.ResponseWriter, req *http.Request) {
+					_, _ = w.Write([]byte("pong"))
+				})
+			},
+		}
+
+		router.RegisterService(cfg, service)
+
+		req := httptest.NewRequest(http.MethodGet, "/petstore/ping", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+	})
+}
+
 func TestRouter_RegisterService_DuplicateNameIsIgnored(t *testing.T) {
 	router := newTestRouter(t)
 

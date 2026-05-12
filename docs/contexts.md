@@ -375,6 +375,49 @@ This is useful for:
 
 All context functions (`func:`, `fake:`, `alias:`, `botify:`, `join:`) are supported in the header value - they are processed the same way as context YAML files.
 
+## Performance
+
+Context replacement is fast for typical workloads but cost grows with the product of
+**schema leaves** and **context entries**, because each leaf scans the context map looking
+for a matching key or pattern.
+
+**Rule of thumb (per request):**
+
+```
+latency ≈ baseline + ~100 ns × schema_leaves × context_entries
+```
+
+- `baseline` is the cost of walking the schema and generating values with no context
+  (~450 ns per leaf on a modern laptop CPU).
+- `~100 ns` is the marginal cost of one context-key check, per leaf. Deeply nested
+  schemas (depth ≥ 3) increase this somewhat because intermediate path elements are
+  also scanned against the context.
+- Allocations do **not** grow with context size — overhead is pure CPU.
+
+**Worked example:** an endpoint with a response schema of ~100 fields and a service
+context file of ~500 entries:
+
+```
+baseline   ≈ 450 ns × 100        =   45 µs
+scan cost  ≈ 100 ns × 100 × 500  = 5 000 µs
+total      ≈ 5 ms per response
+```
+
+Halving either side (50 fields **or** 250 entries) cuts the overhead roughly in half.
+
+**When to care:**
+
+| Endpoint × context | Typical latency | Notes |
+|---|---|---|
+| ≤10 fields **or** ≤10 entries | <100 µs | Negligible, ignore |
+| 100 fields × 50 entries | ~0.5 ms | Comfortable |
+| 100 fields × 500 entries | ~5 ms | Perceptible in tight loops |
+| 500 fields × 500 entries | ~35 ms | Will show up in p99 |
+
+The constants above were measured on an Apple M3 Pro; expect similar order of magnitude
+on other modern hardware. To re-measure on your machine, run
+`go test -bench=BenchmarkResponseContextOverhead -benchmem ./pkg/generator/`.
+
 ## Using in Fixed Responses
 
 > **⚠️ Work in Progress:** Context replacement in fixed/static responses using `{placeholder}` syntax is currently not implemented. Static responses defined via `x-static-response` are returned as-is without placeholder substitution.

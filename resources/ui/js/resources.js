@@ -316,8 +316,8 @@ export const generateResult = (service, ix, path, method) => {
 
             const curlBlock = document.getElementById('example-curl');
 
-            // Use service name for the URL prefix, converting .root back to empty string
-            const servicePrefix = service === '.root' ? '' : `/${service}`;
+            const lookupName = service === '.root' ? '' : service;
+            const servicePrefix = services.getServicePrefix(lookupName);
             curlBlock.textContent = `curl --request ${method.toUpperCase()} \\\n'${config.baseUrl}${servicePrefix}${reqPath}'`;
             if (reqContentType) {
                 curlBlock.textContent += ` \\\n--header 'Content-Type: ${reqContentType}'`
@@ -347,9 +347,13 @@ export const generateResult = (service, ix, path, method) => {
 
             // Make actual API call to get response
             if (reqPath) {
-                // Convert .root back to empty string for actual API requests
-                const apiService = service === '.root' ? '' : service;
-                const apiUrl = apiService ? `${config.baseUrl}/${apiService}${reqPath}` : `${config.baseUrl}${reqPath}`;
+                // Use the prefix the service is actually mounted at (may be
+                // multi-segment, e.g. /pets/v2) rather than the service name,
+                // so resources-prefix overrides reach the right URL.
+                const prefix = service === '.root'
+                    ? ''
+                    : (services.getServicePrefix(lookupName) || `/${service}`);
+                const apiUrl = `${config.baseUrl}${prefix}${reqPath}`;
                 const fetchOptions = {
                     method: method.toUpperCase(),
                     headers: { ...reqHeaders }

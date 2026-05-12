@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -88,7 +89,8 @@ func NewRouter(options ...RouterOption) *Router {
 
 // RegisterService registers a service with the router.
 // The service config must have a Name field set.
-// The service will be registered at the route "/{cfg.Name}".
+// The service mounts at cfg.ResourcesPrefix when set (allowing
+// multi-segment prefixes like "pets/v2"), otherwise at "/<cfg.Name>".
 // If a service with the same Name is already registered, the call is
 // ignored with a warning - without this guard, chi.Mount would panic
 // and crash the process.
@@ -97,79 +99,13 @@ func (r *Router) RegisterService(
 	handler Handler,
 	opts ...HandlerOption,
 ) {
-	if r.isServiceRegistered(cfg.Name) {
-		slog.Warn("Service already registered, skipping", "name", cfg.Name)
-		return
-	}
-
-	options := &handlerOptions{}
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	// Get service-scoped DB from shared storage
-	serviceDB := r.storage.NewDB(cfg.Name, r.config.History.Duration)
-	mwParams := middleware.NewParams(cfg, serviceDB)
-
-	// Use cfg.Name as the route prefix (ensure it starts with /)
-	prefix := "/" + cfg.Name
-	r.Route(prefix, func(subRouter chi.Router) {
-		// Resource resolver (must be before other middleware that read the resource path)
-		subRouter.Use(middleware.CreateResourceResolverMiddleware(mwParams))
-
-		// Config override middleware (must be before other middlewares to override config)
-		subRouter.Use(middleware.CreateConfigOverrideMiddleware(mwParams))
-
-		// Custom middleware
-		for _, createMw := range options.middleware {
-			subRouter.Use(createMw(mwParams))
-		}
-
-		// Standard middleware (always applied)
-		subRouter.Use(middleware.CreateLatencyAndErrorMiddleware(mwParams))
-		subRouter.Use(middleware.CreateReplayReadMiddleware(mwParams))
-		subRouter.Use(middleware.CreateReplayWriteMiddleware(mwParams))
-		subRouter.Use(middleware.CreateCacheReadMiddleware(mwParams))
-		subRouter.Use(middleware.CreateUpstreamRequestMiddleware(mwParams))
-		subRouter.Use(middleware.CreateCacheWriteMiddleware(mwParams))
-
-		handler.RegisterRoutes(subRouter)
-		mwParams.SetRouter(subRouter)
-	})
-
-	// Skip logging for services with history disabled
-	if cfg.Name != "" && !cfg.HistoryEnabled() {
-		middleware.AddSkipPrefix("/" + cfg.Name)
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.services[cfg.Name] = &ServiceItem{
-		Name:    cfg.Name,
-		Handler: handler,
-		Config:  cfg,
-	}
-	r.databases[cfg.Name] = serviceDB
-}
-
-// HandlerOption configures service registration behavior.
-type HandlerOption func(*handlerOptions)
-
-type handlerOptions struct {
-	middleware []func(*middleware.Params) func(http.Handler) http.Handler
-}
-
-// WithMiddleware prepends middleware before the built-in middleware chain.
-func WithMiddleware(mw []func(*middleware.Params) func(http.Handler) http.Handler) HandlerOption {
-	return func(o *handlerOptions) {
-		o.middleware = mw
-	}
+	r.register(cfg, func(db.DB) Handler { return handler }, opts...)
 }
 
 // RegisterHTTPHandler registers a Handler as a service.
 // The handlerFactory receives the service DB and returns the handler.
-// The service will be registered at the route "/{cfg.Name}".
+// The service mounts at cfg.ResourcesPrefix when set (allowing
+// multi-segment prefixes like "pets/v2"), otherwise at "/<cfg.Name>".
 // If a service with the same Name is already registered, the call is
 // ignored with a warning - without this guard, chi.Mount would panic
 // and crash the process.
@@ -178,64 +114,7 @@ func (r *Router) RegisterHTTPHandler(
 	handlerFactory func(db.DB) Handler,
 	opts ...HandlerOption,
 ) {
-	if r.isServiceRegistered(cfg.Name) {
-		slog.Warn("Service already registered, skipping", "name", cfg.Name)
-		return
-	}
-
-	options := &handlerOptions{}
-	for _, opt := range opts {
-		opt(options)
-	}
-
-	// Get service-scoped DB from shared storage
-	serviceDB := r.storage.NewDB(cfg.Name, r.config.History.Duration)
-
-	// Create the handler with access to the DB
-	handler := handlerFactory(serviceDB)
-
-	mwParams := middleware.NewParams(cfg, serviceDB)
-
-	// Use cfg.Name as the route prefix (ensure it starts with /)
-	prefix := "/" + cfg.Name
-	r.Route(prefix, func(subRouter chi.Router) {
-		// Resource resolver (must be before other middleware that read the resource path)
-		subRouter.Use(middleware.CreateResourceResolverMiddleware(mwParams))
-
-		// Config override middleware (must be before other middlewares to override config)
-		subRouter.Use(middleware.CreateConfigOverrideMiddleware(mwParams))
-
-		// Custom middleware
-		for _, createMw := range options.middleware {
-			subRouter.Use(createMw(mwParams))
-		}
-
-		// Standard middleware (always applied)
-		subRouter.Use(middleware.CreateLatencyAndErrorMiddleware(mwParams))
-		subRouter.Use(middleware.CreateReplayReadMiddleware(mwParams))
-		subRouter.Use(middleware.CreateReplayWriteMiddleware(mwParams))
-		subRouter.Use(middleware.CreateCacheReadMiddleware(mwParams))
-		subRouter.Use(middleware.CreateUpstreamRequestMiddleware(mwParams))
-		subRouter.Use(middleware.CreateCacheWriteMiddleware(mwParams))
-
-		handler.RegisterRoutes(subRouter)
-		mwParams.SetRouter(subRouter)
-	})
-
-	// Skip logging for services with history disabled
-	if cfg.Name != "" && !cfg.HistoryEnabled() {
-		middleware.AddSkipPrefix("/" + cfg.Name)
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.services[cfg.Name] = &ServiceItem{
-		Name:    cfg.Name,
-		Handler: handler,
-		Config:  cfg,
-	}
-	r.databases[cfg.Name] = serviceDB
+	r.register(cfg, handlerFactory, opts...)
 }
 
 // Config returns the app configuration
@@ -255,13 +134,6 @@ func (r *Router) GetServices() map[string]*ServiceItem {
 	return res
 }
 
-func (r *Router) isServiceRegistered(name string) bool {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-	_, ok := r.services[name]
-	return ok
-}
-
 // GetDB returns the database for a specific service.
 // Returns nil if the service is not registered.
 func (r *Router) GetDB(serviceName string) db.DB {
@@ -275,12 +147,106 @@ func (r *Router) GetContexts() []map[string]map[string]any {
 	return r.contexts
 }
 
+func (r *Router) register(
+	cfg *config.ServiceConfig,
+	handlerFactory func(db.DB) Handler,
+	opts ...HandlerOption,
+) {
+	if r.isServiceRegistered(cfg.Name) {
+		slog.Warn("Service already registered, skipping", "name", cfg.Name)
+		return
+	}
+
+	options := &handlerOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	serviceDB := r.storage.NewDB(cfg.Name, r.config.History.Duration)
+	handler := handlerFactory(serviceDB)
+	mwParams := middleware.NewParams(cfg, serviceDB)
+
+	prefix := ServicePrefix(cfg)
+	r.Route(prefix, func(subRouter chi.Router) {
+		// Resource resolver (must be before other middleware that read the resource path)
+		subRouter.Use(middleware.CreateResourceResolverMiddleware(mwParams))
+
+		// Config override middleware (must be before other middlewares to override config)
+		subRouter.Use(middleware.CreateConfigOverrideMiddleware(mwParams))
+
+		// Custom middleware
+		for _, createMw := range options.middleware {
+			subRouter.Use(createMw(mwParams))
+		}
+
+		// Standard middleware (always applied)
+		subRouter.Use(middleware.CreateLatencyAndErrorMiddleware(mwParams))
+		subRouter.Use(middleware.CreateReplayReadMiddleware(mwParams))
+		subRouter.Use(middleware.CreateReplayWriteMiddleware(mwParams))
+		subRouter.Use(middleware.CreateCacheReadMiddleware(mwParams))
+		subRouter.Use(middleware.CreateUpstreamRequestMiddleware(mwParams))
+		subRouter.Use(middleware.CreateCacheWriteMiddleware(mwParams))
+
+		handler.RegisterRoutes(subRouter)
+		mwParams.SetRouter(subRouter)
+	})
+
+	// Skip logging for services with history disabled
+	if cfg.Name != "" && !cfg.HistoryEnabled() {
+		middleware.AddSkipPrefix(prefix)
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.services[cfg.Name] = &ServiceItem{
+		Name:    cfg.Name,
+		Handler: handler,
+		Config:  cfg,
+	}
+	r.databases[cfg.Name] = serviceDB
+}
+
+func (r *Router) isServiceRegistered(name string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.services[name]
+	return ok
+}
+
+// HandlerOption configures service registration behavior.
+type HandlerOption func(*handlerOptions)
+
+type handlerOptions struct {
+	middleware []func(*middleware.Params) func(http.Handler) http.Handler
+}
+
+// WithMiddleware prepends middleware before the built-in middleware chain.
+func WithMiddleware(mw []func(*middleware.Params) func(http.Handler) http.Handler) HandlerOption {
+	return func(o *handlerOptions) {
+		o.middleware = mw
+	}
+}
+
 type RouterOption func(*Router)
 
 func WithConfigOption(cfg *config.AppConfig) RouterOption {
 	return func(r *Router) {
 		r.config = cfg
 	}
+}
+
+// ServicePrefix returns the URL prefix at which a service mounts. When
+// ResourcesPrefix is set, it wins (and may contain `/` for multi-segment
+// mount points). Otherwise the service mounts at "/<Name>".
+func ServicePrefix(cfg *config.ServiceConfig) string {
+	if cfg.ResourcesPrefix != "" {
+		if strings.HasPrefix(cfg.ResourcesPrefix, "/") {
+			return cfg.ResourcesPrefix
+		}
+		return "/" + cfg.ResourcesPrefix
+	}
+	return "/" + cfg.Name
 }
 
 // createUIFileStructure creates the necessary directories and files

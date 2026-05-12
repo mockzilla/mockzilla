@@ -124,9 +124,16 @@ func Run(args []string) int {
 		return exitCodeError
 	}
 
-	// Log registered services
+	// Log registered services. The path reflects the actual mount point:
+	// ResourcesPrefix when set, otherwise the snake-cased service name.
 	for name := range handlers {
-		slog.Info("Registered service", "path", "/"+name)
+		svcCfg := cfg.Services[name]
+		if svcCfg == nil {
+			svcCfg = &config.ServiceConfig{Name: name}
+		} else {
+			svcCfg.Name = name
+		}
+		slog.Info("Registered service", "path", api.ServicePrefix(svcCfg))
 	}
 
 	// Bind the listener up-front so the readiness stamp can only fire

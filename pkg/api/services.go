@@ -70,8 +70,15 @@ func (h *ServiceHandler) list(w http.ResponseWriter, r *http.Request) {
 		if svcItem.Handler != nil {
 			resourceCount = len(svcItem.Handler.Routes())
 		}
+
+		var prefix string
+		if svcItem.Config != nil {
+			prefix = ServicePrefix(svcItem.Config)
+		}
+
 		items = append(items, &ServiceItemResponse{
 			Name:           key,
+			Prefix:         prefix,
 			ResourceNumber: resourceCount,
 		})
 	}
@@ -165,6 +172,7 @@ type ServiceItem struct {
 
 type ServiceItemResponse struct {
 	Name           string `json:"name"`
+	Prefix         string `json:"prefix"`
 	ResourceNumber int    `json:"resourceNumber"`
 }
 

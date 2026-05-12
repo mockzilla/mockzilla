@@ -4,6 +4,9 @@ import * as navi from "./navi.js";
 const STORAGE_KEY_STARS = 'mz-starred-services';
 
 let cachedServices = null;
+const servicePrefixes = {};
+
+export const getServicePrefix = (name) => servicePrefixes[name];
 
 const getStarred = () => {
     try {
@@ -109,6 +112,9 @@ export const show = (selected = '') => {
         .then(res => res.json())
         .then(data => {
             cachedServices = data['items'];
+            for (const item of cachedServices) {
+                servicePrefixes[item.name] = item.prefix;
+            }
             renderServices(cachedServices, selected);
         });
 }
