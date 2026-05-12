@@ -125,9 +125,35 @@ func TestServiceHandler_list(t *testing.T) {
 
 		// Services should be sorted alphabetically by service name (not prefix)
 		assert.Equal(t, "service1", response.Items[0].Name)
+		assert.Equal(t, "/service1", response.Items[0].Prefix)
 		assert.Equal(t, 0, response.Items[0].ResourceNumber) // mockService.Routes() returns nil
 		assert.Equal(t, "service2", response.Items[1].Name)
+		assert.Equal(t, "/service2", response.Items[1].Prefix)
 		assert.Equal(t, 0, response.Items[1].ResourceNumber)
+	})
+
+	t.Run("Returns ResourcesPrefix when set", func(t *testing.T) {
+		router := newTestRouter(t)
+		router.config.ServiceURL = "/api/services"
+
+		svcCfg := config.NewServiceConfig()
+		svcCfg.ResourcesPrefix = "pets/v2"
+		service := &mockService{
+			name:   "petstore",
+			config: svcCfg,
+			routes: func(r chi.Router) {},
+		}
+		registerTestService(router, service)
+		_ = CreateServiceRoutes(router)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/services/", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		var response ServiceListResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+		assert.Len(t, response.Items, 1)
+		assert.Equal(t, "/pets/v2", response.Items[0].Prefix)
 	})
 
 	t.Run("Returns services in alphabetical order", func(t *testing.T) {
