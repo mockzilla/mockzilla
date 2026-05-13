@@ -162,6 +162,15 @@ func (r *Router) register(
 		opt(options)
 	}
 
+	if r.config.History != nil && r.config.History.Enabled != nil && !*r.config.History.Enabled {
+		disabled := false
+		if cfg.History == nil {
+			cfg.History = &config.HistoryConfig{Enabled: &disabled}
+		} else if cfg.History.Enabled == nil {
+			cfg.History.Enabled = &disabled
+		}
+	}
+
 	serviceDB := r.storage.NewDB(cfg.Name, r.config.History.Duration)
 	handler := handlerFactory(serviceDB)
 	mwParams := middleware.NewParams(cfg, serviceDB)
@@ -282,6 +291,10 @@ func loadAppConfig(baseDir string) *config.AppConfig {
 		if err := env.Parse(cfg); err != nil {
 			slog.Error("Failed to parse env", "error", err)
 		}
+
+		if cfg.History != nil && cfg.History.Enabled != nil && !*cfg.History.Enabled {
+			cfg.History.URL = ""
+		}
 		return cfg
 	}
 
@@ -294,6 +307,9 @@ func loadAppConfig(baseDir string) *config.AppConfig {
 	// Environment variables override file values
 	if err := env.Parse(cfg); err != nil {
 		slog.Error("Failed to parse env", "error", err)
+	}
+	if cfg.History != nil && cfg.History.Enabled != nil && !*cfg.History.Enabled {
+		cfg.History.URL = ""
 	}
 
 	return cfg
