@@ -70,7 +70,7 @@ Examples:
 				return err
 			}
 
-			fmt.Fprintf(cmd.OutOrStdout(), "Packed %s -> %s\n", srcDir, outPath)
+			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Packed %s -> %s\n", srcDir, outPath)
 			return nil
 		},
 	}

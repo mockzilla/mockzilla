@@ -72,19 +72,17 @@ func PeekManifestFromReader(r io.Reader) (*Manifest, error) {
 	defer func() { _ = gr.Close() }()
 
 	tr := tar.NewReader(gr)
-	for {
-		hdr, err := tr.Next()
-		if err == io.EOF {
-			return nil, nil
-		}
-		if err != nil {
-			return nil, fmt.Errorf("reading tar: %w", err)
-		}
-		if hdr.Name != ManifestFilename {
-			// Manifest must be the first entry. If we see anything
-			// else first, the archive doesn't carry one.
-			return nil, nil
-		}
-		return ReadManifest(tr)
+	hdr, err := tr.Next()
+	if err == io.EOF {
+		return nil, nil
 	}
+	if err != nil {
+		return nil, fmt.Errorf("reading tar: %w", err)
+	}
+	// Manifest must be the first entry. If we see anything else first,
+	// the archive doesn't carry one.
+	if hdr.Name != ManifestFilename {
+		return nil, nil
+	}
+	return ReadManifest(tr)
 }

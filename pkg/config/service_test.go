@@ -469,11 +469,11 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 
 	t.Run("Fills all nil fields at once", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Name:            "test-service",
-			Cache:           nil,
-			Errors:          nil,
-			Latencies:       nil,
-			Mount: "",
+			Name:      "test-service",
+			Cache:     nil,
+			Errors:    nil,
+			Latencies: nil,
+			Mount:     "",
 		}
 
 		result := cfg.WithDefaults()
@@ -782,14 +782,14 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Overwrites multiple fields at once", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Name:            "original",
-			Latency:         100 * time.Millisecond,
-			Mount: "/original",
+			Name:    "original",
+			Latency: 100 * time.Millisecond,
+			Mount:   "/original",
 		}
 		other := &ServiceConfig{
-			Name:            "overwritten",
-			Latency:         200 * time.Millisecond,
-			Mount: "/overwritten",
+			Name:    "overwritten",
+			Latency: 200 * time.Millisecond,
+			Mount:   "/overwritten",
 			Cache: &CacheConfig{
 				Requests: false,
 			},

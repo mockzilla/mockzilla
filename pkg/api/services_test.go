@@ -633,7 +633,7 @@ func TestServiceParams(t *testing.T) {
 		params := &ServiceParams{
 			AppConfig: config.NewDefaultAppConfig("/test"),
 			ServiceConfig: &config.ServiceConfig{
-				Name:            "my-service",
+				Name:  "my-service",
 				Mount: "/resources",
 			},
 		}
