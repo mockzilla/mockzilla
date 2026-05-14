@@ -11,7 +11,7 @@ func TestNewHandlerConfig(t *testing.T) {
 
 	t.Run("creates handler config from service config", func(t *testing.T) {
 		serviceCfg := &ServiceConfig{
-			ResourcesPrefix: "/api",
+			Mount: "/api",
 		}
 
 		handlerCfg := NewHandlerConfig(serviceCfg)

@@ -4,9 +4,10 @@ services:
     ports:
       - "2200:2200"
     volumes:
-      - ./app.yml:/app/resources/data/app.yml:ro
-      - ./openapi:/app/resources/data/openapi:ro
-      - ./static:/app/resources/data/static:ro
+      # Mount the per-service tree at /data/services. The optional
+      # app.yml lives at the same level (`/data/app.yml`).
+      - ./services:/data/services:ro
+      - ./app.yml:/data/app.yml:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:2200/healthz"]
       interval: 10s

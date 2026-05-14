@@ -23,24 +23,20 @@ type readyService struct {
 }
 
 // buildReadyStamp returns the JSON line a supervisor should consume.
-// `serviceNames` is the set of registered service names (i.e. the keys of
-// the handlers map). They are sorted so the line is deterministic across
-// runs, which keeps tests and downstream consumers stable.
-func buildReadyStamp(port int, homeURL string, serviceNames []string) (string, error) {
-	names := make([]string, len(serviceNames))
-	copy(names, serviceNames)
-	sort.Strings(names)
-
-	services := make([]readyService, 0, len(names))
-	for _, name := range names {
-		services = append(services, readyService{Name: name, Path: "/" + name})
-	}
+// `services` carries each registered service's name and the URL prefix
+// it is actually mounted at (which may differ from `/` + name when a
+// service overrides its mount). Names are sorted so the line is
+// deterministic across runs.
+func buildReadyStamp(port int, homeURL string, services []readyService) (string, error) {
+	sorted := make([]readyService, len(services))
+	copy(sorted, services)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
 
 	stamp := readyStamp{
 		Status:   "ready",
 		Port:     port,
 		URL:      fmt.Sprintf("http://localhost:%d%s", port, homeURL),
-		Services: services,
+		Services: sorted,
 	}
 	out, err := json.Marshal(stamp)
 	if err != nil {

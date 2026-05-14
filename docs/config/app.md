@@ -22,13 +22,44 @@ volumes:
 | `port` | int | `2200` | Server port |
 | `baseURL` | string | - | Public base URL (e.g., `https://api.example.com`) |
 | `internalURL` | string | - | Internal URL for service-to-service calls |
-| `homeURL` | string | `/` | URL for UI home page |
+| `homeURL` | string | `/` | URL for the UI home page (see [HomeURL and root-mounted services](#homeurl-and-root-mounted-services) below) |
 | `serviceURL` | string | `/.services` | URL for service endpoints in UI |
 | `contextAreaPrefix` | string | `in-` | Prefix for context area replacements |
-| `disableUI` | bool | `false` | Disable the web UI |
+| `disableUI` | bool | `false` | Disable the web UI (`/`, `/.ui/*`, docs, file assets) entirely |
 | `editor.theme` | string | `chrome` | Code editor theme in UI |
 | `editor.fontSize` | int | `16` | Code editor font size |
 | `extra` | map | `{}` | User-defined key-value config (accessible in services) |
+
+## HomeURL and root-mounted services
+
+`homeURL` defaults to `/`. The UI landing page, docs, and static
+assets all live under that prefix.
+
+When a service mounts at the root (empty service name, or an explicit
+`mount: /` in its `config.yml`), `/` is needed for the service's
+content. Mockzilla detects this at startup and **automatically
+relocates the UI from `/` to `/.ui`** so the two don't collide:
+
+```text
+GET /              → root-mounted service (e.g. your index.json)
+GET /.ui/          → UI landing page
+GET /.services/    → internal API (unchanged)
+GET /<unmatched>   → falls through to the root service
+```
+
+A log line at startup makes the move visible:
+
+```
+INFO Service requested root mount; relocating UI from / to /.ui
+```
+
+The `--ready-stamp` JSON output also reflects the new UI URL.
+
+If you set `homeURL` to something other than `/` yourself, no
+relocation happens.
+
+If `disableUI: true` is set, the UI isn't registered at all, and the
+root mount is available without any relocation step.
 
 ## History Configuration
 

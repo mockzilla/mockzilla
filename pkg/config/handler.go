@@ -12,6 +12,6 @@ type HandlerConfig struct {
 // NewHandlerConfig creates a new handler config from the service config.
 func NewHandlerConfig(service *ServiceConfig) *HandlerConfig {
 	return &HandlerConfig{
-		SelfPrefix: service.ResourcesPrefix,
+		SelfPrefix: service.Mount,
 	}
 }

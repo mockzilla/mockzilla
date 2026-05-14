@@ -1,0 +1,33 @@
+openapi: 3.0.0
+info:
+  title: Stripe (excerpt)
+  version: "2024-04-10"
+paths:
+  /customers:
+    get:
+      operationId: listCustomers
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Customer"
+components:
+  schemas:
+    Customer:
+      type: object
+      required: [id, email]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string

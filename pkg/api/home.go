@@ -15,8 +15,14 @@ import (
 	"github.com/mockzilla/mockzilla/v2/resources"
 )
 
-// CreateHomeRoutes creates routes for home.
+// CreateHomeRoutes creates routes for the home/UI surface (landing
+// page, docs, static assets). Skipped entirely when DisableUI is set
+// so the `/` mount stays available for a root-mounted service.
 func CreateHomeRoutes(router *Router) error {
+	if router.Config().DisableUI {
+		return nil
+	}
+
 	homeURL := router.Config().HomeURL
 	trimmed := strings.Trim(homeURL, "/")
 

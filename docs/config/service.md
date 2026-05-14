@@ -194,16 +194,14 @@ Each endpoint is matched by path pattern and HTTP method. Path parameters (`{id}
 
 When a request matches an endpoint, only that endpoint's latency and error config is used — the service-level `latency`, `latencies`, and `errors` are ignored for that request. Requests that don't match any endpoint pattern fall back to the service-level settings.
 
-In portable mode, the same structure goes under `services`:
+In portable mode, the same structure lives in the service's own `config.yml`:
 
-```yaml
-services:
-  petstore:
-    latency: 0ms
-    endpoints:
-      /pets/{id}:
-        GET:
-          latency: 200ms
+```yaml title="services/petstore/config.yml"
+latency: 0ms
+endpoints:
+  /pets/{id}:
+    GET:
+      latency: 200ms
 ```
 
 ## Caching

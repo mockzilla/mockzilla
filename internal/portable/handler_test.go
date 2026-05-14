@@ -249,7 +249,6 @@ func testRouter(t *testing.T) *api.Router {
 func TestRegisterService(t *testing.T) {
 	specBytes := loadTestSpec(t, "petstore.yml")
 
-	// Write spec to temp file
 	dir := t.TempDir()
 	specPath := filepath.Join(dir, "petstore.yml")
 	require.NoError(t, os.WriteFile(specPath, specBytes, 0644))
@@ -257,13 +256,13 @@ func TestRegisterService(t *testing.T) {
 	router := testRouter(t)
 	handlers := make(map[string]*swappableHandler)
 
-	err := registerService(router, specPath, nil, nil, handlers)
+	svc := Service{Name: "petstore", SpecPath: specPath}
+	err := registerService(router, svc, nil, handlers)
 	require.NoError(t, err)
 
 	assert.Contains(t, handlers, "petstore")
 	assert.NotNil(t, handlers["petstore"])
 
-	// Verify the service is accessible through the router
 	req := httptest.NewRequest(http.MethodGet, "/petstore/pets", nil)
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -279,13 +278,13 @@ func TestBuildHandler(t *testing.T) {
 	require.NoError(t, os.WriteFile(specPath, specBytes, 0644))
 
 	t.Run("builds from valid spec file", func(t *testing.T) {
-		h, err := buildHandler(specPath, nil)
+		h, err := buildHandler(Service{Name: "petstore", SpecPath: specPath})
 		require.NoError(t, err)
 		assert.NotEmpty(t, h.Routes())
 	})
 
 	t.Run("returns error for missing file", func(t *testing.T) {
-		_, err := buildHandler("/nonexistent/spec.yml", nil)
+		_, err := buildHandler(Service{Name: "petstore", SpecPath: "/nonexistent/spec.yml"})
 		assert.Error(t, err)
 	})
 }
@@ -346,13 +345,13 @@ func TestIntegration_EndToEnd(t *testing.T) {
 	specPath := filepath.Join(dir, "petstore.yml")
 	require.NoError(t, os.WriteFile(specPath, specBytes, 0644))
 
-	// Wire up the full router like Run() does
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
 	_ = api.CreateHistoryRoutes(router)
 	handlers := make(map[string]*swappableHandler)
 
-	err := registerService(router, specPath, nil, nil, handlers)
+	svc := Service{Name: "petstore", SpecPath: specPath}
+	err := registerService(router, svc, nil, handlers)
 	require.NoError(t, err)
 
 	ts := httptest.NewServer(router)

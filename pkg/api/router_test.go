@@ -215,13 +215,13 @@ func TestRouter_RegisterService(t *testing.T) {
 	})
 }
 
-func TestRouter_RegisterService_MountsAtResourcesPrefix(t *testing.T) {
-	t.Run("ResourcesPrefix overrides Name as mount", func(t *testing.T) {
+func TestRouter_RegisterService_MountsAtMount(t *testing.T) {
+	t.Run("Mount overrides Name as mount", func(t *testing.T) {
 		router := newTestRouter(t)
 
 		cfg := config.NewServiceConfig()
 		cfg.Name = "petstore"
-		cfg.ResourcesPrefix = "/pets/v2"
+		cfg.Mount = "/pets/v2"
 		service := &mockService{
 			name:   "petstore",
 			config: cfg,
@@ -248,12 +248,12 @@ func TestRouter_RegisterService_MountsAtResourcesPrefix(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, w2.Code)
 	})
 
-	t.Run("ResourcesPrefix without leading slash is normalized", func(t *testing.T) {
+	t.Run("Mount without leading slash is normalized", func(t *testing.T) {
 		router := newTestRouter(t)
 
 		cfg := config.NewServiceConfig()
 		cfg.Name = "petstore"
-		cfg.ResourcesPrefix = "pets/v2"
+		cfg.Mount = "pets/v2"
 		service := &mockService{
 			name:   "petstore",
 			config: cfg,
@@ -272,7 +272,7 @@ func TestRouter_RegisterService_MountsAtResourcesPrefix(t *testing.T) {
 		assert.Equal(t, http.StatusOK, w.Code)
 	})
 
-	t.Run("Empty ResourcesPrefix falls back to Name", func(t *testing.T) {
+	t.Run("Empty Mount falls back to Name", func(t *testing.T) {
 		router := newTestRouter(t)
 
 		cfg := config.NewServiceConfig()

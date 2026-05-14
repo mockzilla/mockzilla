@@ -272,7 +272,7 @@ func getEnv(key, defaultValue string) string {
 }
 
 func printUsage() {
-	fmt.Print(`mockzilla — generate mock servers from OpenAPI specs
+	fmt.Print(`mockzilla: generate mock servers from OpenAPI specs
 
 Usage:
   mockzilla <spec.yaml | dir | package.mockz | https://...>  [flags]
@@ -285,19 +285,44 @@ Usage:
 
 Portable-mode flags:
   --port N            Server port (0 = let the OS pick a free port; default 2200)
-  --config PATH       Unified config YAML (app + per-service)
-  --context PATH      Per-service context YAML for value replacements
   --ready-stamp       Emit a single JSON line on stdout once the listener is bound
                       (for programmatic supervisors like the mockzilla MCP bridge)
 
-Packages:
-  A .mockz (or .tar.gz) file is a gzipped tarball containing openapi/ specs
-  and optional app.yml / context.yml config. The CLI extracts it to a temp
-  directory and serves it in portable mode. Packages can be local files or URLs.
+Single-service convenience flags (only valid when exactly one service is
+registered, typically with a single spec file or single folder arg):
+  --latency D         Latency for the service (e.g. 100ms, 1s)
+  --mount PATH        URL mount path for the service (e.g. pets/v2)
+  --errors RULES      Error injection rules: p5=500,p10=503
+  --context FILE      Path to a flat context YAML (replacement values)
+
+Layout:
+  Point the CLI at one of:
+    - A single OpenAPI spec file:    mockzilla petstore.yml
+    - A remote spec URL:             mockzilla https://api.example.com/openapi.json
+    - A single-service folder:       mockzilla ./pets/
+        (folder contains a *.{yml,yaml,json} spec and/or index.<ext>
+         response files at <path>/<method>/ or <path>/)
+    - A flat root of specs:          mockzilla ./
+        (root contains multiple top-level *.{yml,yaml,json} files;
+         each spec becomes its own service)
+    - A multi-service root:          mockzilla ./
+        (root contains a services/<name>/ tree)
+    - A .mockz package (file or URL): mockzilla petstore.mockz
+
+  Service folder layout (used both at the CLI and inside .mockz packages):
+    services/petstore/
+      openapi.yml              # the OpenAPI spec (any *.{yml,yaml,json} name works)
+      config.yml               # optional: latency, errors, mount, upstream, cache
+      context.yml              # optional: flat replacement values (no service-name wrapper)
+      users/index.json         # optional static endpoint -> GET /users
+      users/post/index.json    # optional static endpoint -> POST /users
+      users/{id}/index.json    # optional static endpoint -> GET /users/{id}
+    app.yml                    # optional global: port, history, storage, etc.
 
 Examples:
   mockzilla https://petstore3.swagger.io/api/v3/openapi.json
-  mockzilla --port 3000 ./specs/
+  mockzilla --port 3000 ./services/
+  mockzilla --latency 50ms --mount pets/v2 petstore.yml
   mockzilla petstore.mockz
   mockzilla https://example.com/my-api.mockz
   mockzilla info https://petstore3.swagger.io/api/v3/openapi.json

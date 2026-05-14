@@ -24,22 +24,22 @@ type KeyValue[K, V any] struct {
 // Errors is a map of percentiles to error codes.
 // Validate is the validation configuration.
 // Cache is the cache configuration.
-// ResourcesPrefix is the URL prefix at which the service mounts. May
-// contain `/` to allow multi-segment prefixes (e.g. "pets/v2"). When
-// empty, the service mounts at "/<Name>".
+// Mount is the URL prefix at which the service mounts. May contain
+// `/` to allow multi-segment prefixes (e.g. "pets/v2"). When empty,
+// the service mounts at "/<Name>".
 // SpecOptions allows OpenAPI spec simplifications for code generation.
 type ServiceConfig struct {
-	Name            string                                `yaml:"name,omitempty"`
-	Upstream        *UpstreamConfig                       `yaml:"upstream,omitempty"`
-	Latency         time.Duration                         `yaml:"latency,omitempty"`
-	Latencies       map[string]time.Duration              `yaml:"latencies,omitempty"`
-	Errors          map[string]int                        `yaml:"errors,omitempty"`
-	Endpoints       map[string]map[string]*EndpointConfig `yaml:"endpoints,omitempty"`
-	Cache           *CacheConfig                          `yaml:"cache,omitempty"`
-	History         *HistoryConfig                        `yaml:"history,omitempty"`
-	ResourcesPrefix string                                `yaml:"resources-prefix,omitempty"`
-	SpecOptions     *SpecOptions                          `yaml:"spec,omitempty"`
-	Extra           map[string]any                        `yaml:"extra,omitempty"`
+	Name        string                                `yaml:"name,omitempty"`
+	Upstream    *UpstreamConfig                       `yaml:"upstream,omitempty"`
+	Latency     time.Duration                         `yaml:"latency,omitempty"`
+	Latencies   map[string]time.Duration              `yaml:"latencies,omitempty"`
+	Errors      map[string]int                        `yaml:"errors,omitempty"`
+	Endpoints   map[string]map[string]*EndpointConfig `yaml:"endpoints,omitempty"`
+	Cache       *CacheConfig                          `yaml:"cache,omitempty"`
+	History     *HistoryConfig                        `yaml:"history,omitempty"`
+	Mount       string                                `yaml:"mount,omitempty"`
+	SpecOptions *SpecOptions                          `yaml:"spec,omitempty"`
+	Extra       map[string]any                        `yaml:"extra,omitempty"`
 
 	latencies []*KeyValue[int, time.Duration]
 	errors    []*KeyValue[int, int]
@@ -103,8 +103,8 @@ func (s *ServiceConfig) WithDefaults() *ServiceConfig {
 	}
 
 	// Fill empty string fields with defaults
-	if s.ResourcesPrefix == "" {
-		s.ResourcesPrefix = defaults.ResourcesPrefix
+	if s.Mount == "" {
+		s.Mount = defaults.Mount
 	}
 
 	// Parse latencies and errors if they haven't been parsed yet
@@ -144,8 +144,8 @@ func (s *ServiceConfig) OverwriteWith(other *ServiceConfig) *ServiceConfig {
 		s.Name = other.Name
 	}
 
-	if other.ResourcesPrefix != "" {
-		s.ResourcesPrefix = other.ResourcesPrefix
+	if other.Mount != "" {
+		s.Mount = other.Mount
 	}
 
 	// Overwrite pointer fields if not nil

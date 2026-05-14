@@ -89,8 +89,8 @@ func NewRouter(options ...RouterOption) *Router {
 
 // RegisterService registers a service with the router.
 // The service config must have a Name field set.
-// The service mounts at cfg.ResourcesPrefix when set (allowing
-// multi-segment prefixes like "pets/v2"), otherwise at "/<cfg.Name>".
+// The service mounts at cfg.Mount when set (allowing multi-segment
+// prefixes like "pets/v2"), otherwise at "/<cfg.Name>".
 // If a service with the same Name is already registered, the call is
 // ignored with a warning - without this guard, chi.Mount would panic
 // and crash the process.
@@ -104,8 +104,8 @@ func (r *Router) RegisterService(
 
 // RegisterHTTPHandler registers a Handler as a service.
 // The handlerFactory receives the service DB and returns the handler.
-// The service mounts at cfg.ResourcesPrefix when set (allowing
-// multi-segment prefixes like "pets/v2"), otherwise at "/<cfg.Name>".
+// The service mounts at cfg.Mount when set (allowing multi-segment
+// prefixes like "pets/v2"), otherwise at "/<cfg.Name>".
 // If a service with the same Name is already registered, the call is
 // ignored with a warning - without this guard, chi.Mount would panic
 // and crash the process.
@@ -176,7 +176,7 @@ func (r *Router) register(
 	mwParams := middleware.NewParams(cfg, serviceDB)
 
 	prefix := ServicePrefix(cfg)
-	r.Route(prefix, func(subRouter chi.Router) {
+	registerSubRouter := func(subRouter chi.Router) {
 		// Resource resolver (must be before other middleware that read the resource path)
 		subRouter.Use(middleware.CreateResourceResolverMiddleware(mwParams))
 
@@ -198,7 +198,19 @@ func (r *Router) register(
 
 		handler.RegisterRoutes(subRouter)
 		mwParams.SetRouter(subRouter)
-	})
+	}
+
+	if prefix == "/" {
+		// Root-mounted service: install as the NotFound fallback so
+		// explicit routes (`/`, `/.ui`, `/.services/*`, etc.) still
+		// win on exact match and the service only serves what's left.
+		// chi.Mount("/") would shadow every other route.
+		rootRouter := chi.NewRouter()
+		registerSubRouter(rootRouter)
+		r.NotFound(rootRouter.ServeHTTP)
+	} else {
+		r.Route(prefix, registerSubRouter)
+	}
 
 	// Skip logging for services with history disabled
 	if cfg.Name != "" && !cfg.HistoryEnabled() {
@@ -246,14 +258,22 @@ func WithConfigOption(cfg *config.AppConfig) RouterOption {
 }
 
 // ServicePrefix returns the URL prefix at which a service mounts. When
-// ResourcesPrefix is set, it wins (and may contain `/` for multi-segment
-// mount points). Otherwise the service mounts at "/<Name>".
+// Mount is set, it wins (and may contain `/` for multi-segment mount
+// points). Otherwise the service mounts at "/<Name>".
+//
+// Services with empty Name (no inside-the-folder identity signal)
+// mount at literal "/". The UI surfaces this service as `.root` for
+// display purposes only — see RootServiceName and the lookup helper
+// in services.go.
 func ServicePrefix(cfg *config.ServiceConfig) string {
-	if cfg.ResourcesPrefix != "" {
-		if strings.HasPrefix(cfg.ResourcesPrefix, "/") {
-			return cfg.ResourcesPrefix
+	if cfg.Mount != "" {
+		if strings.HasPrefix(cfg.Mount, "/") {
+			return cfg.Mount
 		}
-		return "/" + cfg.ResourcesPrefix
+		return "/" + cfg.Mount
+	}
+	if cfg.Name == "" {
+		return "/"
 	}
 	return "/" + cfg.Name
 }

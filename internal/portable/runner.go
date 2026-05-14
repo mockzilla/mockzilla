@@ -3,6 +3,7 @@ package portable
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -11,6 +12,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -26,59 +29,30 @@ const (
 	exitCodeError    = 1
 )
 
-// Run starts the server in portable mode - serving mock responses directly from OpenAPI specs.
+// Run starts the server in portable mode. The args are positional
+// inputs (files, URLs, dirs, packages); per-service configuration is
+// discovered alongside each service.
 func Run(args []string) int {
-	// LOG_LEVEL can be: debug, info, warn, error, none (default: info)
-	logLevel := slog.LevelInfo
-	switch os.Getenv("LOG_LEVEL") {
-	case "debug":
-		logLevel = slog.LevelDebug
-	case "warn":
-		logLevel = slog.LevelWarn
-	case "error":
-		logLevel = slog.LevelError
-	case "none":
-		logLevel = slog.Level(99)
-	}
-
-	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{
-		Level:      logLevel,
-		TimeFormat: time.Kitchen,
-	}))
-	slog.SetDefault(logger)
+	configureLogger()
 
 	fl, positional := parseFlags(args)
-	positional = resolvePackageArgs(positional, &fl)
-	specs := resolveSpecs(positional)
-	if len(specs) == 0 {
-		slog.Error("No OpenAPI spec files found")
+
+	services, err := resolveServices(positional)
+	if err != nil {
+		slog.Error("Failed to resolve services", "error", err)
 		return exitCodeError
 	}
 
 	baseDir := filepath.Join(os.TempDir(), "mockzilla-portable")
 	_ = os.MkdirAll(baseDir, 0o755)
 
-	// Load unified config (app + per-service)
-	cfg, err := loadPortableConfig(fl.config, baseDir)
+	appCfg, err := loadAppConfig(rootFromArgs(positional), baseDir)
 	if err != nil {
-		slog.Error("Failed to load config, using defaults", "error", err)
-		cfg = &portableConfig{}
-	}
-
-	// Load per-service contexts
-	contexts, err := loadContexts(fl.context)
-	if err != nil {
-		slog.Error("Failed to load contexts, continuing without contexts", "error", err)
-		contexts = nil
-	}
-
-	// Resolve app config: use from file or defaults
-	appCfg := cfg.App
-	if appCfg == nil {
+		slog.Error("Failed to load app.yml, using defaults", "error", err)
 		appCfg = config.NewDefaultAppConfig(baseDir)
 	}
 
-	// Environment variables override file/default values.
+	// Env vars override the file/default values via struct tags.
 	if err := env.Parse(appCfg); err != nil {
 		slog.Error("Failed to apply env overrides", "error", err)
 	}
@@ -86,9 +60,7 @@ func Run(args []string) int {
 		appCfg.History.URL = ""
 	}
 
-	// --port flag wins over everything. -1 is the "not supplied" sentinel
-	// from parseFlags; 0 means the user explicitly wants the kernel to
-	// pick a free port (standard Unix idiom).
+	// --port flag wins. -1 = unset; 0 = let the kernel pick.
 	if fl.port >= 0 {
 		appCfg.Port = fl.port
 	}
@@ -96,7 +68,18 @@ func Run(args []string) int {
 		appCfg.Port = 2200
 	}
 
-	// Create router
+	// If any service wants the root mount (empty Name, no explicit
+	// Mount, or `mount: /`), move the UI off `/` so chi can host the
+	// service there. The dotted `/.ui` aligns with the other internal
+	// routes (`/.services`, `/.history`). Skip the relocation when
+	// the UI is disabled — nothing is mounted at `/` to conflict with.
+	if !appCfg.DisableUI && (appCfg.HomeURL == "" || appCfg.HomeURL == "/") {
+		if anyServiceClaimsRoot(services, fl) {
+			slog.Info("Service requested root mount; relocating UI from / to /.ui")
+			appCfg.HomeURL = "/.ui"
+		}
+	}
+
 	router := api.NewRouter(api.WithConfigOption(appCfg))
 	_ = api.CreateHealthRoutes(router)
 	_ = api.CreateHomeRoutes(router)
@@ -104,17 +87,21 @@ func Run(args []string) int {
 	_ = api.CreateHistoryRoutes(router)
 	_ = api.CreateServiceConfigRoutes(router)
 
-	// Track swappable handlers for hot reload
+	overrides, err := buildOverrides(fl)
+	if err != nil {
+		slog.Error("Invalid convenience flag", "error", err)
+		return exitCodeError
+	}
+	if overrides != nil && len(services) != 1 {
+		slog.Error("Convenience flags (--latency/--mount/--errors/--context) require exactly one service",
+			"services", len(services))
+		return exitCodeError
+	}
+
 	handlers := make(map[string]*swappableHandler)
-
-	// Register each spec as a service
-	for _, specPath := range specs {
-		name := api.NormalizeServiceName(specPath)
-		svcCfg := cfg.Services[name]
-		ctxBytes := contexts[name]
-
-		if err := registerService(router, specPath, svcCfg, ctxBytes, handlers); err != nil {
-			slog.Error("Failed to register service", "spec", specPath, "error", err)
+	for _, svc := range services {
+		if err := registerService(router, svc, overrides, handlers); err != nil {
+			slog.Error("Failed to register service", "name", svc.Name, "error", err)
 			continue
 		}
 	}
@@ -124,45 +111,13 @@ func Run(args []string) int {
 		return exitCodeError
 	}
 
-	// Log registered services. The path reflects the actual mount point:
-	// ResourcesPrefix when set, otherwise the snake-cased service name.
-	for name := range handlers {
-		svcCfg := cfg.Services[name]
-		if svcCfg == nil {
-			svcCfg = &config.ServiceConfig{Name: name}
-		} else {
-			svcCfg.Name = name
-		}
-		slog.Info("Registered service", "path", api.ServicePrefix(svcCfg))
-	}
-
-	// Bind the listener up-front so the readiness stamp can only fire
-	// after the socket is open. Programmatic supervisors race here
-	// otherwise.
-	addr := fmt.Sprintf(":%d", appCfg.Port)
-	listener, err := net.Listen("tcp", addr)
+	listener, err := bindListener(appCfg)
 	if err != nil {
-		slog.Error("Failed to bind listener", "addr", addr, "error", err)
 		return exitCodeError
 	}
 
-	// `--port 0` lets the kernel pick a free port; record the resolved
-	// port so the ready stamp and the startup log line both reflect it.
-	if tcpAddr, ok := listener.Addr().(*net.TCPAddr); ok {
-		appCfg.Port = tcpAddr.Port
-	}
-
 	if fl.readyStamp {
-		names := make([]string, 0, len(handlers))
-		for name := range handlers {
-			names = append(names, name)
-		}
-		stamp, stampErr := buildReadyStamp(appCfg.Port, appCfg.HomeURL, names)
-		if stampErr != nil {
-			slog.Error("Failed to build ready stamp", "error", stampErr)
-		} else {
-			fmt.Println(stamp)
-		}
+		emitReadyStamp(appCfg, router)
 	}
 
 	server := &http.Server{
@@ -180,10 +135,8 @@ func Run(args []string) int {
 		}
 	}()
 
-	// Start file watcher
-	go watchSpecs(specs, router, cfg, contexts, handlers)
+	go watchServices(services, router, handlers)
 
-	// Wait for shutdown signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -202,45 +155,292 @@ func Run(args []string) int {
 }
 
 // RunFS extracts an fs.FS to a temp directory and runs portable mode.
-// The FS root should contain OpenAPI spec files (*.yml, *.yaml, *.json),
-// and optionally: static/, app.yml, context.yml.
+// The FS root must follow the new shape: services/<name>/... or a flat
+// single-service layout with openapi.{yml,yaml,json} at the root.
 func RunFS(fsys fs.FS, args []string) int {
 	dir, err := os.MkdirTemp("", "mockzilla-portable-fs-*")
 	if err != nil {
 		slog.Error("Failed to create temp dir", "error", err)
 		return exitCodeError
 	}
-
 	if err := extractFS(fsys, dir); err != nil {
 		slog.Error("Failed to extract FS", "error", err)
 		return exitCodeError
 	}
+	return Run(append([]string{dir}, args...))
+}
 
-	// Capture config/context paths before moving them out of the way.
-	configPath := filepath.Join(dir, "app.yml")
-	contextPath := filepath.Join(dir, "context.yml")
+// flags holds the parsed CLI flags for portable mode. Most per-service
+// settings live in each service's config.yml/context.yml; the ad-hoc
+// flags below are convenience knobs that apply only when a single
+// service is registered.
+type flags struct {
+	port       int
+	readyStamp bool
+	// Single-service convenience knobs. Each applies only when exactly
+	// one service is registered; with multiple services the runner
+	// errors out so the user has to express the intent per-service.
+	latency string
+	mount   string
+	errors  string // "p5=500,p10=503"
+	context string // path to a flat context YAML
+}
 
-	// Move config files so resolveSpecs doesn't treat them as OpenAPI specs.
-	for _, p := range []string{configPath, contextPath} {
-		if fileExists(p) {
-			_ = os.Rename(p, p+".cfg")
+// cliOverrides captures the parsed convenience flags. Only meaningful
+// when a single service is registered; the runner enforces that
+// invariant before applying.
+type cliOverrides struct {
+	latency      time.Duration
+	mount        string
+	errors       map[string]int
+	contextBytes []byte
+}
+
+func (o *cliOverrides) applyTo(cfg *config.ServiceConfig) {
+	if o == nil {
+		return
+	}
+	if o.latency > 0 {
+		cfg.Latency = o.latency
+	}
+	if o.mount != "" {
+		cfg.Mount = o.mount
+	}
+	if len(o.errors) > 0 {
+		if cfg.Errors == nil {
+			cfg.Errors = make(map[string]int)
+		}
+		for k, v := range o.errors {
+			cfg.Errors[k] = v
+		}
+	}
+}
+
+// boolFlags lists flag names that don't take a value. The hand-rolled
+// splitter below needs to know these so it doesn't greedily eat the
+// next positional arg as a value (e.g. `mockzilla ./dir --ready-stamp`
+// would otherwise lose `./dir`).
+var boolFlags = map[string]bool{
+	"ready-stamp": true,
+}
+
+func configureLogger() {
+	level := slog.LevelInfo
+	switch os.Getenv("LOG_LEVEL") {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	case "none":
+		level = slog.Level(99)
+	}
+	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{
+		Level:      level,
+		TimeFormat: time.Kitchen,
+	}))
+	slog.SetDefault(logger)
+}
+
+func bindListener(appCfg *config.AppConfig) (net.Listener, error) {
+	addr := fmt.Sprintf(":%d", appCfg.Port)
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		slog.Error("Failed to bind listener", "addr", addr, "error", err)
+		return nil, err
+	}
+	if tcp, ok := listener.Addr().(*net.TCPAddr); ok {
+		appCfg.Port = tcp.Port
+	}
+	return listener, nil
+}
+
+// flagName strips the leading dashes from a flag arg ("--port" → "port").
+func flagName(arg string) string {
+	return strings.TrimLeft(arg, "-")
+}
+
+// parseFlags splits the CLI args into typed flags and positional args.
+// Per-service settings normally come from per-service files; the
+// single-service convenience flags allow quick ad-hoc tweaks for the
+// common "I just want to serve one spec with a bit of customisation"
+// case without forcing the user to create a folder layout.
+func parseFlags(args []string) (flags, []string) {
+	fset := flag.NewFlagSet("portable", flag.ContinueOnError)
+	fl := flags{}
+	fset.IntVar(&fl.port, "port", -1, "Server port (0 = kernel picks; default: from app.yml or 2200)")
+	fset.BoolVar(&fl.readyStamp, "ready-stamp", false, "Emit a single JSON line on stdout once the listener is bound")
+	fset.StringVar(&fl.latency, "latency", "", "Latency for the single registered service (e.g. 100ms, 1s)")
+	fset.StringVar(&fl.mount, "mount", "", "Mount path for the single registered service (e.g. pets/v2)")
+	fset.StringVar(&fl.errors, "errors", "", "Error injection for the single service: p5=500,p10=503")
+	fset.StringVar(&fl.context, "context", "", "Path to a flat context.yml applied to the single service")
+
+	var positional, flagArgs []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if !strings.HasPrefix(a, "-") {
+			positional = append(positional, a)
+			continue
+		}
+		flagArgs = append(flagArgs, a)
+		// Skip the value-consumption step for bool flags and for
+		// `--key=value` forms (already self-contained).
+		if strings.Contains(a, "=") || boolFlags[flagName(a)] {
+			continue
+		}
+		if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+			flagArgs = append(flagArgs, args[i+1])
+			i++
 		}
 	}
 
-	var runArgs []string
-	if openapiDir := filepath.Join(dir, "openapi"); fileExists(openapiDir) {
-		runArgs = append(runArgs, openapiDir)
+	if err := fset.Parse(flagArgs); err != nil {
+		slog.Warn("Failed to parse flags", "error", err)
 	}
-	runArgs = append(runArgs, dir)
-	if fileExists(configPath + ".cfg") {
-		runArgs = append(runArgs, "--config", configPath+".cfg")
-	}
-	if fileExists(contextPath + ".cfg") {
-		runArgs = append(runArgs, "--context", contextPath+".cfg")
-	}
-	runArgs = append(runArgs, args...)
+	return fl, positional
+}
 
-	return Run(runArgs)
+// parseErrorsFlag parses "p5=500,p10=503" into {"p5":500,"p10":503}.
+// Each rule's key follows the existing percentile convention (px) and
+// the value is the HTTP status.
+func parseErrorsFlag(raw string) (map[string]int, error) {
+	out := make(map[string]int)
+	for _, pair := range strings.Split(raw, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(pair, "=")
+		if !ok {
+			return nil, fmt.Errorf("expected key=value, got %q", pair)
+		}
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			return nil, fmt.Errorf("status for %q: %w", k, err)
+		}
+		out[k] = n
+	}
+	return out, nil
+}
+
+// buildOverrides parses the raw CLI flag strings into a cliOverrides.
+// Returns (nil, nil) when none of the flags were supplied.
+func buildOverrides(fl flags) (*cliOverrides, error) {
+	if fl.latency == "" && fl.mount == "" && fl.errors == "" && fl.context == "" {
+		return nil, nil
+	}
+	o := &cliOverrides{}
+	if fl.latency != "" {
+		d, err := time.ParseDuration(fl.latency)
+		if err != nil {
+			return nil, fmt.Errorf("--latency: %w", err)
+		}
+		o.latency = d
+	}
+	if fl.mount != "" {
+		o.mount = fl.mount
+	}
+	if fl.errors != "" {
+		parsed, err := parseErrorsFlag(fl.errors)
+		if err != nil {
+			return nil, fmt.Errorf("--errors: %w", err)
+		}
+		o.errors = parsed
+	}
+	if fl.context != "" {
+		bts, err := os.ReadFile(fl.context)
+		if err != nil {
+			return nil, fmt.Errorf("--context: %w", err)
+		}
+		o.contextBytes = bts
+	}
+	return o, nil
+}
+
+// anyServiceClaimsRoot reports whether any discovered service will end
+// up mounted at "/" once flag overrides and per-folder configs are
+// applied. We can't fully resolve mounts here without re-reading every
+// config.yml, so we approximate with the signals available at this
+// point: an empty Name (no inside-the-folder identity signal) means
+// the service will mount at "/" by default, and a CLI --mount="/"
+// override forces that mount regardless of folder identity.
+func anyServiceClaimsRoot(services []Service, fl flags) bool {
+	if fl.mount == "/" {
+		return true
+	}
+	for _, s := range services {
+		if s.Name == "" {
+			return true
+		}
+	}
+	return false
+}
+
+// registerService wires one discovered Service into the router. The
+// service's per-folder config.yml drives latency/errors/mount/etc; its
+// context.yml drives replacement values inside the factory. CLI
+// overrides (when present) win over per-folder files.
+func registerService(
+	router *api.Router,
+	svc Service,
+	overrides *cliOverrides,
+	handlers map[string]*swappableHandler,
+) error {
+	specBytes, err := os.ReadFile(svc.SpecPath)
+	if err != nil {
+		return fmt.Errorf("reading spec: %w", err)
+	}
+
+	svcCfg, err := loadServiceConfig(svc)
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+
+	ctxBytes, err := loadServiceContext(svc)
+	if err != nil {
+		return fmt.Errorf("loading context: %w", err)
+	}
+
+	if overrides != nil {
+		overrides.applyTo(svcCfg)
+		if overrides.contextBytes != nil {
+			ctxBytes = overrides.contextBytes
+		}
+	}
+
+	var opts []factory.FactoryOption
+	if ctxBytes != nil {
+		opts = append(opts, factory.WithServiceContext(ctxBytes))
+	}
+	opts = append(opts, factory.WithSpecOptions(&config.SpecOptions{LazyLoad: true}))
+
+	h, err := newHandler(specBytes, opts...)
+	if err != nil {
+		return fmt.Errorf("creating handler: %w", err)
+	}
+
+	sw := &swappableHandler{handler: h}
+	handlers[svc.Name] = sw
+	router.RegisterService(svcCfg, sw)
+	slog.Info("Registered service", "name", svc.Name, "mount", api.ServicePrefix(svcCfg))
+	return nil
+}
+
+func emitReadyStamp(appCfg *config.AppConfig, router *api.Router) {
+	registered := router.GetServices()
+	rs := make([]readyService, 0, len(registered))
+	for name, item := range registered {
+		rs = append(rs, readyService{Name: name, Path: api.ServicePrefix(item.Config)})
+	}
+	stamp, err := buildReadyStamp(appCfg.Port, appCfg.HomeURL, rs)
+	if err != nil {
+		slog.Error("Failed to build ready stamp", "error", err)
+		return
+	}
+	fmt.Println(stamp)
 }
 
 func extractFS(fsys fs.FS, dest string) error {
@@ -258,53 +458,4 @@ func extractFS(fsys fs.FS, dest string) error {
 		}
 		return os.WriteFile(target, data, 0o644)
 	})
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	return err == nil
-}
-
-// registerService creates and registers a handler for a single spec file.
-func registerService(
-	router *api.Router,
-	specPath string,
-	svcCfg *config.ServiceConfig,
-	contextBytes []byte,
-	handlers map[string]*swappableHandler,
-) error {
-	specBytes, err := os.ReadFile(specPath)
-	if err != nil {
-		return fmt.Errorf("reading spec: %w", err)
-	}
-
-	name := api.NormalizeServiceName(specPath)
-
-	// Build factory options
-	var opts []factory.FactoryOption
-	if contextBytes != nil {
-		opts = append(opts, factory.WithServiceContext(contextBytes))
-	}
-	// Enable lazy loading for large specs
-	opts = append(opts, factory.WithSpecOptions(&config.SpecOptions{LazyLoad: true}))
-
-	h, err := newHandler(specBytes, opts...)
-	if err != nil {
-		return fmt.Errorf("creating handler: %w", err)
-	}
-
-	// Build service config: start with defaults, overlay per-service if provided
-	serviceCfg := config.NewServiceConfig()
-	serviceCfg.Name = name
-	if svcCfg != nil {
-		serviceCfg.OverwriteWith(svcCfg)
-		serviceCfg.Name = name // Ensure name is always the spec-derived name
-	}
-
-	// Wrap in swappable handler
-	sw := &swappableHandler{handler: h}
-	handlers[name] = sw
-
-	router.RegisterService(serviceCfg, sw)
-	return nil
 }

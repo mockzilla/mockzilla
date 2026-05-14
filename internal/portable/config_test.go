@@ -9,212 +9,161 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadPortableConfig(t *testing.T) {
+func TestLoadAppConfig(t *testing.T) {
 	baseDir := t.TempDir()
 
-	t.Run("empty path returns defaults", func(t *testing.T) {
-		cfg, err := loadPortableConfig("", baseDir)
+	t.Run("empty root returns defaults", func(t *testing.T) {
+		cfg, err := loadAppConfig("", baseDir)
 		require.NoError(t, err)
-		assert.Nil(t, cfg.App)
-		assert.Nil(t, cfg.Services)
+		assert.Equal(t, "API Explorer", cfg.Title)
+		assert.Equal(t, 2200, cfg.Port)
 	})
 
-	t.Run("full config", func(t *testing.T) {
-		content := `
-app:
-  port: 3000
-  title: "Test Mocks"
-services:
-  petstore:
-    latency: 100ms
-    errors:
-      p10: 400
-  spoonacular:
-    latency: 200ms
-`
-		path := filepath.Join(baseDir, "full.yml")
-		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-
-		cfg, err := loadPortableConfig(path, baseDir)
+	t.Run("missing app.yml returns defaults", func(t *testing.T) {
+		cfg, err := loadAppConfig(t.TempDir(), baseDir)
 		require.NoError(t, err)
-
-		require.NotNil(t, cfg.App)
-		assert.Equal(t, 3000, cfg.App.Port)
-		assert.Equal(t, "Test Mocks", cfg.App.Title)
-
-		require.Len(t, cfg.Services, 2)
-
-		ps := cfg.Services["petstore"]
-		require.NotNil(t, ps)
-		assert.Equal(t, "100ms", ps.Latency.String())
-		assert.Equal(t, 400, ps.Errors["p10"])
-		// WithDefaults should have been called
-		assert.NotNil(t, ps.Cache)
-		assert.NotNil(t, ps.SpecOptions)
-
-		sp := cfg.Services["spoonacular"]
-		require.NotNil(t, sp)
-		assert.Equal(t, "200ms", sp.Latency.String())
+		assert.Equal(t, "API Explorer", cfg.Title)
 	})
 
-	t.Run("app only", func(t *testing.T) {
-		content := `
-app:
-  port: 4000
-`
-		path := filepath.Join(baseDir, "app-only.yml")
-		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+	t.Run("reads global app settings", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "app.yml"),
+			[]byte("title: Demo\nport: 3030\n"), 0o644))
 
-		cfg, err := loadPortableConfig(path, baseDir)
+		cfg, err := loadAppConfig(dir, baseDir)
 		require.NoError(t, err)
-
-		require.NotNil(t, cfg.App)
-		assert.Equal(t, 4000, cfg.App.Port)
-		// Default title should be preserved since we start from defaults
-		assert.Equal(t, "API Explorer", cfg.App.Title)
-		assert.Nil(t, cfg.Services)
+		assert.Equal(t, "Demo", cfg.Title)
+		assert.Equal(t, 3030, cfg.Port)
 	})
 
-	t.Run("services only", func(t *testing.T) {
-		content := `
-services:
-  petstore:
-    latency: 50ms
-`
-		path := filepath.Join(baseDir, "svc-only.yml")
-		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
+	t.Run("rejects invalid YAML", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "app.yml"),
+			[]byte("{{invalid"), 0o644))
 
-		cfg, err := loadPortableConfig(path, baseDir)
-		require.NoError(t, err)
-
-		assert.Nil(t, cfg.App)
-		require.Len(t, cfg.Services, 1)
-		assert.Equal(t, "50ms", cfg.Services["petstore"].Latency.String())
-	})
-
-	t.Run("services with endpoint-level config", func(t *testing.T) {
-		content := `
-services:
-  petstore:
-    latency: 0ms
-    endpoints:
-      /pets/{id}:
-        GET:
-          latency: 200ms
-        POST:
-          errors:
-            p10: 500
-  spoonacular:
-    endpoints:
-      /recipes/search:
-        GET:
-          latencies:
-            p50: 50ms
-            p90: 300ms
-`
-		path := filepath.Join(baseDir, "endpoints.yml")
-		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-
-		cfg, err := loadPortableConfig(path, baseDir)
-		require.NoError(t, err)
-
-		require.Len(t, cfg.Services, 2)
-
-		ps := cfg.Services["petstore"]
-		require.NotNil(t, ps.Endpoints)
-		ep := ps.GetEndpointConfig("/pets/42", "GET")
-		require.NotNil(t, ep)
-		assert.Equal(t, "200ms", ep.Latency.String())
-
-		epPost := ps.GetEndpointConfig("/pets/42", "POST")
-		require.NotNil(t, epPost)
-		assert.Equal(t, 500, epPost.Errors["p10"])
-
-		sp := cfg.Services["spoonacular"]
-		require.NotNil(t, sp.Endpoints)
-		epSearch := sp.GetEndpointConfig("/recipes/search", "GET")
-		require.NotNil(t, epSearch)
-		assert.Len(t, epSearch.Latencies, 2)
-	})
-
-	t.Run("empty file", func(t *testing.T) {
-		path := filepath.Join(baseDir, "empty.yml")
-		require.NoError(t, os.WriteFile(path, []byte(""), 0644))
-
-		cfg, err := loadPortableConfig(path, baseDir)
-		require.NoError(t, err)
-		assert.Nil(t, cfg.App)
-		assert.Nil(t, cfg.Services)
-	})
-
-	t.Run("missing file returns error", func(t *testing.T) {
-		_, err := loadPortableConfig("/nonexistent/config.yml", baseDir)
-		assert.Error(t, err)
-	})
-
-	t.Run("invalid YAML returns error", func(t *testing.T) {
-		path := filepath.Join(baseDir, "invalid.yml")
-		require.NoError(t, os.WriteFile(path, []byte("{{invalid"), 0644))
-
-		_, err := loadPortableConfig(path, baseDir)
+		_, err := loadAppConfig(dir, baseDir)
 		assert.Error(t, err)
 	})
 }
 
-func TestLoadContexts(t *testing.T) {
+func TestLoadServiceConfig(t *testing.T) {
+	t.Run("missing ConfigDir returns defaults with name", func(t *testing.T) {
+		cfg, err := loadServiceConfig(Service{Name: "petstore"})
+		require.NoError(t, err)
+		assert.Equal(t, "petstore", cfg.Name)
+		assert.NotNil(t, cfg.Cache)
+	})
+
+	t.Run("missing config.yml returns defaults with name", func(t *testing.T) {
+		cfg, err := loadServiceConfig(Service{
+			Name:      "petstore",
+			ConfigDir: t.TempDir(),
+		})
+		require.NoError(t, err)
+		assert.Equal(t, "petstore", cfg.Name)
+	})
+
+	t.Run("reads per-service config", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yml"),
+			[]byte("latency: 100ms\nmount: pets/v2\nerrors:\n  p10: 500\n"), 0o644))
+
+		cfg, err := loadServiceConfig(Service{Name: "petstore", ConfigDir: dir})
+		require.NoError(t, err)
+		assert.Equal(t, "petstore", cfg.Name)
+		assert.Equal(t, "100ms", cfg.Latency.String())
+		assert.Equal(t, "pets/v2", cfg.Mount)
+		assert.Equal(t, 500, cfg.Errors["p10"])
+	})
+
+	t.Run("folder name wins over file name field", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yml"),
+			[]byte("name: somethingElse\nlatency: 5ms\n"), 0o644))
+
+		cfg, err := loadServiceConfig(Service{Name: "petstore", ConfigDir: dir})
+		require.NoError(t, err)
+		assert.Equal(t, "petstore", cfg.Name)
+		assert.Equal(t, "5ms", cfg.Latency.String())
+	})
+
+	t.Run("rejects invalid YAML", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yml"),
+			[]byte("{{invalid"), 0o644))
+
+		_, err := loadServiceConfig(Service{Name: "petstore", ConfigDir: dir})
+		assert.Error(t, err)
+	})
+}
+
+func TestLoadServiceContext(t *testing.T) {
+	t.Run("missing ConfigDir returns nil", func(t *testing.T) {
+		bts, err := loadServiceContext(Service{Name: "petstore"})
+		require.NoError(t, err)
+		assert.Nil(t, bts)
+	})
+
+	t.Run("missing context.yml returns nil", func(t *testing.T) {
+		bts, err := loadServiceContext(Service{
+			Name:      "petstore",
+			ConfigDir: t.TempDir(),
+		})
+		require.NoError(t, err)
+		assert.Nil(t, bts)
+	})
+
+	t.Run("reads flat context values", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "context.yml"),
+			[]byte("status: [available, pending, sold]\npayment_method: card\n"), 0o644))
+
+		bts, err := loadServiceContext(Service{Name: "petstore", ConfigDir: dir})
+		require.NoError(t, err)
+		assert.Contains(t, string(bts), "status")
+		assert.Contains(t, string(bts), "payment_method")
+	})
+
+	t.Run("empty file returns nil", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "context.yml"), []byte(""), 0o644))
+
+		bts, err := loadServiceContext(Service{Name: "petstore", ConfigDir: dir})
+		require.NoError(t, err)
+		assert.Nil(t, bts)
+	})
+
+	t.Run("rejects invalid YAML", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "context.yml"), []byte("{{invalid"), 0o644))
+
+		_, err := loadServiceContext(Service{Name: "petstore", ConfigDir: dir})
+		assert.Error(t, err)
+	})
+}
+
+func TestRootFromArgs(t *testing.T) {
 	dir := t.TempDir()
+	spec := filepath.Join(dir, "petstore.yml")
+	require.NoError(t, os.WriteFile(spec, []byte("openapi: 3.0.0"), 0o644))
 
-	t.Run("empty path returns nil", func(t *testing.T) {
-		result, err := loadContexts("")
-		require.NoError(t, err)
-		assert.Nil(t, result)
+	t.Run("returns the dir for a dir arg", func(t *testing.T) {
+		assert.Equal(t, dir, rootFromArgs([]string{dir}))
 	})
 
-	t.Run("per-service contexts", func(t *testing.T) {
-		content := `
-petstore:
-  status:
-    - available
-    - pending
-    - sold
-spoonacular:
-  cuisineType:
-    - Italian
-    - Chinese
-`
-		path := filepath.Join(dir, "contexts.yml")
-		require.NoError(t, os.WriteFile(path, []byte(content), 0644))
-
-		result, err := loadContexts(path)
-		require.NoError(t, err)
-		require.Len(t, result, 2)
-		assert.NotNil(t, result["petstore"])
-		assert.NotNil(t, result["spoonacular"])
-
-		// Each entry should be valid YAML bytes
-		assert.Contains(t, string(result["petstore"]), "status")
-		assert.Contains(t, string(result["spoonacular"]), "cuisineType")
+	t.Run("returns the parent dir for a file arg", func(t *testing.T) {
+		assert.Equal(t, dir, rootFromArgs([]string{spec}))
 	})
 
-	t.Run("empty context file returns nil", func(t *testing.T) {
-		path := filepath.Join(dir, "empty-ctx.yml")
-		require.NoError(t, os.WriteFile(path, []byte(""), 0644))
-
-		result, err := loadContexts(path)
-		require.NoError(t, err)
-		assert.Nil(t, result)
+	t.Run("ignores flags", func(t *testing.T) {
+		assert.Equal(t, dir, rootFromArgs([]string{"--port", "3000", dir}))
 	})
 
-	t.Run("missing file returns error", func(t *testing.T) {
-		_, err := loadContexts("/nonexistent/contexts.yml")
-		assert.Error(t, err)
+	t.Run("returns empty when no useful arg", func(t *testing.T) {
+		assert.Empty(t, rootFromArgs([]string{"--port", "3000"}))
 	})
 
-	t.Run("invalid YAML returns error", func(t *testing.T) {
-		path := filepath.Join(dir, "invalid-ctx.yml")
-		require.NoError(t, os.WriteFile(path, []byte("{{invalid"), 0644))
-
-		_, err := loadContexts(path)
-		assert.Error(t, err)
+	t.Run("skips URLs", func(t *testing.T) {
+		assert.Equal(t, dir, rootFromArgs([]string{"https://x.com/a.yml", dir}))
 	})
 }

@@ -349,7 +349,7 @@ export const generateResult = (service, ix, path, method) => {
             if (reqPath) {
                 // Use the prefix the service is actually mounted at (may be
                 // multi-segment, e.g. /pets/v2) rather than the service name,
-                // so resources-prefix overrides reach the right URL.
+                // so mount overrides reach the right URL.
                 const prefix = service === '.root'
                     ? ''
                     : (services.getServicePrefix(lookupName) || `/${service}`);

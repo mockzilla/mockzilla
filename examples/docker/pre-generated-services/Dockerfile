@@ -5,8 +5,6 @@
 #
 # Build: docker build -t my-mock-server -f examples/docker/pre-generated-services/Dockerfile .
 # Run:   docker run -p 2200:2200 my-mock-server
-#
-# TODO: Once mockzilla v2 is published, remove the replace directive hack.
 
 # Build stage
 FROM golang:alpine AS builder

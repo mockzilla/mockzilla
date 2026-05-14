@@ -1,33 +1,57 @@
 # Portable Mode
 
-Run a mock server directly from OpenAPI spec files - no Docker, no code generation, no setup.
+Run a mock server directly from OpenAPI specs and/or static response
+files. No Docker, no code generation, no setup.
 
 ## Install
 
-With Go installed, run directly:
+### Homebrew (macOS, Linux)
 
 ```bash
-go run github.com/mockzilla/mockzilla/v2/cmd/server@latest petstore.yml
+brew tap mockzilla/tap
+brew install mockzilla
 ```
 
-Or build a binary:
+### Prebuilt binary
+
+Download the latest release for your platform from the
+[mockzilla releases page](https://github.com/mockzilla/mockzilla/releases/latest).
+Linux and macOS (amd64 and arm64) are published per release.
+
+### Docker
+
+```bash
+docker run -p 2200:2200 mockzilla/mockzilla:latest petstore.yml
+```
+
+See [Docker Compose](docker-compose.md) for mounting your own data
+volumes.
+
+### From Go source
 
 ```bash
 go install github.com/mockzilla/mockzilla/v2/cmd/server@latest
 ```
 
-This installs the `server` binary to your `$GOPATH/bin`. You can rename it to `mockzilla` if you prefer.
+This installs `server` into `$GOPATH/bin`. Rename it to `mockzilla`
+if you prefer.
 
 ## Quick Start
 
-Try it now - no files needed:
+Try it now, no files needed:
 
 ```bash
-go run github.com/mockzilla/mockzilla/v2/cmd/server@latest \
-  https://petstore3.swagger.io/api/v3/openapi.json
+mockzilla https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
-The server starts on port 2200 with the Petstore API mounted at `/openapi/...`.
+The server starts on port 2200 with the Petstore API mounted at
+`/petstore3.swagger.io/...` (the host is used as the service name when
+the URL ends with a generic filename like `openapi.json`). Override
+with `--mount`:
+
+```bash
+mockzilla --mount petstore https://petstore3.swagger.io/api/v3/openapi.json
+```
 
 Or from a local file:
 
@@ -35,144 +59,233 @@ Or from a local file:
 mockzilla petstore.yml
 ```
 
-## Multiple Specs
+## Inputs
 
-Pass any mix of files, directories, and URLs:
+`mockzilla` accepts any of:
 
 ```bash
-# Multiple files
-mockzilla petstore.yml stripe.yml spoonacular.yml
+# Single OpenAPI spec file
+mockzilla petstore.yml
 
-# Directory containing specs
-mockzilla ./my-specs/
+# Remote spec
+mockzilla https://api.example.com/openapi.json
 
-# URLs
-mockzilla https://petstore3.swagger.io/api/v3/openapi.json https://example.com/api.yml
+# A single-service folder (folder name → service name)
+mockzilla ./pets/
 
-# Mix of files and URLs
-mockzilla petstore.yml https://example.com/stripe.yml ./more-specs/
+# A directory with multiple specs at the top (flat root mode)
+mockzilla ./
+
+# A directory with a services/<name>/ subtree (multi-service mode)
+mockzilla ./
+
+# A .mockz / .tar.gz package, local or remote
+mockzilla petstore.mockz
+mockzilla https://example.com/my-api.mockz
 ```
 
-Each spec becomes a separate service. The service name is derived from the filename or URL path (e.g., `petstore.yml` becomes `/petstore/`).
+See [Directory shapes](#directory-shapes) below for how the same
+`mockzilla ./` invocation resolves to different shapes based on what's
+in the dir.
+
+## Directory shapes
+
+When you point `mockzilla` at a directory, discovery picks one of
+three shapes based on what's at the root:
+
+### 1. Flat root: just toss specs in a folder
+
+The simplest shape. Drop one or more spec files at the top, optionally
+with a shared `context.yml` and `app.yml`. Each spec is a service
+named after its filename.
+
+```text
+./
+├── petstore.yml      → service "petstore"     (/petstore)
+├── stripe.yml        → service "stripe"       (/stripe)
+├── spoonacular.yml   → service "spoonacular"  (/spoonacular)
+├── app.yml           # optional: global app settings
+└── context.yml       # optional: FLAT context applied to every service
+```
+
+```bash
+mockzilla ./
+```
+
+Flat root mode is for the "I just want to mock these few specs"
+case. Per-service config and static endpoints are not supported in
+this shape; switch to one of the shapes below if you need them.
+
+### 2. Single-service folder
+
+When you want per-service config, drop the spec and a `config.yml`
+(and optionally `context.yml`, plus any static endpoints) in one
+folder. The service identity is inferred from **inside** the folder
+(see [Service name inference](#service-name-inference) below), not
+from the folder's own basename.
+
+```text
+pets/
+├── openapi.yml       # OpenAPI spec (any *.{yml,yaml,json} name)
+├── config.yml        # name: pets, latency, errors, mount, upstream, cache
+├── context.yml       # flat replacement values
+├── v1/index.json     # optional: static endpoint → GET /pets/v1
+└── v1/post/index.json # optional: explicit method → POST /pets/v1
+```
+
+```bash
+mockzilla ./pets/    # service name comes from config.yml or the spec basename
+```
+
+The presence of any of `config.yml`, static endpoint files
+(`<…>/index.<ext>`), or exactly one spec at root puts the dir into
+single-service folder mode.
+
+#### Service name inference
+
+For single-folder invocations, in priority order:
+
+1. `name:` field in `config.yml`.
+2. The basename of a non-generic top-level spec file (anything except
+   `openapi.{yml,yaml,json}`).
+3. Otherwise the service has an empty name and mounts at `/` (root).
+   The UI automatically moves from `/` to `/.ui` so the two don't
+   collide. See [HomeURL and root-mounted services](../config/app.md#homeurl-and-root-mounted-services).
+
+This is why `mockzilla .` from a directory named `~/Documents/foo`
+doesn't accidentally produce a service called `foo` — the cwd's
+basename is never used as the name.
+
+### 3. Multi-service `services/` subtree
+
+For projects with multiple configured services, put each one under
+`services/<name>/`. Same per-service layout as shape #2, repeated:
+
+```text
+services/
+├── petstore/
+│   ├── openapi.yml
+│   ├── config.yml
+│   └── context.yml
+├── myapi/
+│   ├── users/index.json          → GET /myapi/users  (implicit GET)
+│   └── users/post/index.json     → POST /myapi/users
+└── orders/                       ← merge: spec + static overlay
+    ├── openapi.yml               # paths: /, /{orderId}
+    └── {orderId}/index.json      → overrides GET /orders/{orderId}
+app.yml                           # optional: global app settings
+```
+
+```bash
+mockzilla ./
+```
+
+## Discovery inside a service folder
+
+Every service folder is matched against one of three shapes:
+
+| Folder contents | Mode | What happens |
+|---|---|---|
+| Top-level spec, no `<…>/index.<ext>` files | **spec** | Endpoints come from the spec. |
+| `<…>/index.<ext>` files, no spec | **static** | A spec is synthesized from the static files. |
+| Both | **merge** | Spec drives endpoints. Each static file overrides matching `(path, method)` or adds a new one. Spec file is also served at `GET /<svc>/<filename>` as a literal asset. |
+
+### Static endpoint convention
+
+| File at service folder root | Mounts at |
+|---|---|
+| `index.<ext>` | `GET /` |
+| `users/index.<ext>` | `GET /users` (implicit GET) |
+| `users/post/index.<ext>` | `POST /users` (explicit method dir) |
+| `users/{id}/index.<ext>` | `GET /users/{id}` |
+| `users/{id}/delete/index.<ext>` | `DELETE /users/{id}` |
+| `notes.json` (not `index.*`) | `GET /notes.json` (literal asset) |
+
+The verb defaults to `GET`. To use a different HTTP method, place
+`index.<ext>` under a lowercased method directory (`get`, `post`,
+`put`, `patch`, `delete`, `head`, `options`, `trace`). Extension
+drives content-type: `.json`, `.yaml`/`.yml`, `.html`, `.xml`, `.txt`.
+
+### Reserved at the service folder root
+
+`config.yml`, `context.yml`, `app.yml`, and any `index.<ext>` are
+never treated as spec candidates. Dotted, underscore-prefixed, and
+well-known noise dirs (`node_modules`, `vendor`, `target`, `dist`)
+are skipped during the static scan.
 
 ## Flags
 
 | Flag | Description |
 |------|-------------|
-| `--port` | Server port (default: from config or 2200) |
-| `--config` | Unified config YAML (app settings + per-service config) |
-| `--context` | Per-service context YAML for value replacements |
+| `--port N` | Server port (0 = OS picks; default: from `app.yml` or 2200) |
+| `--ready-stamp` | Emit a single JSON line on stdout once the listener is bound |
 
-```bash
-mockzilla --port 3000 --config config.yml --context contexts.yml petstore.yml stripe.yml
-```
+### Single-service convenience flags
 
-## Config File
+Only valid when exactly one service is registered (typically with a
+single spec file or single-folder arg):
 
-The `--config` flag accepts a unified YAML file with two optional sections: 
-`app` for application settings and `services` for per-service configuration.
+| Flag | Description |
+|------|-------------|
+| `--latency D` | Latency for the service (e.g. `100ms`, `1s`) |
+| `--mount PATH` | URL mount path (e.g. `pets/v2`) |
+| `--errors RULES` | Error injection rules: `p5=500,p10=503` |
+| `--context FILE` | Path to a flat context YAML |
 
-```yaml
-app:
-  port: 3000
-  title: "My Mock Server"
+For multi-service runs, put these settings in each service's
+`config.yml` / `context.yml` instead.
 
-services:
-  petstore:
-    latency: 100ms
-    errors:
-      p10: 400
-  stripe:
-    latency: 200ms
-    errors:
-      p5: 500
-      p10: 429
-```
-
-### App Section
-
-Controls application-level settings. All fields from [App Config](../config/app.md) are supported. If omitted, defaults are used.
+## Per-service `config.yml`
 
 ```yaml
-app:
-  port: 3000
-  title: "My Mocks"
+latency: 100ms              # constant latency
+# OR percentile latencies
+latencies:
+  p50: 50ms
+  p95: 200ms
+errors:                     # percentile error injection
+  p5: 500                   # 5% of requests → 500
+mount: pets/v2              # override URL prefix (default: <folder-name>)
+upstream:                   # forward to a real backend
+  url: https://petstore3.swagger.io/api/v3
+  timeout: 10s
+cache:
+  requests: true
 ```
 
-The `--port` flag overrides the port from the config file.
-
-### Services Section
-
-Per-service configuration for latency, errors, upstream proxy, caching, and more. 
-Keys are service names (derived from spec filenames). 
 All fields from [Service Config](../config/service.md) are supported.
 
-```yaml
-services:
-  petstore:
-    latency: 100ms
-    errors:
-      p10: 400
-    upstream:
-      url: https://petstore.example.com
-  stripe:
-    latency: 50ms
-    cache:
-      requests: true
-```
+## Per-service `context.yml`
 
-Services not listed in the config get default settings.
-
-## Context File
-
-The `--context` flag accepts a YAML file with per-service context values for controlling generated data. 
-Keys are service names, values follow the [Contexts](../contexts.md) format.
+Flat replacement values. Keys are referenced from the spec/generator,
+with no service-name wrapper. See [Contexts](../contexts.md) for the
+full syntax.
 
 ```yaml
-petstore:
-  name: "doggie"
-  status:
-    - available
-    - pending
-    - sold
-
-spoonacular:
-  cuisineType:
-    - Italian
-    - Chinese
-    - Mexican
+name: ["Fluffy", "Spot", "Rover"]
+tag: ["cat", "dog", "bird"]
 ```
 
-Services not listed get default contexts only.
+## Global `app.yml`
 
-## Static Files
+Optional, at the root of the data dir. All fields from
+[App Config](../config/app.md) are supported.
 
-If a directory contains a `static/` subdirectory, its contents are automatically converted to OpenAPI specs. Organize static responses by service name, path, and HTTP method:
-
-```text
-my-mocks/
-├── petstore.yml              # regular OpenAPI spec
-└── static/
-    └── myapi/
-        └── users/
-            ├── get/
-            │   └── index.json    # GET /myapi/users
-            └── {id}/
-                └── get/
-                    └── index.json    # GET /myapi/users/{id}
+```yaml
+port: 3000
+title: "My Mocks"
+history:
+  enabled: true
+  duration: 1h
 ```
 
-```bash
-mockzilla ./my-mocks/
-```
+The `--port` CLI flag overrides this.
 
-This registers both `petstore` (from the spec) and `myapi` (from static files). Static files are converted to OpenAPI specs internally - the service behaves identically to a spec-based one.
+## Hot reload
 
-Supported file types: `.json`, `.xml`, `.html`, `.txt`, `.yaml`, `.yml`.
-
-## Hot Reload
-
-Spec files are watched for changes. When you edit a spec file, the service handler is hot-swapped without restarting the server. New spec files added to watched directories are automatically registered.
+Spec files, `config.yml`, `context.yml`, and static endpoint files are
+watched for changes. The affected service's handler is hot-swapped
+without restarting the server.
 
 ## Examples
 
@@ -182,31 +295,29 @@ From a URL:
 mockzilla https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
-With config and contexts:
+Quick one-spec serve with knobs (single-service convenience flags):
 
 ```bash
-mockzilla \
-  --config config.yml \
-  --context contexts.yml \
-  --port 8080 \
-  petstore.yml stripe.yml
+mockzilla --port 8080 --latency 50ms --mount pets/v2 petstore.yml
 ```
 
-Mix of local files and URLs:
+Multi-service from a folder tree:
 
 ```bash
-mockzilla petstore.yml https://example.com/stripe.yml ./more-specs/
+mockzilla ./
 ```
 
-Config-only (no custom contexts):
+`.mockz` package:
 
 ```bash
-mockzilla --config config.yml ./specs/
+mockzilla petstore.mockz
+mockzilla https://example.com/my-api.mockz
 ```
 
 ## Template
 
-Start from a GitHub template to get a ready-to-use project with CI/CD that builds a single binary with your specs embedded:
+Start from a GitHub template to get a ready-to-use project with CI/CD
+that builds a single binary with your services embedded:
 
 - [mockzilla-portable-template](https://github.com/mockzilla/mockzilla-portable-template)
 
