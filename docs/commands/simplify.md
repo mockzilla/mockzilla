@@ -13,7 +13,7 @@ generate unwieldy code with deeply nested union types.
 mockzilla simplify [flags] <path-to-spec>
 
 # Or via `go run` without installing (slower; builds the full server binary):
-go run github.com/mockzilla/mockzilla/v2/cmd/server@latest simplify [flags] <path-to-spec>
+go run github.com/mockzilla/mockzilla/v2/cmd/mockzilla@latest simplify [flags] <path-to-spec>
 ```
 
 ## Arguments

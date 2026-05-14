@@ -34,7 +34,7 @@ go run github.com/mockzilla/mockzilla/v2/cmd/gen/discover@latest
 go run github.com/mockzilla/mockzilla/v2/cmd/gen/discover@latest pkg/services
 ```
 
-This generates `cmd/server/services_gen.go` with imports for all discovered services.
+This generates `cmd/mockzilla/services_gen.go` with imports for all discovered services.
 
 Nested directories are supported:
 ```

@@ -48,7 +48,7 @@ func main() {
 	}
 
 	for {
-		exitCode := runServer()
+		exitCode := run()
 		if exitCode == exitCodeRestart {
 			log.Println("Restarting server with new binary...")
 
@@ -90,7 +90,11 @@ func main() {
 	}
 }
 
-func runServer() int {
+// run is the top-level dispatcher: routes the invocation to a
+// subcommand (info / simplify / pack), portable mode (file/URL/dir/
+// package arg), or the codegen-mode app server. Returns the process
+// exit code so main can decide whether to re-exec on a hot reload.
+func run() int {
 	args := os.Args[1:]
 
 	if exit, ok := dispatchSubcommand(args); ok {

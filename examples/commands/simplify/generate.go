@@ -9,4 +9,4 @@ package simplify
 // - optional properties with anyOf/oneOf unions (entire property removed)
 // - anyOf/oneOf from required properties (union removed, property kept)
 //
-//go:generate go run github.com/mockzilla/mockzilla/v2/cmd/server simplify --output simplified.yml --optional 5 source.yml
+//go:generate go run github.com/mockzilla/mockzilla/v2/cmd/mockzilla simplify --output simplified.yml --optional 5 source.yml

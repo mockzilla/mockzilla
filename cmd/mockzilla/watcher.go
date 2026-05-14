@@ -776,7 +776,7 @@ func (dw *dataWatcher) rebuildServer() error {
 
 	serverBinary := filepath.Join(buildDir, "server")
 	slog.Info("Building server binary...", "output", serverBinary)
-	if err := runCmd(dw.paths.Base, "go", "build", "-o", serverBinary, "./cmd/server"); err != nil {
+	if err := runCmd(dw.paths.Base, "go", "build", "-o", serverBinary, "./cmd/mockzilla"); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 

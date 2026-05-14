@@ -30,7 +30,7 @@ volumes.
 ### From Go source
 
 ```bash
-go install github.com/mockzilla/mockzilla/v2/cmd/server@latest
+go install github.com/mockzilla/mockzilla/v2/cmd/mockzilla@latest
 ```
 
 This installs `server` into `$GOPATH/bin`. Rename it to `mockzilla`

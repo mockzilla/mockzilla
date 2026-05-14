@@ -40,7 +40,7 @@ type Endpoint struct {
 }
 
 // Run parses the args and prints the summary. Returns a process exit
-// code so the caller (cmd/server/main.go) can `return inspect.Run(...)`.
+// code so the caller (cmd/mockzilla/main.go) can `return inspect.Run(...)`.
 //
 // Two input shapes are recognised:
 //

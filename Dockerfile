@@ -16,7 +16,7 @@ RUN go build -o /app/.build/gen-service ./cmd/gen/service
 RUN /app/.build/gen-discover
 
 # Build server
-RUN go build -o /app/.build/server/mockzilla ./cmd/server
+RUN go build -o /app/.build/server/mockzilla ./cmd/mockzilla
 
 # Get version
 RUN git describe --tags --abbrev=0 > version.txt || echo "dev" > version.txt

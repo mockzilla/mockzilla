@@ -1,5 +1,5 @@
 internal/integrationtest
 internal/portable/runner.go
 internal/portable/watcher.go
-cmd/server/main.go
-cmd/server/watcher.go
+cmd/mockzilla/main.go
+cmd/mockzilla/watcher.go
