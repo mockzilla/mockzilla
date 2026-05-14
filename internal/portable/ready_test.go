@@ -7,7 +7,10 @@ import (
 
 func TestBuildReadyStamp(t *testing.T) {
 	t.Run("sorts services and includes the home URL", func(t *testing.T) {
-		line, err := buildReadyStamp(2200, "/", []string{"petstore", "adyen"})
+		line, err := buildReadyStamp(2200, "/", []readyService{
+			{Name: "petstore", Path: "/petstore"},
+			{Name: "adyen", Path: "/adyen"},
+		})
 		if err != nil {
 			t.Fatalf("buildReadyStamp returned error: %v", err)
 		}

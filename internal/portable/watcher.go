@@ -14,13 +14,12 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/factory"
 )
 
-// watchSpecs watches spec files for changes, hot-swaps existing handlers
-// and registers new services when new spec files appear.
-func watchSpecs(
-	specs []string,
+// watchServices watches each service's spec, config.yml, context.yml,
+// and static endpoint files for changes; on debounce timeout it
+// rebuilds the affected service's handler and swaps it in-place.
+func watchServices(
+	services []Service,
 	router *api.Router,
-	cfg *portableConfig,
-	contexts map[string][]byte,
 	handlers map[string]*swappableHandler,
 ) {
 	watcher, err := fsnotify.NewWatcher()
@@ -30,21 +29,32 @@ func watchSpecs(
 	}
 	defer func() { _ = watcher.Close() }()
 
-	// Watch spec files and their parent directories (for new files)
-	dirs := make(map[string]bool)
-	for _, spec := range specs {
-		dir := filepath.Dir(spec)
-		if !dirs[dir] {
-			dirs[dir] = true
-			if err := watcher.Add(dir); err != nil {
-				slog.Error("Failed to watch directory", "dir", dir, "error", err)
+	// Map: filesystem path → service name. We register watchers on
+	// directories (fsnotify can't watch nonexistent files), then route
+	// events back to the affected service via the directory the event
+	// happened in.
+	dirToService := make(map[string]string)
+	for _, svc := range services {
+		dirs := dirsToWatch(svc)
+		for _, d := range dirs {
+			if d == "" {
+				continue
 			}
+			if err := watcher.Add(d); err != nil {
+				slog.Debug("Failed to watch dir", "dir", d, "error", err)
+				continue
+			}
+			dirToService[d] = svc.Name
 		}
 	}
 
-	// Debounce timer
+	serviceByName := make(map[string]Service, len(services))
+	for _, s := range services {
+		serviceByName[s.Name] = s
+	}
+
 	var debounceTimer *time.Timer
-	pendingPaths := make(map[string]bool)
+	pending := make(map[string]bool)
 	var mu sync.Mutex
 
 	for {
@@ -53,29 +63,30 @@ func watchSpecs(
 			if !ok {
 				return
 			}
-			if !isSpecFile(event.Name) {
+			name := matchService(event.Name, dirToService)
+			if name == "" {
 				continue
 			}
-			if event.Op&(fsnotify.Write|fsnotify.Create) == 0 {
+			if !isReloadEvent(event) {
 				continue
 			}
 
 			mu.Lock()
-			pendingPaths[event.Name] = true
+			pending[name] = true
 			if debounceTimer != nil {
 				debounceTimer.Stop()
 			}
 			debounceTimer = time.AfterFunc(2*time.Second, func() {
 				mu.Lock()
-				paths := make([]string, 0, len(pendingPaths))
-				for p := range pendingPaths {
-					paths = append(paths, p)
+				names := make([]string, 0, len(pending))
+				for n := range pending {
+					names = append(names, n)
 				}
-				pendingPaths = make(map[string]bool)
+				pending = make(map[string]bool)
 				mu.Unlock()
 
-				for _, path := range paths {
-					reloadSpec(path, router, cfg, contexts, handlers)
+				for _, n := range names {
+					reloadService(serviceByName[n], router, handlers)
 				}
 			})
 			mu.Unlock()
@@ -89,51 +100,109 @@ func watchSpecs(
 	}
 }
 
-// reloadSpec reloads a single spec file and hot-swaps the handler.
-// If the spec is new (not yet registered), it registers a new service.
-func reloadSpec(
-	specPath string,
-	router *api.Router,
-	cfg *portableConfig,
-	contexts map[string][]byte,
-	handlers map[string]*swappableHandler,
-) {
-	name := api.NormalizeServiceName(specPath)
-	ctxBytes := contexts[name]
-
-	// Existing service - hot-swap the handler
-	if sw, ok := handlers[name]; ok {
-		h, err := buildHandler(specPath, ctxBytes)
-		if err != nil {
-			slog.Error("Failed to reload spec", "path", specPath, "error", err)
-			return
-		}
-		sw.swap(h)
-		slog.Info("Reloaded spec", "service", name, "path", specPath)
-		return
+// dirsToWatch returns the directories whose events should trigger a
+// reload of the given service. Watching dirs (not files) handles the
+// editor-rename-on-save pattern fsnotify can't otherwise see.
+func dirsToWatch(svc Service) []string {
+	var dirs []string
+	if svc.ConfigDir != "" {
+		dirs = append(dirs, svc.ConfigDir)
 	}
-
-	// New service - register it
-	svcCfg := cfg.Services[name]
-	if err := registerService(router, specPath, svcCfg, ctxBytes, handlers); err != nil {
-		slog.Error("Failed to register new spec", "path", specPath, "error", err)
-		return
+	if svc.SpecPath != "" {
+		dirs = append(dirs, filepath.Dir(svc.SpecPath))
 	}
-	slog.Info("Registered new service", "service", name, "path", specPath)
+	if svc.StaticDir != "" {
+		dirs = append(dirs, svc.StaticDir)
+	}
+	return dedup(dirs)
 }
 
-// buildHandler creates a handler from a spec file path.
-func buildHandler(specPath string, contextBytes []byte) (*handler, error) {
-	specBytes, err := os.ReadFile(specPath)
+func dedup(in []string) []string {
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
+}
+
+// matchService returns the service name for an event path by walking
+// the directory hierarchy up until it hits a watched directory.
+func matchService(eventPath string, dirToService map[string]string) string {
+	dir := filepath.Dir(eventPath)
+	for dir != "/" && dir != "." {
+		if name, ok := dirToService[dir]; ok {
+			return name
+		}
+		dir = filepath.Dir(dir)
+	}
+	if name, ok := dirToService[eventPath]; ok {
+		return name
+	}
+	return ""
+}
+
+func isReloadEvent(event fsnotify.Event) bool {
+	if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename|fsnotify.Remove) == 0 {
+		return false
+	}
+	base := filepath.Base(event.Name)
+	if base == configFile || base == contextFile {
+		return true
+	}
+	if isSpecFile(base) {
+		return true
+	}
+	// Any file with an extension inside the service folder might be a
+	// static endpoint or asset; trigger a reload.
+	return filepath.Ext(base) != ""
+}
+
+func reloadService(svc Service, router *api.Router, handlers map[string]*swappableHandler) {
+	sw, ok := handlers[svc.Name]
+	if !ok {
+		slog.Warn("No handler to reload", "service", svc.Name)
+		return
+	}
+
+	// Re-resolve from disk so spec/static changes are picked up
+	// uniformly regardless of which mode the folder is in now. It can
+	// even flip between modes (e.g. a user drops their first static
+	// file alongside an existing spec).
+	rebuilt, err := resolveServiceDir(svc.ConfigDir, svc.Name)
+	if err != nil {
+		slog.Error("Failed to re-resolve service", "name", svc.Name, "error", err)
+		return
+	}
+
+	h, err := buildHandler(rebuilt)
+	if err != nil {
+		slog.Error("Failed to reload service", "name", svc.Name, "error", err)
+		return
+	}
+	sw.swap(h)
+	slog.Info("Reloaded service", "name", svc.Name)
+	_ = router
+}
+
+func buildHandler(svc Service) (*handler, error) {
+	specBytes, err := os.ReadFile(svc.SpecPath)
 	if err != nil {
 		return nil, fmt.Errorf("reading spec: %w", err)
 	}
+	ctxBytes, err := loadServiceContext(svc)
+	if err != nil {
+		return nil, fmt.Errorf("loading context: %w", err)
+	}
 
 	var opts []factory.FactoryOption
-	if contextBytes != nil {
-		opts = append(opts, factory.WithServiceContext(contextBytes))
+	if ctxBytes != nil {
+		opts = append(opts, factory.WithServiceContext(ctxBytes))
 	}
 	opts = append(opts, factory.WithSpecOptions(&config.SpecOptions{LazyLoad: true}))
-
 	return newHandler(specBytes, opts...)
 }

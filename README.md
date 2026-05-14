@@ -1,6 +1,6 @@
-<div style="text-align: center; width:450px;">
-    <img src="https://raw.githubusercontent.com/mockzilla/mockzilla/main/resources/docs/images/gotham.svg">
-</div>
+<p align="center">
+    <img src="https://raw.githubusercontent.com/mockzilla/mockzilla/main/resources/docs/images/gotham.svg" width="300">
+</p>
 
 ## Mockzilla
 
@@ -57,7 +57,7 @@ mockzilla https://petstore3.swagger.io/api/v3/openapi.json
 ### Go
 
 ```bash
-go run github.com/mockzilla/mockzilla/v2/cmd/server@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/mockzilla@latest \
   https://petstore3.swagger.io/api/v3/openapi.json
 ```
 

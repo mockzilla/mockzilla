@@ -428,15 +428,15 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 		assert.Len(t, result.Latencies, 2)
 	})
 
-	t.Run("Does not override existing ResourcesPrefix", func(t *testing.T) {
+	t.Run("Does not override existing Mount", func(t *testing.T) {
 		customPrefix := "/custom-prefix"
 		cfg := &ServiceConfig{
-			ResourcesPrefix: customPrefix,
+			Mount: customPrefix,
 		}
 
 		result := cfg.WithDefaults()
 
-		assert.Equal(t, customPrefix, result.ResourcesPrefix)
+		assert.Equal(t, customPrefix, result.Mount)
 	})
 
 	t.Run("Parses latencies when map is provided", func(t *testing.T) {
@@ -469,11 +469,11 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 
 	t.Run("Fills all nil fields at once", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Name:            "test-service",
-			Cache:           nil,
-			Errors:          nil,
-			Latencies:       nil,
-			ResourcesPrefix: "",
+			Name:      "test-service",
+			Cache:     nil,
+			Errors:    nil,
+			Latencies: nil,
+			Mount:     "",
 		}
 
 		result := cfg.WithDefaults()
@@ -546,17 +546,17 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 		assert.Equal(t, "original", result.Name)
 	})
 
-	t.Run("Overwrites ResourcesPrefix when other has non-empty value", func(t *testing.T) {
+	t.Run("Overwrites Mount when other has non-empty value", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			ResourcesPrefix: "/original",
+			Mount: "/original",
 		}
 		other := &ServiceConfig{
-			ResourcesPrefix: "/overwritten",
+			Mount: "/overwritten",
 		}
 
 		result := cfg.OverwriteWith(other)
 
-		assert.Equal(t, "/overwritten", result.ResourcesPrefix)
+		assert.Equal(t, "/overwritten", result.Mount)
 	})
 
 	t.Run("Overwrites Upstream when other has non-nil Upstream", func(t *testing.T) {
@@ -782,14 +782,14 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Overwrites multiple fields at once", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Name:            "original",
-			Latency:         100 * time.Millisecond,
-			ResourcesPrefix: "/original",
+			Name:    "original",
+			Latency: 100 * time.Millisecond,
+			Mount:   "/original",
 		}
 		other := &ServiceConfig{
-			Name:            "overwritten",
-			Latency:         200 * time.Millisecond,
-			ResourcesPrefix: "/overwritten",
+			Name:    "overwritten",
+			Latency: 200 * time.Millisecond,
+			Mount:   "/overwritten",
 			Cache: &CacheConfig{
 				Requests: false,
 			},
@@ -799,7 +799,7 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 		assert.Equal(t, "overwritten", result.Name)
 		assert.Equal(t, 200*time.Millisecond, result.Latency)
-		assert.Equal(t, "/overwritten", result.ResourcesPrefix)
+		assert.Equal(t, "/overwritten", result.Mount)
 		assert.NotNil(t, result.Cache)
 		assert.False(t, result.Cache.Requests)
 	})

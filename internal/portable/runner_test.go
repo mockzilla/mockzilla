@@ -1,9 +1,7 @@
 package portable
 
 import (
-	"archive/tar"
-	"compress/gzip"
-	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,202 +16,315 @@ import (
 
 func TestExtractFS(t *testing.T) {
 	mapFS := fstest.MapFS{
-		"petstore.yml":              &fstest.MapFile{Data: []byte("openapi: 3.0.0")},
-		"app.yml":                   &fstest.MapFile{Data: []byte("port: 3000")},
-		"context.yml":               &fstest.MapFile{Data: []byte("key: value")},
-		"static/svc/GET_hello.json": &fstest.MapFile{Data: []byte(`{"msg":"hi"}`)},
+		"services/petstore/openapi.yml": &fstest.MapFile{Data: []byte("openapi: 3.0.0")},
+		"services/petstore/config.yml":  &fstest.MapFile{Data: []byte("latency: 100ms")},
+		"app.yml":                       &fstest.MapFile{Data: []byte("port: 3000")},
 	}
 
 	dir := t.TempDir()
 	err := extractFS(mapFS, dir)
 	require.NoError(t, err)
 
-	t.Run("extracts files at root", func(t *testing.T) {
-		data, err := os.ReadFile(filepath.Join(dir, "petstore.yml"))
-		require.NoError(t, err)
-		assert.Equal(t, "openapi: 3.0.0", string(data))
-	})
-
 	t.Run("extracts nested files", func(t *testing.T) {
-		data, err := os.ReadFile(filepath.Join(dir, "static", "svc", "GET_hello.json"))
-		require.NoError(t, err)
-		assert.Equal(t, `{"msg":"hi"}`, string(data))
+		assert.True(t, fileExists(filepath.Join(dir, "services", "petstore", "openapi.yml")))
+		assert.True(t, fileExists(filepath.Join(dir, "services", "petstore", "config.yml")))
 	})
 
-	t.Run("creates directories", func(t *testing.T) {
-		info, err := os.Stat(filepath.Join(dir, "static", "svc"))
-		require.NoError(t, err)
-		assert.True(t, info.IsDir())
+	t.Run("extracts root files", func(t *testing.T) {
+		assert.True(t, fileExists(filepath.Join(dir, "app.yml")))
 	})
 }
 
-func TestExtractFS_empty(t *testing.T) {
-	mapFS := fstest.MapFS{}
-	dir := t.TempDir()
-	err := extractFS(mapFS, dir)
-	require.NoError(t, err)
+func TestExtractFS_Empty(t *testing.T) {
+	require.NoError(t, extractFS(fstest.MapFS{}, t.TempDir()))
 }
 
 func TestFileExists(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "exists.txt")
-	require.NoError(t, os.WriteFile(path, []byte("hi"), 0o644))
-
-	assert.True(t, fileExists(path))
+	p := filepath.Join(dir, "ok.txt")
+	require.NoError(t, os.WriteFile(p, []byte("hi"), 0o644))
+	assert.True(t, fileExists(p))
 	assert.False(t, fileExists(filepath.Join(dir, "nope.txt")))
 }
 
-func TestExtractFS_withEmbeddedSpec(t *testing.T) {
+// TestIntegration_ServicesRoot exercises the full pipeline: a root dir
+// with services/<name>/{spec,config,context}, no app.yml, served via
+// the public Run-like flow (router, registerService, real HTTP).
+func TestIntegration_ServicesRoot(t *testing.T) {
 	specBytes := loadTestSpec(t, "petstore.yml")
 
-	mapFS := fstest.MapFS{
-		"petstore.yml": &fstest.MapFile{Data: specBytes},
-	}
+	root := t.TempDir()
+	svcDir := filepath.Join(root, "services", "petstore")
+	require.NoError(t, os.MkdirAll(svcDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(svcDir, "openapi.yml"), specBytes, 0o644))
 
-	dir := t.TempDir()
-	require.NoError(t, extractFS(mapFS, dir))
-
-	specPath := filepath.Join(dir, "petstore.yml")
-	require.True(t, fileExists(specPath))
-
-	// Verify the extracted spec can be used to create a handler
-	data, err := os.ReadFile(specPath)
+	services, err := resolveServices([]string{root})
 	require.NoError(t, err)
+	require.Len(t, services, 1)
+	assert.Equal(t, "petstore", services[0].Name)
 
-	h, err := newHandler(data)
-	require.NoError(t, err)
-	assert.NotEmpty(t, h.Routes())
-}
-
-// buildMockPackage creates a .mockz archive from a map of filenames to content.
-func buildMockPackage(t *testing.T, name string, files map[string][]byte) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), name)
-	f, err := os.Create(path)
-	require.NoError(t, err)
-	defer func() { _ = f.Close() }()
-
-	gw := gzip.NewWriter(f)
-	tw := tar.NewWriter(gw)
-	for fname, data := range files {
-		require.NoError(t, tw.WriteHeader(&tar.Header{
-			Name: fname,
-			Mode: 0o644,
-			Size: int64(len(data)),
-		}))
-		_, err := tw.Write(data)
-		require.NoError(t, err)
-	}
-	require.NoError(t, tw.Close())
-	require.NoError(t, gw.Close())
-	return path
-}
-
-// TestIntegration_MockPackage exercises the full .mockz package flow:
-// build a package, extract it, resolve specs, register services, hit the API.
-func TestIntegration_MockPackage(t *testing.T) {
-	specBytes := loadTestSpec(t, "petstore.yml")
-
-	pkg := buildMockPackage(t, "petstore.mockz", map[string][]byte{
-		"openapi/petstore.yml": specBytes,
-	})
-
-	// Simulate the Run() pipeline: parseFlags -> resolvePackageArgs -> resolveSpecs
-	fl := flags{}
-	positional := resolvePackageArgs([]string{pkg}, &fl)
-	specs := resolveSpecs(positional)
-	require.Len(t, specs, 1, "expected one spec from .mockz package")
-
-	// Wire up the router and register the spec
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
 	handlers := make(map[string]*swappableHandler)
-
-	err := registerService(router, specs[0], nil, nil, handlers)
-	require.NoError(t, err)
-	assert.Contains(t, handlers, "petstore")
+	require.NoError(t, registerService(router, services[0], nil, handlers))
 
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	t.Run("GET /petstore/pets returns mock data", func(t *testing.T) {
-		resp, err := http.Get(ts.URL + "/petstore/pets")
-		require.NoError(t, err)
-		defer func() { _ = resp.Body.Close() }()
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
-
-		var pets []map[string]any
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&pets))
-		require.NotEmpty(t, pets)
-		assert.Contains(t, pets[0], "id")
-		assert.Contains(t, pets[0], "name")
-	})
-
-	t.Run("POST /petstore/pets returns 201", func(t *testing.T) {
-		resp, err := http.Post(ts.URL+"/petstore/pets", "application/json", nil)
-		require.NoError(t, err)
-		defer func() { _ = resp.Body.Close() }()
-
-		assert.Equal(t, http.StatusCreated, resp.StatusCode)
-	})
+	resp, err := http.Get(ts.URL + "/petstore/pets")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
-// TestIntegration_MockPackageWithConfig verifies that app.yml and context.yml
-// inside a .mockz package are picked up by resolvePackageArgs.
-func TestIntegration_MockPackageWithConfig(t *testing.T) {
+// TestIntegration_SingleServiceFolder exercises the single-folder
+// shorthand. The service identity comes from inside the folder:
+// config.yml `name:` or a non-generic spec basename. The folder's own
+// basename is not used as a fallback. Here `mount:` in config.yml
+// pins the URL prefix regardless.
+func TestIntegration_SingleServiceFolder(t *testing.T) {
 	specBytes := loadTestSpec(t, "petstore.yml")
 
-	pkg := buildMockPackage(t, "full.mockz", map[string][]byte{
-		"openapi/petstore.yml": specBytes,
-		"app.yml":              []byte("app:\n  port: 3000\nservices:\n  petstore:\n    latency: 10ms"),
-		"context.yml":          []byte("petstore:\n  base_url: http://localhost:3000"),
-	})
+	dir := filepath.Join(t.TempDir(), "anything")
+	require.NoError(t, os.Mkdir(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "openapi.yml"), specBytes, 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yml"),
+		[]byte("name: pets\nlatency: 0ms\nmount: pets/v2\n"), 0o644))
 
-	fl := flags{}
-	positional := resolvePackageArgs([]string{pkg}, &fl)
-	specs := resolveSpecs(positional)
-	require.Len(t, specs, 1)
-
-	assert.NotEmpty(t, fl.config, "app.yml should be set from package")
-	assert.NotEmpty(t, fl.context, "context.yml should be set from package")
-	assert.True(t, fileExists(fl.config))
-	assert.True(t, fileExists(fl.context))
-
-	// Config and context should be loadable
-	cfg, err := loadPortableConfig(fl.config, t.TempDir())
+	services, err := resolveServices([]string{dir})
 	require.NoError(t, err)
-	assert.NotNil(t, cfg.App)
-
-	contexts, err := loadContexts(fl.context)
-	require.NoError(t, err)
-	assert.Contains(t, contexts, "petstore")
-}
-
-// TestIntegration_MockPackageFromURL verifies the full flow when
-// the .mockz package is served over HTTP.
-func TestIntegration_MockPackageFromURL(t *testing.T) {
-	specBytes := loadTestSpec(t, "petstore.yml")
-
-	pkg := buildMockPackage(t, "remote.mockz", map[string][]byte{
-		"openapi/petstore.yml": specBytes,
-	})
-	pkgData, err := os.ReadFile(pkg)
-	require.NoError(t, err)
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write(pkgData)
-	}))
-	defer srv.Close()
-
-	fl := flags{}
-	positional := resolvePackageArgs([]string{srv.URL + "/petstore.mockz"}, &fl)
-	specs := resolveSpecs(positional)
-	require.Len(t, specs, 1)
+	require.Len(t, services, 1)
+	assert.Equal(t, "pets", services[0].Name)
 
 	router := testRouter(t)
+	_ = api.CreateServiceRoutes(router)
 	handlers := make(map[string]*swappableHandler)
-	err = registerService(router, specs[0], nil, nil, handlers)
+	require.NoError(t, registerService(router, services[0], nil, handlers))
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/pets/v2/pets")
 	require.NoError(t, err)
-	assert.Contains(t, handlers, "petstore")
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+// TestIntegration_PackageRoundtrip builds a .mockz with the new
+// per-service shape, resolves it, registers, and hits the mock API.
+func TestIntegration_PackageRoundtrip(t *testing.T) {
+	specBytes := loadTestSpec(t, "petstore.yml")
+
+	pkg := buildPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
+		"services/petstore/openapi.yml": specBytes,
+		"services/petstore/config.yml":  []byte("latency: 1ms"),
+		"app.yml":                       []byte("port: 0"),
+	})
+
+	services, err := resolveServices([]string{pkg})
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+
+	router := testRouter(t)
+	_ = api.CreateServiceRoutes(router)
+	handlers := make(map[string]*swappableHandler)
+	require.NoError(t, registerService(router, services[0], nil, handlers))
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+	resp, err := http.Get(ts.URL + "/petstore/pets")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+// TestIntegration_MergeSpecAndStatic confirms the user-facing rule for
+// "spec + static endpoints in same folder": the spec keeps driving its
+// own endpoints, each static file either overrides the spec's response
+// for that (path, method) or adds a new endpoint, and the spec file
+// itself is also served at `GET /<filename>` as a literal asset so it
+// stays fetchable for documentation. Folder has only a generic
+// `openapi.yml`, so no inside-name signal: service mounts at /.
+func TestIntegration_MergeSpecAndStatic(t *testing.T) {
+	specBytes := loadTestSpec(t, "petstore.yml")
+
+	dir := filepath.Join(t.TempDir(), "any-cwd")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "pets", "{petId}", "get"), 0o755))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "extra", "get"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "openapi.yml"), specBytes, 0o644))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, "pets", "{petId}", "get", "index.json"),
+		[]byte(`{"id":"static","name":"fixture"}`), 0o644,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, "extra", "get", "index.json"),
+		[]byte(`{"extra":true}`), 0o644,
+	))
+
+	services, err := resolveServices([]string{dir})
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	assert.Empty(t, services[0].Name)
+
+	router := testRouter(t)
+	_ = api.CreateServiceRoutes(router)
+	handlers := make(map[string]*swappableHandler)
+	require.NoError(t, registerService(router, services[0], nil, handlers))
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	// 1. Spec endpoint /pets is untouched; comes from generator.
+	resp, err := http.Get(ts.URL + "/pets")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// 2. Static override for /pets/{petId} returns the fixture body.
+	respO, err := http.Get(ts.URL + "/pets/42")
+	require.NoError(t, err)
+	defer func() { _ = respO.Body.Close() }()
+	assert.Equal(t, http.StatusOK, respO.StatusCode)
+	body, _ := io.ReadAll(respO.Body)
+	assert.Contains(t, string(body), `"id":"static"`)
+	assert.Contains(t, string(body), `"name":"fixture"`)
+
+	// 3. New endpoint /extra wasn't in the spec; comes from static.
+	respE, err := http.Get(ts.URL + "/extra")
+	require.NoError(t, err)
+	defer func() { _ = respE.Body.Close() }()
+	assert.Equal(t, http.StatusOK, respE.StatusCode)
+
+	// 4. The spec file itself is fetchable at its literal path.
+	respA, err := http.Get(ts.URL + "/openapi.yml")
+	require.NoError(t, err)
+	defer func() { _ = respA.Body.Close() }()
+	assert.Equal(t, http.StatusOK, respA.StatusCode)
+}
+
+// TestIntegration_ImplicitGetStatic confirms the simpler convention
+// where `<path>/index.<ext>` (no method dir) implies GET, plus
+// `index.<ext>` at the service root serves the service's root URL.
+// The folder has no inside-name signal, so the service has empty Name
+// and mounts at /.
+func TestIntegration_ImplicitGetStatic(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "any-cwd")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.json"),
+		[]byte(`{"service":"root"}`), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "v1", "users"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "v1", "users", "index.json"),
+		[]byte(`[{"id":1}]`), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "v2", "me"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "v2", "me", "index.json"),
+		[]byte(`{"id":"me"}`), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "v1", "users", "post"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "v1", "users", "post", "index.json"),
+		[]byte(`{"created":true}`), 0o644))
+
+	services, err := resolveServices([]string{dir})
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	assert.Empty(t, services[0].Name, "no inside signal → empty name → mounts at /")
+
+	router := testRouter(t)
+	_ = api.CreateServiceRoutes(router)
+	handlers := make(map[string]*swappableHandler)
+	require.NoError(t, registerService(router, services[0], nil, handlers))
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	for _, c := range []struct {
+		method, path, wantSubstr string
+	}{
+		{"GET", "/", `"service":"root"`},
+		{"GET", "/v1/users", `"id":1`},
+		{"GET", "/v2/me", `"id":"me"`},
+		{"POST", "/v1/users", `"created":true`},
+	} {
+		req, _ := http.NewRequest(c.method, ts.URL+c.path, nil)
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		assert.Equal(t, http.StatusOK, resp.StatusCode, "%s %s", c.method, c.path)
+		assert.Contains(t, string(body), c.wantSubstr, "%s %s body", c.method, c.path)
+	}
+}
+
+// TestIntegration_ScannerSkipsNoisyDirs verifies that node_modules /
+// .git / dotted dirs inside a service folder don't surface stray
+// endpoints (and don't crash the scan). No inside name signal here,
+// so the service mounts at /.
+func TestIntegration_ScannerSkipsNoisyDirs(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "any-cwd")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "v1", "get"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "v1", "get", "index.json"),
+		[]byte(`{"ok":true}`), 0o644))
+	for _, noise := range []string{"node_modules", ".git", "_vendor"} {
+		bogus := filepath.Join(dir, noise, "bogus", "get")
+		require.NoError(t, os.MkdirAll(bogus, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(bogus, "index.json"),
+			[]byte(`{"hidden":true}`), 0o644))
+	}
+
+	services, err := resolveServices([]string{dir})
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	assert.Empty(t, services[0].Name)
+
+	router := testRouter(t)
+	_ = api.CreateServiceRoutes(router)
+	handlers := make(map[string]*swappableHandler)
+	require.NoError(t, registerService(router, services[0], nil, handlers))
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	// Real endpoint is up at the root mount.
+	resp, err := http.Get(ts.URL + "/v1")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Noise paths must NOT have been registered.
+	for _, p := range []string{"/node_modules/bogus", "/.git/bogus", "/_vendor/bogus"} {
+		r, err := http.Get(ts.URL + p)
+		require.NoError(t, err)
+		_ = r.Body.Close()
+		assert.Equal(t, http.StatusNotFound, r.StatusCode, "expected 404 for %s", p)
+	}
+}
+
+// TestIntegration_ConvenienceFlags verifies --latency/--mount/--errors
+// take effect for a single-spec invocation.
+func TestIntegration_ConvenienceFlags(t *testing.T) {
+	specBytes := loadTestSpec(t, "petstore.yml")
+	dir := t.TempDir()
+	spec := filepath.Join(dir, "petstore.yml")
+	require.NoError(t, os.WriteFile(spec, specBytes, 0o644))
+
+	services, err := resolveServices([]string{spec})
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+
+	overrides, err := buildOverrides(flags{
+		latency: "1ms",
+		mount:   "pets/v9",
+	})
+	require.NoError(t, err)
+	require.NotNil(t, overrides)
+
+	router := testRouter(t)
+	_ = api.CreateServiceRoutes(router)
+	handlers := make(map[string]*swappableHandler)
+	require.NoError(t, registerService(router, services[0], overrides, handlers))
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+	resp, err := http.Get(ts.URL + "/pets/v9/pets")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }

@@ -16,7 +16,7 @@ RUN go build -o /app/.build/gen-service ./cmd/gen/service
 RUN /app/.build/gen-discover
 
 # Build server
-RUN go build -o /app/.build/server/mockzilla ./cmd/server
+RUN go build -o /app/.build/server/mockzilla ./cmd/mockzilla
 
 # Get version
 RUN git describe --tags --abbrev=0 > version.txt || echo "dev" > version.txt
@@ -41,14 +41,23 @@ COPY --from=builder /app/version.txt /app/version.txt
 RUN export APP_VERSION=$(cat /app/version.txt) && \
     echo "APP_VERSION=$APP_VERSION" >> /app/.env
 
-# Create directories for user data
-# Users mount their files here and services are auto-generated on startup:
-#   -v ~/my-specs:/app/resources/data/openapi    (OpenAPI specs → auto-generate services)
-#   -v ~/my-static:/app/resources/data/static    (static files → auto-generate services)
-# Generated services are stored in /app/resources/data/services
-RUN mkdir -p /app/resources/data/services
-RUN mkdir -p /app/resources/data/openapi
-RUN mkdir -p /app/resources/data/static
+# Data root. Mount your service tree here in any of the recognised
+# portable-mode shapes:
+#
+#  Multi-service:        /data/services/<name>/...
+#  Flat root of specs:   /data/<spec1>.yml, /data/<spec2>.yml, ...
+#  Single service:       /data/<spec>.yml + /data/config.yml + ...
+#
+# Inside a service folder:
+#  openapi.yml                          spec (any *.{yml,yaml,json} name)
+#  config.yml                           optional: latency, errors, mount, ...
+#  context.yml                          optional: flat replacement values
+#  <path>/index.<ext>                   static endpoint (GET by default)
+#  <path>/<method>/index.<ext>          static endpoint with explicit method
+#
+# Optional /data/app.yml carries global settings. Override the mount
+# point with MOCKZILLA_DATA=<path>.
+RUN mkdir -p /data
 
 COPY resources/ui /app/resources/ui
 COPY entrypoint.sh /app/entrypoint.sh

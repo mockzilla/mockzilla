@@ -132,12 +132,12 @@ func TestServiceHandler_list(t *testing.T) {
 		assert.Equal(t, 0, response.Items[1].ResourceNumber)
 	})
 
-	t.Run("Returns ResourcesPrefix when set", func(t *testing.T) {
+	t.Run("Returns Mount when set", func(t *testing.T) {
 		router := newTestRouter(t)
 		router.config.ServiceURL = "/api/services"
 
 		svcCfg := config.NewServiceConfig()
-		svcCfg.ResourcesPrefix = "pets/v2"
+		svcCfg.Mount = "pets/v2"
 		service := &mockService{
 			name:   "petstore",
 			config: svcCfg,
@@ -633,13 +633,13 @@ func TestServiceParams(t *testing.T) {
 		params := &ServiceParams{
 			AppConfig: config.NewDefaultAppConfig("/test"),
 			ServiceConfig: &config.ServiceConfig{
-				Name:            "my-service",
-				ResourcesPrefix: "/resources",
+				Name:  "my-service",
+				Mount: "/resources",
 			},
 		}
 
 		assert.Equal(t, "my-service", params.ServiceConfig.Name)
-		assert.Equal(t, "/resources", params.ServiceConfig.ResourcesPrefix)
+		assert.Equal(t, "/resources", params.ServiceConfig.Mount)
 	})
 
 	t.Run("handles nil db", func(t *testing.T) {

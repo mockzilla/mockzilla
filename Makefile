@@ -32,7 +32,7 @@ lint:
 build: clean
 	@echo "Go version: $(GO_VERSION)"
 	@go mod download
-	@go build $(GO_BUILD_FLAGS) -ldflags="-X main.version=$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)" -o ${build_dir}/server/mockzilla ./cmd/server
+	@go build $(GO_BUILD_FLAGS) -ldflags="-X main.version=$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)" -o ${build_dir}/server/mockzilla ./cmd/mockzilla
 
 .PHONY: test
 test:
@@ -130,9 +130,9 @@ simplify:
 	fi
 	@SPEC_PATH="$(filter-out $@,$(MAKECMDGOALS))"; \
 	if [ -n "$(output)" ]; then \
-		go run ./cmd/server simplify --output "$(output)" "$$SPEC_PATH"; \
+		go run ./cmd/mockzilla simplify --output "$(output)" "$$SPEC_PATH"; \
 	else \
-		go run ./cmd/server simplify "$$SPEC_PATH"; \
+		go run ./cmd/mockzilla simplify "$$SPEC_PATH"; \
 	fi
 # Usage: make simplify openapi.yml
 # Usage: make simplify openapi.yml output=simplified.yml
@@ -161,7 +161,7 @@ check-fmt:
 server:
 	@echo "Building and starting development server with built-in hot-reload..."
 	@mkdir -p ${build_dir}/server
-	@go build -ldflags="-X main.version=$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)" -o ${build_dir}/server/server ./cmd/server
+	@go build -ldflags="-X main.version=$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)" -o ${build_dir}/server/server ./cmd/mockzilla
 	@${build_dir}/server/server
 
 .PHONY: docker-build

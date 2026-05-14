@@ -135,9 +135,9 @@
         }
       }
     },
-    "resources-prefix": {
+    "mount": {
       "type": "string",
-      "description": "Prefix for helper routes outside OpenAPI spec."
+      "description": "URL prefix at which the service mounts (may contain `/`, e.g. `pets/v2`). Defaults to `/<service-name>` (the service folder name)."
     },
     "generate": {
       "type": "object",

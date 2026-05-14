@@ -1,0 +1,4 @@
+mount: stripe/v1
+latency: 100ms
+errors:
+  p2: 429

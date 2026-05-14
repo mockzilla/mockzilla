@@ -335,18 +335,18 @@ app:
 
 ## Service Configuration
 
-Context files are wired to services through configuration. There's no automatic mapping based on filenames.
+Each service has at most one `context.yml` file alongside its spec.
+The file is a flat YAML mapping of replacement keys to values:
 
-```yaml title="config.yml"
-services:
-  petstore:
-    contexts:
-      - fake: pet        # Use only 'pet' section from fake.yml
-      - fake: people     # Use only 'people' section from fake.yml
-      - person:          # Use entire person.yml context
+```yaml title="services/petstore/context.yml"
+name: ["Fluffy", "Spot", "Rover"]
+tag: ["cat", "dog", "bird"]
+status: ["available", "pending", "sold"]
 ```
 
-Replacement is applied in the order of definition. If no configuration is provided for a service, default contexts are used.
+The built-in `common`, `fake`, and `words` contexts are loaded
+automatically and don't need to be wired in. If a service has no
+`context.yml`, only the built-in defaults apply.
 
 ## Resolution Order
 

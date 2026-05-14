@@ -11,7 +11,7 @@ coverage.out
 coverage_*
 !coverage_exclude.sh
 *.patch
-cmd/server/services_gen.go
+cmd/mockzilla/services_gen.go
 resources/data/services
 resources/data/config.yml
 resources/data/contexts

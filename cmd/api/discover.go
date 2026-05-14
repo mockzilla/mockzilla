@@ -15,7 +15,7 @@ type DiscoverOptions struct {
 	// Optional: services directory to scan
 	ServicesDir string
 
-	// Optional: output file path (default: cmd/server/services_gen.go)
+	// Optional: output file path (default: cmd/mockzilla/services_gen.go)
 	OutputFile string
 }
 
@@ -34,7 +34,7 @@ func Discover(opts DiscoverOptions) error {
 
 	outputFile := opts.OutputFile
 	if outputFile == "" {
-		outputFile = "cmd/server/services_gen.go"
+		outputFile = "cmd/mockzilla/services_gen.go"
 	}
 
 	// Read module name from go.mod

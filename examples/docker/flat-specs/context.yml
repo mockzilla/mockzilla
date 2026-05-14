@@ -1,0 +1,6 @@
+# Flat context applied to every spec in this directory.
+# Same key surface: factories pick up values matching field names.
+
+name: ["Fluffy", "Spot", "Rover", "Bella", "Charlie"]
+tag: ["cat", "dog", "bird"]
+email: ["alice@example.com", "bob@example.com"]

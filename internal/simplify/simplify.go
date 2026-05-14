@@ -3,7 +3,7 @@
 // It exposes a single Simplify entry point that takes an OpenAPI spec as bytes
 // and returns a simplified YAML document as bytes — no flag parsing, no file
 // I/O, no cobra. The CLI wrapper that wires these into a user-facing command
-// lives in cmd/server (simplify.go).
+// lives in cmd/mockzilla (simplify.go).
 package simplify
 
 import (

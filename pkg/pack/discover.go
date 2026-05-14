@@ -1,0 +1,333 @@
+package pack
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	cmdapi "github.com/mockzilla/mockzilla/v2/cmd/api"
+)
+
+const (
+	configFile  = "config.yml"
+	contextFile = "context.yml"
+	appFile     = "app.yml"
+	servicesDir = "services"
+)
+
+var specExts = []string{".yml", ".yaml", ".json"}
+
+// Discover walks srcDir and returns the service registry the manifest
+// should declare. The returned ServiceEntry paths are relative to
+// srcDir (so they round-trip cleanly as tar entry names inside the
+// archive).
+//
+// The discovery rules mirror what `internal/portable` applies at
+// runtime so a packed archive produces the same service set as a raw
+// directory invocation. Three shapes are recognised:
+//
+//   - `services/<name>/` subtree → one entry per child folder.
+//   - A `config.yml`, static endpoints, or exactly one spec at the
+//     root → single-service folder. Name inferred from
+//     `config.yml`'s `name:` or a non-generic spec basename; falls
+//     back to empty (root-mounted).
+//   - Multiple top-level spec files → flat-root mode, one service per
+//     spec named after the filename basename.
+func Discover(srcDir string) ([]ServiceEntry, error) {
+	info, err := os.Stat(srcDir)
+	if err != nil {
+		return nil, fmt.Errorf("stat %s: %w", srcDir, err)
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("%s is not a directory", srcDir)
+	}
+
+	servicesRoot := filepath.Join(srcDir, servicesDir)
+	if info, err := os.Stat(servicesRoot); err == nil && info.IsDir() {
+		return discoverServicesRoot(srcDir, servicesRoot)
+	}
+
+	hasConfig := fileExists(filepath.Join(srcDir, configFile))
+	hasStatic := cmdapi.HasStaticEndpoints(srcDir)
+	specs := findAllSpecsInDir(srcDir)
+
+	if hasConfig || hasStatic || len(specs) == 1 {
+		entry, err := serviceEntryFromDir(srcDir, srcDir, "", inferServiceName(srcDir, hasConfig))
+		if err != nil {
+			return nil, err
+		}
+		return []ServiceEntry{entry}, nil
+	}
+
+	if len(specs) == 0 {
+		return nil, fmt.Errorf(
+			"nothing to pack in %s (expected services/ subdir, a top-level spec, "+
+				"a config.yml, or static endpoints)", srcDir)
+	}
+
+	out := make([]ServiceEntry, 0, len(specs))
+	for _, specPath := range specs {
+		rel, err := filepath.Rel(srcDir, specPath)
+		if err != nil {
+			return nil, err
+		}
+		name := serviceNameFromFile(specPath)
+		out = append(out, ServiceEntry{
+			Name:  name,
+			Mount: "/" + name,
+			Mode:  ModeSpec,
+			Dir:   "", // flat-root specs live at the archive root
+			Files: ServiceFiles{Spec: filepath.ToSlash(rel)},
+		})
+	}
+	return out, nil
+}
+
+func discoverServicesRoot(srcDir, servicesRootDir string) ([]ServiceEntry, error) {
+	entries, err := os.ReadDir(servicesRootDir)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", servicesRootDir, err)
+	}
+	var out []ServiceEntry
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		svcDir := filepath.Join(servicesRootDir, e.Name())
+		relDir, err := filepath.Rel(srcDir, svcDir)
+		if err != nil {
+			return nil, err
+		}
+		entry, err := serviceEntryFromDir(srcDir, svcDir, filepath.ToSlash(relDir), e.Name())
+		if err != nil {
+			return nil, fmt.Errorf("service %q: %w", e.Name(), err)
+		}
+		out = append(out, entry)
+	}
+	return out, nil
+}
+
+// serviceEntryFromDir resolves a single service folder into a manifest
+// entry. Paths in the returned entry are relative to srcDir so they
+// match the tar entry names in the eventual archive. relDir is the
+// service folder's in-archive path (empty when the archive root itself
+// is the service folder).
+func serviceEntryFromDir(srcDir, dir, relDir, name string) (ServiceEntry, error) {
+	mount := readMountOverride(dir)
+	if mount == "" {
+		mount = mountFromName(name)
+	}
+
+	specPath := findSpecInDir(dir)
+	hasStatic := cmdapi.HasStaticEndpoints(dir)
+
+	if specPath == "" && !hasStatic {
+		return ServiceEntry{}, fmt.Errorf(
+			"no spec file and no <…>/index.<ext> static endpoints found in %s", dir)
+	}
+
+	mode := ModeSpec
+	switch {
+	case specPath != "" && hasStatic:
+		mode = ModeMerge
+	case specPath == "" && hasStatic:
+		mode = ModeStatic
+	}
+
+	files, err := buildServiceFiles(srcDir, dir, specPath)
+	if err != nil {
+		return ServiceEntry{}, err
+	}
+
+	endpoints, err := buildEndpointList(srcDir, dir, hasStatic)
+	if err != nil {
+		return ServiceEntry{}, err
+	}
+
+	return ServiceEntry{
+		Name:      name,
+		Mount:     mount,
+		Mode:      mode,
+		Dir:       relDir,
+		Files:     files,
+		Endpoints: endpoints,
+	}, nil
+}
+
+func buildServiceFiles(srcDir, dir, specPath string) (ServiceFiles, error) {
+	var files ServiceFiles
+	if specPath != "" {
+		rel, err := filepath.Rel(srcDir, specPath)
+		if err != nil {
+			return files, err
+		}
+		files.Spec = filepath.ToSlash(rel)
+	}
+	if cfg := filepath.Join(dir, configFile); fileExists(cfg) {
+		rel, _ := filepath.Rel(srcDir, cfg)
+		files.Config = filepath.ToSlash(rel)
+	}
+	if ctx := filepath.Join(dir, contextFile); fileExists(ctx) {
+		rel, _ := filepath.Rel(srcDir, ctx)
+		files.Context = filepath.ToSlash(rel)
+	}
+	return files, nil
+}
+
+func buildEndpointList(srcDir, dir string, hasStatic bool) ([]EndpointEntry, error) {
+	if !hasStatic {
+		return nil, nil
+	}
+	routes, err := cmdapi.ScanStatic(dir)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]EndpointEntry, 0, len(routes))
+	for _, route := range routes {
+		var fileRel string
+		if route.SourceFile != "" {
+			rel, err := filepath.Rel(srcDir, route.SourceFile)
+			if err != nil {
+				return nil, fmt.Errorf("relative path for %s: %w", route.SourceFile, err)
+			}
+			fileRel = filepath.ToSlash(rel)
+		}
+		out = append(out, EndpointEntry{
+			Method:      strings.ToUpper(route.Method),
+			Path:        route.Path,
+			File:        fileRel,
+			ContentType: route.ContentType,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Path != out[j].Path {
+			return out[i].Path < out[j].Path
+		}
+		return out[i].Method < out[j].Method
+	})
+	return out, nil
+}
+
+// readMountOverride parses just the `mount:` field out of config.yml,
+// or returns empty if config.yml is absent or the field isn't set.
+// Avoids a full ServiceConfig parse since we only care about one
+// field here.
+func readMountOverride(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, configFile))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "mount:") {
+			continue
+		}
+		v := strings.TrimSpace(strings.TrimPrefix(trimmed, "mount:"))
+		v = strings.Trim(v, `"'`)
+		if v == "" {
+			continue
+		}
+		if !strings.HasPrefix(v, "/") {
+			v = "/" + v
+		}
+		return v
+	}
+	return ""
+}
+
+func mountFromName(name string) string {
+	if name == "" {
+		return "/"
+	}
+	return "/" + name
+}
+
+func inferServiceName(dir string, hasConfigFile bool) string {
+	if hasConfigFile {
+		if name := readConfigName(dir); name != "" {
+			return name
+		}
+	}
+	for _, spec := range findAllSpecsInDir(dir) {
+		base := filepath.Base(spec)
+		stem := strings.TrimSuffix(base, filepath.Ext(base))
+		if strings.EqualFold(stem, "openapi") {
+			continue
+		}
+		return stem
+	}
+	return ""
+}
+
+func readConfigName(dir string) string {
+	data, err := os.ReadFile(filepath.Join(dir, configFile))
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "name:") {
+			continue
+		}
+		v := strings.TrimSpace(strings.TrimPrefix(trimmed, "name:"))
+		return strings.Trim(v, `"'`)
+	}
+	return ""
+}
+
+func findAllSpecsInDir(dir string) []string {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var candidates []string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if name == configFile || name == contextFile || name == appFile {
+			continue
+		}
+		stem := strings.TrimSuffix(name, filepath.Ext(name))
+		if stem == "index" {
+			continue
+		}
+		if !isSpecFile(name) {
+			continue
+		}
+		candidates = append(candidates, filepath.Join(dir, name))
+	}
+	sort.Strings(candidates)
+	return candidates
+}
+
+func findSpecInDir(dir string) string {
+	c := findAllSpecsInDir(dir)
+	if len(c) == 0 {
+		return ""
+	}
+	return c[0]
+}
+
+func isSpecFile(name string) bool {
+	ext := strings.ToLower(filepath.Ext(name))
+	for _, e := range specExts {
+		if ext == e {
+			return true
+		}
+	}
+	return false
+}
+
+func serviceNameFromFile(path string) string {
+	base := filepath.Base(path)
+	return strings.TrimSuffix(base, filepath.Ext(base))
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}

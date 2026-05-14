@@ -16,6 +16,10 @@ type Route struct {
 	Path        string
 	ContentType string
 	Content     string
+	// SourceFile is the on-disk path the route was scanned from,
+	// relative to nothing (caller decides what to do with it). Empty
+	// for synthetic routes that weren't materialised as a file.
+	SourceFile string
 }
 
 // httpMethods is the set of recognized HTTP methods used to identify method directories.
@@ -24,9 +28,56 @@ var httpMethods = map[string]bool{
 	"delete": true, "head": true, "options": true, "trace": true,
 }
 
-// scanStaticFiles scans a static directory and returns all routes.
-// Directory structure: <staticDir>/<path>/<method>/index.<ext>
-// Example: data/users/get/index.json -> GET /users
+// reservedConfigFiles are top-level filenames that carry mockzilla's own
+// configuration rather than user-served content. They are skipped during
+// service-folder scanning so neither spec discovery nor static-file
+// auto-serving picks them up.
+var reservedConfigFiles = map[string]bool{
+	"config.yml":  true,
+	"context.yml": true,
+	"app.yml":     true,
+}
+
+// skippedDirNames lists subdirectory names that scans skip outright.
+// Anything dotted or underscore-prefixed is also skipped (covers .git,
+// .idea, .vscode, _build, etc.).
+var skippedDirNames = map[string]bool{
+	"node_modules": true,
+	"vendor":       true,
+	"target":       true,
+	"dist":         true,
+}
+
+// shouldSkipDir reports whether a subdirectory of a scanned tree should
+// be ignored: tooling caches, hidden dirs, and the usual noise.
+func shouldSkipDir(name string) bool {
+	if name == "" || name == "." {
+		return false
+	}
+	if strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_") {
+		return true
+	}
+	return skippedDirNames[name]
+}
+
+// scanStaticFiles scans a service folder for static-mode endpoint files.
+// Three contributions, in order of specificity:
+//
+//  1. `<path>/<method>/index.<ext>` (parent of the index file is a
+//     lowercase HTTP method) → `<METHOD> /<path>`. Use this form when
+//     you need non-GET endpoints.
+//
+//  2. `<path>/index.<ext>` (parent isn't a method) → `GET /<path>`.
+//     Default for the common "drop a fixture at a URL" case.
+//
+//  3. A top-level `index.<ext>` at the service folder root →
+//     `GET /` (the service's root endpoint). Any other top-level
+//     non-reserved file with a supported extension → `GET /<filename>`
+//     returning the literal content (lets the spec file be fetchable
+//     at its own path when present alongside static endpoints).
+//
+// Files with non-supported extensions are ignored. Hidden and
+// well-known noise directories (.git, node_modules, …) are skipped.
 func scanStaticFiles(staticDir string) ([]Route, error) {
 	var routes []Route
 
@@ -36,49 +87,77 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 		}
 
 		if info.IsDir() {
+			if path == staticDir {
+				return nil
+			}
+			if shouldSkipDir(info.Name()) {
+				return filepath.SkipDir
+			}
 			return nil
 		}
 
-		// Get extension and check if it's a supported content type
 		ext := filepath.Ext(info.Name())
 		contentType := getContentType(ext)
 		if contentType == "" {
 			return nil
 		}
 
-		// Get the path relative to static directory
 		relPath, err := filepath.Rel(staticDir, path)
 		if err != nil {
 			return err
 		}
-
-		// Split into segments: [...pathSegments, method, filename]
 		segments := strings.Split(filepath.ToSlash(relPath), "/")
-		if len(segments) < 2 {
+		stem := strings.TrimSuffix(info.Name(), ext)
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("reading file %s: %w", path, err)
+		}
+		body := strings.TrimRight(string(content), "\n\r\t ")
+
+		// Top-level file (no parent dir inside the service folder).
+		if len(segments) == 1 {
+			if reservedConfigFiles[info.Name()] {
+				return nil
+			}
+			if stem == "index" {
+				// Root endpoint for the service.
+				routes = append(routes, Route{
+					Method: "GET", Path: "/",
+					ContentType: contentType, Content: body,
+					SourceFile: path,
+				})
+			} else {
+				// Literal asset (e.g. spec file fetchable at its path).
+				routes = append(routes, Route{
+					Method: "GET", Path: "/" + info.Name(),
+					ContentType: contentType, Content: body,
+					SourceFile: path,
+				})
+			}
 			return nil
 		}
 
-		// The method is the parent directory of the file
+		// Nested file: figure out method + path. Default verb is GET;
+		// use `<method>/` as the immediate parent of `index.<ext>` to
+		// override.
+		method := "GET"
+		pathSegments := segments[:len(segments)-1] // drop filename
 		methodDir := segments[len(segments)-2]
-		if !httpMethods[strings.ToLower(methodDir)] {
-			return nil
+		if httpMethods[strings.ToLower(methodDir)] {
+			method = strings.ToUpper(methodDir)
+			pathSegments = segments[:len(segments)-2] // drop method + filename
 		}
-		method := strings.ToUpper(methodDir)
 
-		// Path segments are everything before the method directory
-		pathSegments := segments[:len(segments)-2]
-
-		// Build URL path
 		urlPath := "/"
 		if len(pathSegments) > 0 {
 			urlPath = "/" + strings.Join(pathSegments, "/")
 		}
 
-		// Get filename without extension
-		filename := strings.TrimSuffix(info.Name(), ext)
-
-		// If filename is not "index", append it to the URL path
-		if filename != "index" {
+		// Non-`index` filenames keep their name in the URL (e.g.
+		// `users/admin.json` → /users/admin.json). Useful for serving
+		// multiple fixtures under the same path.
+		if stem != "index" {
 			if urlPath == "/" {
 				urlPath = "/" + info.Name()
 			} else {
@@ -86,21 +165,13 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 			}
 		}
 
-		// Read file content
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("reading file %s: %w", path, err)
-		}
-
-		contentStr := strings.TrimRight(string(content), "\n\r\t ")
-
 		routes = append(routes, Route{
 			Method:      method,
 			Path:        urlPath,
 			ContentType: contentType,
-			Content:     contentStr,
+			Content:     body,
+			SourceFile:  path,
 		})
-
 		return nil
 	})
 
@@ -109,6 +180,43 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 	}
 
 	return routes, nil
+}
+
+// HasStaticEndpoints reports whether the directory contains at least
+// one `<…>/index.<ext>` file (with or without an explicit method dir).
+// Used by service-folder discovery to decide between spec mode and
+// static mode.
+func HasStaticEndpoints(dir string) bool {
+	found := false
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info == nil {
+			return nil
+		}
+		if info.IsDir() {
+			if path == dir {
+				return nil
+			}
+			if shouldSkipDir(info.Name()) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		filename := info.Name()
+		stem := strings.TrimSuffix(filename, filepath.Ext(filename))
+		if stem != "index" {
+			return nil
+		}
+		if getContentType(filepath.Ext(filename)) == "" {
+			return nil
+		}
+		// A top-level `index.<ext>` is also a static endpoint
+		// (mounted at the service root). Anywhere deeper, the file is
+		// always a static endpoint regardless of whether the parent
+		// dir is an HTTP method (we default to GET when it isn't).
+		found = true
+		return filepath.SkipDir
+	})
+	return found
 }
 
 // getContentType returns the content type for a file extension.
@@ -156,60 +264,10 @@ func generateOpenAPIFromStatic(routes []Route, serviceName string) ([]byte, erro
 			paths[path] = pathItem
 		}
 
-		// Infer schema from content
-		responseSchema, err := schema.BuildSchemaFromContent([]byte(route.Content), route.ContentType)
+		operation, err := buildStaticOperation(route)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build schema for %s %s: %w", route.Method, route.Path, err)
+			return nil, err
 		}
-
-		// Convert our schema to OpenAPI schema map
-		schemaMap := schemaToMap(responseSchema)
-
-		// Generate operation ID from method and path
-		operationId := generateOperationId(method, path)
-
-		// Create operation
-		operation := map[string]any{
-			"operationId": operationId,
-			"responses": map[string]any{
-				"200": map[string]any{
-					"description": "Success",
-					"content": map[string]any{
-						route.ContentType: map[string]any{
-							"schema":            schemaMap,
-							"x-static-response": route.Content,
-						},
-					},
-				},
-			},
-		}
-
-		// Add an optional query parameter so all methods get ServiceRequestOptions
-		// with RawRequest, giving access to headers, query parameters, and the raw HTTP request.
-		operation["parameters"] = []any{
-			map[string]any{
-				"name":     "q",
-				"in":       "query",
-				"required": false,
-				"schema":   map[string]any{"type": "string"},
-			},
-		}
-
-		// For non-GET methods, also accept any request body.
-		if method != "get" {
-			operation["requestBody"] = map[string]any{
-				"required": false,
-				"content": map[string]any{
-					"application/json": map[string]any{
-						"schema": map[string]any{
-							"type":                 "object",
-							"additionalProperties": true,
-						},
-					},
-				},
-			}
-		}
-
 		pathItem[method] = operation
 	}
 
@@ -221,6 +279,107 @@ func generateOpenAPIFromStatic(routes []Route, serviceName string) ([]byte, erro
 
 	header := "# This file is auto-generated from static files in setup/data/.\n# Do not edit manually - modify the static files and regenerate instead.\n"
 	return append([]byte(header), yamlBytes...), nil
+}
+
+// buildStaticOperation builds one OpenAPI operation that carries a
+// literal response body via the `x-static-response` extension. Shared
+// between the spec-synthesized-from-static path and the merge path
+// (where it overrides an entry inside a user-supplied spec).
+func buildStaticOperation(route Route) (map[string]any, error) {
+	method := strings.ToLower(route.Method)
+
+	responseSchema, err := schema.BuildSchemaFromContent([]byte(route.Content), route.ContentType)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build schema for %s %s: %w", route.Method, route.Path, err)
+	}
+	schemaMap := schemaToMap(responseSchema)
+
+	operation := map[string]any{
+		"operationId": generateOperationId(method, route.Path),
+		"responses": map[string]any{
+			"200": map[string]any{
+				"description": "Success",
+				"content": map[string]any{
+					route.ContentType: map[string]any{
+						"schema":            schemaMap,
+						"x-static-response": route.Content,
+					},
+				},
+			},
+		},
+		"parameters": []any{
+			map[string]any{
+				"name":     "q",
+				"in":       "query",
+				"required": false,
+				"schema":   map[string]any{"type": "string"},
+			},
+		},
+	}
+
+	if method != "get" {
+		operation["requestBody"] = map[string]any{
+			"required": false,
+			"content": map[string]any{
+				"application/json": map[string]any{
+					"schema": map[string]any{
+						"type":                 "object",
+						"additionalProperties": true,
+					},
+				},
+			},
+		}
+	}
+
+	return operation, nil
+}
+
+// MergeStaticIntoSpec overlays static routes on top of an existing
+// OpenAPI document. Each route either replaces the spec's (path,
+// method) operation (carrying the static body via `x-static-response`)
+// or adds a new path/method that wasn't in the spec. The merged
+// document is returned as YAML bytes regardless of the input format.
+// Mockzilla parses both, and downstream consumers only need to read
+// the result.
+func MergeStaticIntoSpec(specBytes []byte, routes []Route) ([]byte, error) {
+	var doc map[string]any
+	if err := yaml.Unmarshal(specBytes, &doc); err != nil {
+		return nil, fmt.Errorf("parsing spec: %w", err)
+	}
+	if doc == nil {
+		doc = make(map[string]any)
+	}
+
+	paths, _ := doc["paths"].(map[string]any)
+	if paths == nil {
+		paths = make(map[string]any)
+		doc["paths"] = paths
+	}
+
+	for _, route := range routes {
+		operation, err := buildStaticOperation(route)
+		if err != nil {
+			return nil, err
+		}
+		method := strings.ToLower(route.Method)
+		pathItem, _ := paths[route.Path].(map[string]any)
+		if pathItem == nil {
+			pathItem = make(map[string]any)
+			paths[route.Path] = pathItem
+		}
+		pathItem[method] = operation
+	}
+
+	out, err := yaml.Dump(doc, yaml.WithIndent(2))
+	if err != nil {
+		return nil, fmt.Errorf("serialising merged spec: %w", err)
+	}
+	return out, nil
+}
+
+// ScanStatic exposes scanStaticFiles for callers outside this package.
+func ScanStatic(dir string) ([]Route, error) {
+	return scanStaticFiles(dir)
 }
 
 // schemaToMap converts our schema.Schema to a map for OpenAPI spec.

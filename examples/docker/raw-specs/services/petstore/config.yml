@@ -1,0 +1,3 @@
+latency: 50ms
+cache:
+  requests: true

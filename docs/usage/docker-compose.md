@@ -1,10 +1,10 @@
 # Docker Compose
 
-Run Mockzilla as a container alongside your app. No Go or binary install needed — just mount your spec files and start the stack.
+Run Mockzilla as a container alongside your app. No Go install
+needed. Mount your per-service tree at `/data/services` and start the
+stack.
 
 ## Quick Start
-
-Create a `docker-compose.yml`:
 
 ```yaml
 services:
@@ -13,54 +13,66 @@ services:
     ports:
       - "2200:2200"
     volumes:
-      - ./openapi:/app/resources/data/openapi:ro
+      - ./services:/data/services:ro
 ```
 
-Place your OpenAPI specs in the `openapi/` directory and run `docker compose up`.
+Drop each service into `services/<name>/` and run `docker compose up`.
 
-## Spec Files and Static Responses
+## Layout
 
-The container reads from two mount points:
-
-- `/app/resources/data/openapi/` — OpenAPI spec files (YAML or JSON).
-- `/app/resources/data/static/` — static response files organized by path and method.
-
-A flat file like `openapi/petstore.yml` creates a service at `/petstore/...`. A nested directory like `openapi/stripe/openapi.yml` creates a service at `/stripe/...`. Both patterns work side by side.
-
-Static files follow a directory convention — the path and HTTP method become the URL:
+The container expects the portable per-service shape under
+`/data` (configurable via `MOCKZILLA_DATA`):
 
 ```text
-static/myapi/users/get/index.json  →  GET /myapi/users
+project/
+├── docker-compose.yml
+├── app.yml                                ← optional global settings
+└── services/
+    ├── petstore/                          ← spec-only
+    │   ├── openapi.yml
+    │   ├── config.yml
+    │   └── context.yml
+    ├── stripe/                            ← spec with mount override
+    │   ├── openapi.yml
+    │   └── config.yml                     ← mount: stripe/v1
+    ├── myapi/                             ← static-only
+    │   ├── users/get/index.json
+    │   └── users/{id}/get/index.json
+    └── orders/                            ← merge: spec + static overrides
+        ├── openapi.yml
+        └── orders/{orderId}/get/index.json
 ```
 
-Supported file types: `.json`, `.xml`, `.html`, `.txt`, `.yaml`, `.yml`. See [Services](../services.md) for more on how service names are resolved.
-
-## Configuration
-
-The Docker image runs in portable mode. Mount an `app.yml` to `/app/resources/data/app.yml` to configure app-level settings and per-service behavior in a single file:
-
-```yaml
-app:
-  title: My API Mock
-  history:
-    enabled: false
-
-services:
-  stripe:
-    latency: 50ms
-    cache:
-      requests: true
-    errors:
-      p5: 500
-      p2: 429
+```bash
+curl http://localhost:2200/petstore/pets
+curl http://localhost:2200/stripe/v1/customers
+curl http://localhost:2200/myapi/users
+curl http://localhost:2200/orders/orders         # spec
+curl http://localhost:2200/orders/orders/abc     # static override
+curl http://localhost:2200/orders/openapi.yml    # spec as literal asset
 ```
+
+See [Services](../services.md) for full discovery rules per folder.
+
+## Global app config
+
+Mount an optional `app.yml` next to `services/`:
 
 ```yaml
 volumes:
-  - ./app.yml:/app/resources/data/app.yml:ro
+  - ./services:/data/services:ro
+  - ./app.yml:/data/app.yml:ro
 ```
 
-Per-service context replacements can be mounted the same way at `/app/resources/data/context.yml`.
+`app.yml` holds only global settings (port, history, storage, etc.).
+Per-service knobs live in each service's `config.yml`.
+
+```yaml
+port: 2200
+history:
+  enabled: true
+  duration: 1h
+```
 
 Environment variables also work and override file values:
 
@@ -70,11 +82,23 @@ environment:
   - APP_DISABLE_CONFIG_UI=true
 ```
 
-See [Service Config](../config/service.md) for all per-service options.
+See [Service Config](../config/service.md) for per-service options.
 
-## Health Check and App Integration
+## Custom data root
 
-Use the built-in readiness endpoint to make your app wait for Mockzilla:
+Override with `MOCKZILLA_DATA`:
+
+```yaml
+services:
+  mockzilla:
+    image: mockzilla/mockzilla:latest
+    environment:
+      - MOCKZILLA_DATA=/srv/mocks
+    volumes:
+      - ./services:/srv/mocks/services:ro
+```
+
+## Health check and app integration
 
 ```yaml
 services:
@@ -83,8 +107,7 @@ services:
     ports:
       - "2200:2200"
     volumes:
-      - ./openapi:/app/resources/data/openapi:ro
-      - ./static:/app/resources/data/static:ro
+      - ./services:/data/services:ro
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:2200/healthz"]
       interval: 10s
@@ -101,29 +124,8 @@ services:
         condition: service_healthy
 ```
 
-Other containers in the same Compose network reach Mockzilla at `http://my-service:2200`.
+Other containers in the same Compose network reach Mockzilla at
+`http://my-service:2200`.
 
-## Full Example
-
-```text
-project/
-├── docker-compose.yml
-├── app.yml
-├── openapi/
-│   ├── petstore.yml
-│   └── stripe/
-│       └── openapi.yml
-└── static/
-    └── myapi/
-        └── users/
-            └── get/
-                └── index.json
-```
-
-```bash
-curl http://localhost:2200/petstore/pets
-curl http://localhost:2200/stripe/customers
-curl http://localhost:2200/myapi/users
-```
-
-A working version is in [`examples/docker-compose/raw-specs`](https://github.com/mockzilla/mockzilla/tree/main/examples/docker-compose/raw-specs).
+A working version is in
+[`examples/docker-compose/raw-specs`](https://github.com/mockzilla/mockzilla/tree/main/examples/docker-compose/raw-specs).

@@ -47,7 +47,7 @@ jobs:
             EXT=".exe"
           fi
           BINARY="mockzilla-${{ env.TAG }}-${{ matrix.goos }}-${{ matrix.goarch }}${EXT}"
-          go build -ldflags="-s -w -X main.version=${TAG}" -o "${BINARY}" ./cmd/server
+          go build -ldflags="-s -w -X main.version=${TAG}" -o "${BINARY}" ./cmd/mockzilla
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

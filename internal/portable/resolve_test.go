@@ -21,61 +21,6 @@ func TestIsURL(t *testing.T) {
 	assert.False(t, isURL("ftp://example.com/spec.yml"))
 }
 
-func TestDownloadSpec(t *testing.T) {
-	t.Run("downloads and saves spec", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte("openapi: 3.0.0"))
-		}))
-		defer srv.Close()
-
-		path, err := downloadSpec(srv.URL + "/petstore.yml")
-		require.NoError(t, err)
-		assert.Contains(t, path, "petstore.yml")
-
-		data, err := os.ReadFile(path)
-		require.NoError(t, err)
-		assert.Equal(t, "openapi: 3.0.0", string(data))
-	})
-
-	t.Run("appends .yml if no spec extension", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte("openapi: 3.0.0"))
-		}))
-		defer srv.Close()
-
-		path, err := downloadSpec(srv.URL + "/v2/api-docs")
-		require.NoError(t, err)
-		assert.True(t, isSpecFile(path))
-	})
-
-	t.Run("returns error on HTTP failure", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusInternalServerError)
-		}))
-		defer srv.Close()
-
-		_, err := downloadSpec(srv.URL + "/spec.yml")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "500")
-	})
-
-	t.Run("uses host as filename for root URL", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte("openapi: 3.0.0"))
-		}))
-		defer srv.Close()
-
-		path, err := downloadSpec(srv.URL + "/")
-		require.NoError(t, err)
-		assert.True(t, isSpecFile(path))
-	})
-
-	t.Run("returns error on connection failure", func(t *testing.T) {
-		_, err := downloadSpec("http://127.0.0.1:1/spec.yml")
-		assert.Error(t, err)
-	})
-}
-
 func TestIsSpecFile(t *testing.T) {
 	assert.True(t, isSpecFile("petstore.yaml"))
 	assert.True(t, isSpecFile("petstore.yml"))
@@ -95,8 +40,364 @@ func TestIsPackageFile(t *testing.T) {
 	assert.False(t, isPackageFile("petstore"))
 }
 
-// buildTestPackage creates a .mockz (tar.gz) archive in dir with the given files.
-func buildTestPackage(t *testing.T, dir string, name string, files map[string][]byte) string {
+func TestFindSpecInDir(t *testing.T) {
+	t.Run("returns empty when no spec", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yml"), []byte("x: 1"), 0o644))
+		assert.Empty(t, findSpecInDir(dir))
+	})
+
+	t.Run("picks canonical openapi.yml", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "openapi.yml"), []byte("openapi: 3.0.0"), 0o644))
+		assert.Equal(t, filepath.Join(dir, "openapi.yml"), findSpecInDir(dir))
+	})
+
+	t.Run("picks single non-canonical spec", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "stripe.2026.yaml"), []byte("openapi: 3.0.0"), 0o644))
+		assert.Equal(t, filepath.Join(dir, "stripe.2026.yaml"), findSpecInDir(dir))
+	})
+
+	t.Run("skips config/context/app files", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yml"), []byte("x:1"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "context.yml"), []byte("y:2"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "app.yml"), []byte("z:3"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "stripe.yml"), []byte("openapi: 3.0.0"), 0o644))
+
+		assert.Equal(t, filepath.Join(dir, "stripe.yml"), findSpecInDir(dir))
+	})
+
+	t.Run("picks alphabetically first of multiple candidates", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "z-other.yml"), []byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "a-first.yml"), []byte("openapi: 3.0.0"), 0o644))
+
+		assert.Equal(t, filepath.Join(dir, "a-first.yml"), findSpecInDir(dir))
+	})
+
+	t.Run("ignores subdirectories", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.Mkdir(filepath.Join(dir, "static"), 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "static", "x.json"), []byte("{}"), 0o644))
+		assert.Empty(t, findSpecInDir(dir))
+	})
+}
+
+func TestResolveOne_File(t *testing.T) {
+	dir := t.TempDir()
+	spec := filepath.Join(dir, "petstore.yml")
+	require.NoError(t, os.WriteFile(spec, []byte("openapi: 3.0.0"), 0o644))
+
+	services, err := resolveOne(spec)
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	assert.Equal(t, "petstore", services[0].Name)
+	assert.Equal(t, spec, services[0].SpecPath)
+	assert.Empty(t, services[0].ConfigDir)
+}
+
+func TestResolveOne_URL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("openapi: 3.0.0"))
+	}))
+	defer srv.Close()
+
+	t.Run("specific filename wins", func(t *testing.T) {
+		services, err := resolveOne(srv.URL + "/petstore.yml")
+		require.NoError(t, err)
+		require.Len(t, services, 1)
+		assert.Equal(t, "petstore", services[0].Name)
+	})
+
+	t.Run("generic basename falls back to host", func(t *testing.T) {
+		// e.g. https://localhost:PORT/openapi.json → name from host.
+		services, err := resolveOne(srv.URL + "/openapi.json")
+		require.NoError(t, err)
+		require.Len(t, services, 1)
+		assert.NotEqual(t, "openapi", services[0].Name)
+		assert.Contains(t, services[0].Name, "127.0.0.1")
+	})
+}
+
+func TestResolveDir_SingleService(t *testing.T) {
+	t.Run("dir with only canonical openapi.yml gets empty name (mounts at root)", func(t *testing.T) {
+		root := t.TempDir()
+		dir := filepath.Join(root, "pets")
+		require.NoError(t, os.Mkdir(dir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "openapi.yml"), []byte("openapi: 3.0.0"), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		require.Len(t, services, 1)
+		// `openapi.yml` is a generic filename and no config.yml is
+		// present, so no inside-the-folder signal supplies a name.
+		// The folder's own basename is intentionally NOT used.
+		assert.Empty(t, services[0].Name)
+		assert.Equal(t, dir, services[0].ConfigDir)
+	})
+
+	t.Run("dir with non-generic spec name uses spec basename", func(t *testing.T) {
+		root := t.TempDir()
+		dir := filepath.Join(root, "anything")
+		require.NoError(t, os.Mkdir(dir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "stripe.2026.yaml"), []byte("openapi: 3.0.0"), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		require.Len(t, services, 1)
+		assert.Equal(t, "stripe.2026", services[0].Name)
+	})
+
+	t.Run("dir with config.yml `name:` field wins over spec basename", func(t *testing.T) {
+		dir := filepath.Join(t.TempDir(), "anything")
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "stripe.yaml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yml"),
+			[]byte("name: payments\n"), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		require.Len(t, services, 1)
+		assert.Equal(t, "payments", services[0].Name)
+	})
+
+	t.Run("dir with only flat static gets empty name (mounts at root)", func(t *testing.T) {
+		dir := filepath.Join(t.TempDir(), "anything")
+		usersGet := filepath.Join(dir, "users", "get")
+		require.NoError(t, os.MkdirAll(usersGet, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(usersGet, "index.json"), []byte(`{"id":1}`), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		require.Len(t, services, 1)
+		assert.Empty(t, services[0].Name)
+		assert.NotEmpty(t, services[0].SpecPath)
+		assert.Equal(t, dir, services[0].StaticDir)
+	})
+
+	t.Run("merge mode (generic spec + static) gets empty name", func(t *testing.T) {
+		dir := filepath.Join(t.TempDir(), "anything")
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "openapi.yml"),
+			[]byte("openapi: 3.0.0\ninfo: {title: x, version: '1'}\npaths: {}"), 0o644))
+		getDir := filepath.Join(dir, "v1", "get")
+		require.NoError(t, os.MkdirAll(getDir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(getDir, "index.json"),
+			[]byte(`{"ok":true}`), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		require.Len(t, services, 1)
+		assert.Empty(t, services[0].Name)
+		assert.NotContains(t, services[0].SpecPath, dir)
+		assert.Contains(t, services[0].SpecPath, "mockzilla-portable")
+		assert.Equal(t, dir, services[0].StaticDir)
+	})
+
+	t.Run("dir with neither spec nor static returns error", func(t *testing.T) {
+		_, err := resolveDir(t.TempDir())
+		assert.Error(t, err)
+	})
+
+	t.Run("`.` and `./` don't leak cwd basename into service name", func(t *testing.T) {
+		dir := filepath.Join(t.TempDir(), "should-not-leak")
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "openapi.yml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+
+		origWd, err := os.Getwd()
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = os.Chdir(origWd) })
+		require.NoError(t, os.Chdir(dir))
+
+		for _, arg := range []string{".", "./"} {
+			services, err := resolveDir(arg)
+			require.NoError(t, err)
+			require.Len(t, services, 1)
+			assert.Empty(t, services[0].Name, "arg=%q should not produce a name from cwd basename", arg)
+		}
+	})
+}
+
+func TestResolveDir_FlatRoot(t *testing.T) {
+	t.Run("multiple specs at root become multiple services", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "petstore.yml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "stripe.yaml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "spoonacular.json"),
+			[]byte("{\"openapi\": \"3.0.0\"}"), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		require.Len(t, services, 3)
+
+		names := make(map[string]bool)
+		for _, s := range services {
+			names[s.Name] = true
+			assert.Equal(t, dir, s.ConfigDir, "flat-root services share the dir for shared context.yml")
+		}
+		assert.True(t, names["petstore"])
+		assert.True(t, names["stripe"])
+		assert.True(t, names["spoonacular"])
+	})
+
+	t.Run("shared context.yml at root applies to every flat-root service", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "a.yml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "b.yml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "context.yml"),
+			[]byte("name: [\"Alice\", \"Bob\"]\n"), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		require.Len(t, services, 2)
+
+		for _, s := range services {
+			ctxBytes, err := loadServiceContext(s)
+			require.NoError(t, err)
+			require.NotNil(t, ctxBytes, "service %q should pick up the shared context.yml", s.Name)
+			assert.Contains(t, string(ctxBytes), "Alice")
+		}
+	})
+
+	t.Run("app.yml is not picked up as a service", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "petstore.yml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "stripe.yml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "app.yml"),
+			[]byte("port: 9000\n"), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		require.Len(t, services, 2)
+		for _, s := range services {
+			assert.NotEqual(t, "app", s.Name)
+		}
+	})
+
+	t.Run("config.yml at root demotes flat root → single-service folder", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "petstore.yml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "stripe.yml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yml"),
+			[]byte("latency: 10ms\n"), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		// One service because config.yml flips us out of flat-root.
+		// Name comes from inside signals: config.yml has no `name:`,
+		// so the alphabetically-first non-generic spec wins.
+		require.Len(t, services, 1)
+		assert.Equal(t, "petstore", services[0].Name)
+	})
+
+	t.Run("config.yml `name:` wins over spec basenames", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "petstore.yml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "stripe.yml"),
+			[]byte("openapi: 3.0.0"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yml"),
+			[]byte("name: combined\nlatency: 10ms\n"), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		require.Len(t, services, 1)
+		assert.Equal(t, "combined", services[0].Name)
+	})
+}
+
+func TestResolveDir_ServicesRoot(t *testing.T) {
+	root := t.TempDir()
+	servicesPath := filepath.Join(root, "services")
+	require.NoError(t, os.Mkdir(servicesPath, 0o755))
+
+	// petstore: canonical spec
+	petsDir := filepath.Join(servicesPath, "petstore")
+	require.NoError(t, os.Mkdir(petsDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(petsDir, "openapi.yml"), []byte("openapi: 3.0.0"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(petsDir, "config.yml"), []byte("latency: 100ms"), 0o644))
+
+	// spoonacular: non-canonical spec name
+	spoonDir := filepath.Join(servicesPath, "spoonacular")
+	require.NoError(t, os.Mkdir(spoonDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(spoonDir, "spoonacular.com.yaml"), []byte("openapi: 3.0.0"), 0o644))
+
+	// static-only service (no wrapper, just <method>/index.<ext>)
+	staticOnlyDir := filepath.Join(servicesPath, "static-only")
+	usersGet := filepath.Join(staticOnlyDir, "users", "get")
+	require.NoError(t, os.MkdirAll(usersGet, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(usersGet, "index.json"), []byte(`{}`), 0o644))
+
+	services, err := resolveDir(root)
+	require.NoError(t, err)
+	require.Len(t, services, 3)
+
+	byName := map[string]Service{}
+	for _, s := range services {
+		byName[s.Name] = s
+	}
+	assert.Contains(t, byName, "petstore")
+	assert.Contains(t, byName, "spoonacular")
+	assert.Contains(t, byName, "static-only")
+	assert.Equal(t, petsDir, byName["petstore"].ConfigDir)
+}
+
+func TestIsPortableMode(t *testing.T) {
+	dir := t.TempDir()
+	spec := filepath.Join(dir, "petstore.yml")
+	require.NoError(t, os.WriteFile(spec, []byte("openapi: 3.0.0"), 0o644))
+
+	t.Run("detects spec file arg", func(t *testing.T) {
+		assert.True(t, IsPortableMode([]string{spec}))
+	})
+	t.Run("detects directory with spec at root", func(t *testing.T) {
+		assert.True(t, IsPortableMode([]string{dir}))
+	})
+	t.Run("detects services subdir", func(t *testing.T) {
+		root := t.TempDir()
+		svc := filepath.Join(root, "services", "pets")
+		require.NoError(t, os.MkdirAll(svc, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(svc, "openapi.yml"), []byte("openapi: 3.0.0"), 0o644))
+		assert.True(t, IsPortableMode([]string{root}))
+	})
+	t.Run("detects flat static endpoints", func(t *testing.T) {
+		root := t.TempDir()
+		s := filepath.Join(root, "x", "get")
+		require.NoError(t, os.MkdirAll(s, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(s, "index.json"), []byte("{}"), 0o644))
+		assert.True(t, IsPortableMode([]string{root}))
+	})
+	t.Run("ignores flags", func(t *testing.T) {
+		assert.True(t, IsPortableMode([]string{spec, "--port", "3000"}))
+	})
+	t.Run("returns false for empty args", func(t *testing.T) {
+		assert.False(t, IsPortableMode(nil))
+	})
+	t.Run("returns false for empty dir", func(t *testing.T) {
+		assert.False(t, IsPortableMode([]string{t.TempDir()}))
+	})
+	t.Run("detects URL spec", func(t *testing.T) {
+		assert.True(t, IsPortableMode([]string{"https://example.com/petstore.yml"}))
+	})
+	t.Run("detects .mockz arg", func(t *testing.T) {
+		assert.True(t, IsPortableMode([]string{"petstore.mockz"}))
+	})
+}
+
+// buildPackage creates a .mockz with the supplied in-archive contents.
+func buildPackage(t *testing.T, dir, name string, files map[string][]byte) string {
 	t.Helper()
 	path := filepath.Join(dir, name)
 	f, err := os.Create(path)
@@ -120,528 +421,157 @@ func buildTestPackage(t *testing.T, dir string, name string, files map[string][]
 }
 
 func TestExtractPackage(t *testing.T) {
-	t.Run("extracts spec and config files", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
-			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
-			"app.yml":              []byte("app:\n  port: 3000"),
-			"context.yml":          []byte("petstore:\n  key: val"),
-		})
-
-		dir, err := extractPackage(pkg)
-		require.NoError(t, err)
-
-		data, err := os.ReadFile(filepath.Join(dir, "openapi", "petstore.yml"))
-		require.NoError(t, err)
-		assert.Equal(t, "openapi: 3.0.0", string(data))
-
-		assert.True(t, fileExists(filepath.Join(dir, "app.yml")))
-		assert.True(t, fileExists(filepath.Join(dir, "context.yml")))
+	pkg := buildPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
+		"services/petstore/openapi.yml": []byte("openapi: 3.0.0"),
+		"services/petstore/config.yml":  []byte("latency: 50ms"),
+		"app.yml":                       []byte("port: 3000"),
 	})
 
-	t.Run("works with tar.gz extension", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "specs.tar.gz", map[string][]byte{
-			"openapi/api.yaml": []byte("openapi: 3.1.0"),
-		})
-
-		dir, err := extractPackage(pkg)
-		require.NoError(t, err)
-
-		assert.True(t, fileExists(filepath.Join(dir, "openapi", "api.yaml")))
-	})
-
-	t.Run("returns error for non-existent file", func(t *testing.T) {
-		_, err := extractPackage("/nonexistent/test.mockz")
-		assert.Error(t, err)
-	})
-
-	t.Run("returns error for invalid gzip", func(t *testing.T) {
-		path := filepath.Join(t.TempDir(), "bad.mockz")
-		require.NoError(t, os.WriteFile(path, []byte("not gzip data"), 0o644))
-
-		_, err := extractPackage(path)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "gzip")
-	})
-
-	t.Run("returns error for corrupt tar inside valid gzip", func(t *testing.T) {
-		dir := t.TempDir()
-		path := filepath.Join(dir, "corrupt.mockz")
-		f, err := os.Create(path)
-		require.NoError(t, err)
-
-		gw := gzip.NewWriter(f)
-		_, _ = gw.Write([]byte("this is not tar data"))
-		require.NoError(t, gw.Close())
-		require.NoError(t, f.Close())
-
-		_, err = extractPackage(path)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "reading tar")
-	})
-
-	t.Run("skips path traversal entries", func(t *testing.T) {
-		dir := t.TempDir()
-		path := filepath.Join(dir, "traversal.mockz")
-		f, err := os.Create(path)
-		require.NoError(t, err)
-
-		gw := gzip.NewWriter(f)
-		tw := tar.NewWriter(gw)
-		// Safe entry
-		safeData := []byte("openapi: 3.0.0")
-		require.NoError(t, tw.WriteHeader(&tar.Header{
-			Name: "safe.yml",
-			Mode: 0o644,
-			Size: int64(len(safeData)),
-		}))
-		_, err = tw.Write(safeData)
-		require.NoError(t, err)
-		// Path traversal entry -- should be skipped
-		evilData := []byte("evil")
-		require.NoError(t, tw.WriteHeader(&tar.Header{
-			Name: "../../../etc/evil.txt",
-			Mode: 0o644,
-			Size: int64(len(evilData)),
-		}))
-		_, err = tw.Write(evilData)
-		require.NoError(t, err)
-		require.NoError(t, tw.Close())
-		require.NoError(t, gw.Close())
-		require.NoError(t, f.Close())
-
-		extracted, err := extractPackage(path)
-		require.NoError(t, err)
-		assert.True(t, fileExists(filepath.Join(extracted, "safe.yml")))
-		assert.False(t, fileExists("/etc/evil.txt"))
-	})
-
-	t.Run("handles tar with directory entries", func(t *testing.T) {
-		dir := t.TempDir()
-		path := filepath.Join(dir, "dirs.mockz")
-		f, err := os.Create(path)
-		require.NoError(t, err)
-
-		gw := gzip.NewWriter(f)
-		tw := tar.NewWriter(gw)
-		require.NoError(t, tw.WriteHeader(&tar.Header{
-			Name:     "openapi/",
-			Typeflag: tar.TypeDir,
-			Mode:     0o755,
-		}))
-		data := []byte("openapi: 3.0.0")
-		require.NoError(t, tw.WriteHeader(&tar.Header{
-			Name: "openapi/spec.yml",
-			Mode: 0o644,
-			Size: int64(len(data)),
-		}))
-		_, err = tw.Write(data)
-		require.NoError(t, err)
-		require.NoError(t, tw.Close())
-		require.NoError(t, gw.Close())
-		require.NoError(t, f.Close())
-
-		extracted, err := extractPackage(path)
-		require.NoError(t, err)
-		assert.True(t, fileExists(filepath.Join(extracted, "openapi", "spec.yml")))
-	})
+	dir, err := extractPackage(pkg)
+	require.NoError(t, err)
+	assert.True(t, fileExists(filepath.Join(dir, "services", "petstore", "openapi.yml")))
+	assert.True(t, fileExists(filepath.Join(dir, "services", "petstore", "config.yml")))
+	assert.True(t, fileExists(filepath.Join(dir, "app.yml")))
 }
 
-func TestResolvePackageArgs(t *testing.T) {
-	t.Run("extracts package and sets config/context flags", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
-			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
-			"app.yml":              []byte("app:\n  port: 3000"),
-			"context.yml":          []byte("petstore:\n  key: val"),
-		})
-
-		fl := flags{}
-		result := resolvePackageArgs([]string{pkg}, &fl)
-
-		// Returns [openapi/ dir, parent dir]
-		require.Len(t, result, 2)
-		assert.True(t, fileExists(filepath.Join(result[0], "petstore.yml")))
-		assert.NotEmpty(t, fl.config)
-		assert.NotEmpty(t, fl.context)
+func TestResolveOne_Package(t *testing.T) {
+	pkg := buildPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
+		"services/petstore/openapi.yml": []byte("openapi: 3.0.0"),
+		"services/petstore/config.yml":  []byte("latency: 50ms"),
 	})
 
-	t.Run("does not override existing config flag", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
-			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
-			"app.yml":              []byte("app:\n  port: 3000"),
-		})
+	services, err := resolveOne(pkg)
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	assert.Equal(t, "petstore", services[0].Name)
+}
 
-		fl := flags{config: "/my/config.yml"}
-		resolvePackageArgs([]string{pkg}, &fl)
-
-		assert.Equal(t, "/my/config.yml", fl.config)
+func TestResolveOne_URLPackage(t *testing.T) {
+	pkgPath := buildPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
+		"services/petstore/openapi.yml": []byte("openapi: 3.0.0"),
 	})
+	pkgData, err := os.ReadFile(pkgPath)
+	require.NoError(t, err)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write(pkgData)
+	}))
+	defer srv.Close()
 
-	t.Run("passes through non-package args unchanged", func(t *testing.T) {
-		fl := flags{}
-		args := []string{"petstore.yml", "/some/dir"}
-		result := resolvePackageArgs(args, &fl)
+	services, err := resolveOne(srv.URL + "/test.mockz")
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	assert.Equal(t, "petstore", services[0].Name)
+}
 
-		assert.Equal(t, args, result)
-		assert.Empty(t, fl.config)
-	})
-
-	t.Run("downloads and extracts URL package", func(t *testing.T) {
-		pkgPath := buildTestPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
-			"openapi/api.yml": []byte("openapi: 3.0.0"),
-		})
-		pkgData, err := os.ReadFile(pkgPath)
-		require.NoError(t, err)
-
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write(pkgData)
+func TestDownloadSpec(t *testing.T) {
+	t.Run("downloads spec", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte("openapi: 3.0.0"))
 		}))
 		defer srv.Close()
 
-		fl := flags{}
-		result := resolvePackageArgs([]string{srv.URL + "/api.mockz"}, &fl)
-
-		require.Len(t, result, 2)
-		assert.True(t, fileExists(filepath.Join(result[0], "api.yml")))
+		path, err := downloadSpec(srv.URL + "/petstore.yml")
+		require.NoError(t, err)
+		assert.Contains(t, path, "petstore.yml")
 	})
 
-	t.Run("skips URL without package extension", func(t *testing.T) {
-		fl := flags{}
-		args := []string{"https://example.com/petstore.yml"}
-		result := resolvePackageArgs(args, &fl)
-		assert.Equal(t, args, result)
+	t.Run("appends .yml when no spec extension", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = w.Write([]byte("openapi: 3.0.0"))
+		}))
+		defer srv.Close()
+
+		path, err := downloadSpec(srv.URL + "/v2/api-docs")
+		require.NoError(t, err)
+		assert.True(t, isSpecFile(path))
 	})
 
-	t.Run("skips URL that fails to download", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	t.Run("errors on HTTP failure", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 		}))
 		defer srv.Close()
 
-		fl := flags{}
-		result := resolvePackageArgs([]string{srv.URL + "/fail.mockz"}, &fl)
-		assert.Equal(t, []string{srv.URL + "/fail.mockz"}, result)
-	})
-
-	t.Run("skips invalid local package", func(t *testing.T) {
-		bad := filepath.Join(t.TempDir(), "bad.mockz")
-		require.NoError(t, os.WriteFile(bad, []byte("not a tarball"), 0o644))
-
-		fl := flags{}
-		result := resolvePackageArgs([]string{bad}, &fl)
-		assert.Equal(t, []string{bad}, result)
-	})
-
-	t.Run("package without openapi dir uses root only", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "flat.mockz", map[string][]byte{
-			"petstore.yml": []byte("openapi: 3.0.0"),
-		})
-
-		fl := flags{}
-		result := resolvePackageArgs([]string{pkg}, &fl)
-
-		// No openapi/ subdir, so only the parent dir is returned
-		require.Len(t, result, 1)
-	})
-
-	t.Run("does not override existing context flag", func(t *testing.T) {
-		pkg := buildTestPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
-			"openapi/petstore.yml": []byte("openapi: 3.0.0"),
-			"context.yml":          []byte("petstore:\n  key: val"),
-		})
-
-		fl := flags{context: "/my/context.yml"}
-		resolvePackageArgs([]string{pkg}, &fl)
-
-		assert.Equal(t, "/my/context.yml", fl.context)
-	})
-}
-
-func TestDownloadFile(t *testing.T) {
-	t.Run("downloads file successfully", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte("file content"))
-		}))
-		defer srv.Close()
-
-		path, err := downloadFile(srv.URL + "/test.mockz")
-		require.NoError(t, err)
-		assert.Contains(t, path, "test.mockz")
-
-		data, err := os.ReadFile(path)
-		require.NoError(t, err)
-		assert.Equal(t, "file content", string(data))
-	})
-
-	t.Run("returns error on HTTP failure", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-		}))
-		defer srv.Close()
-
-		_, err := downloadFile(srv.URL + "/missing.mockz")
+		_, err := downloadSpec(srv.URL + "/spec.yml")
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "404")
-	})
-
-	t.Run("returns error on connection failure", func(t *testing.T) {
-		_, err := downloadFile("http://127.0.0.1:1/test.mockz")
-		assert.Error(t, err)
-	})
-
-	t.Run("uses fallback name for root URL", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte("data"))
-		}))
-		defer srv.Close()
-
-		path, err := downloadFile(srv.URL + "/")
-		require.NoError(t, err)
-		assert.Contains(t, path, "package.mockz")
-	})
-}
-
-func TestIsPortableMode(t *testing.T) {
-	// Create temp dir with spec files
-	dir := t.TempDir()
-	specPath := filepath.Join(dir, "petstore.yml")
-	require.NoError(t, os.WriteFile(specPath, []byte("openapi: 3.0.0"), 0644))
-
-	t.Run("detects spec file arg", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{specPath}))
-	})
-
-	t.Run("detects directory with specs", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{dir}))
-	})
-
-	t.Run("ignores flags", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{specPath, "--port", "3000"}))
-	})
-
-	t.Run("returns false for non-spec args", func(t *testing.T) {
-		assert.False(t, IsPortableMode([]string{"/some/app/dir"}))
-	})
-
-	t.Run("returns false for empty args", func(t *testing.T) {
-		assert.False(t, IsPortableMode(nil))
-	})
-
-	t.Run("returns false for directory without specs", func(t *testing.T) {
-		emptyDir := t.TempDir()
-		assert.False(t, IsPortableMode([]string{emptyDir}))
-	})
-
-	t.Run("detects URL arg", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{"https://example.com/petstore.yml"}))
-	})
-
-	t.Run("detects URL mixed with files", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{specPath, "https://example.com/api.json"}))
-	})
-
-	t.Run("detects non-existent spec file arg", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{"/nonexistent/petstore.json"}))
-	})
-
-	t.Run("detects directory with static subdir", func(t *testing.T) {
-		staticDir := t.TempDir()
-		svcDir := filepath.Join(staticDir, "static", "myapi", "users", "get")
-		require.NoError(t, os.MkdirAll(svcDir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(svcDir, "index.json"), []byte(`{"id":1}`), 0o644))
-		assert.True(t, IsPortableMode([]string{staticDir}))
-	})
-
-	t.Run("detects .mockz file arg", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{"petstore.mockz"}))
-	})
-
-	t.Run("detects .tar.gz file arg", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{"specs.tar.gz"}))
-	})
-
-	t.Run("detects .mockz URL arg", func(t *testing.T) {
-		assert.True(t, IsPortableMode([]string{"https://example.com/petstore.mockz"}))
-	})
-}
-
-func TestResolveSpecs(t *testing.T) {
-	dir := t.TempDir()
-	spec1 := filepath.Join(dir, "petstore.yml")
-	spec2 := filepath.Join(dir, "stripe.yaml")
-	nonSpec := filepath.Join(dir, "readme.md")
-
-	require.NoError(t, os.WriteFile(spec1, []byte("openapi: 3.0.0"), 0644))
-	require.NoError(t, os.WriteFile(spec2, []byte("openapi: 3.0.0"), 0644))
-	require.NoError(t, os.WriteFile(nonSpec, []byte("# readme"), 0644))
-
-	t.Run("resolves individual spec files", func(t *testing.T) {
-		specs := resolveSpecs([]string{spec1, spec2})
-		assert.Len(t, specs, 2)
-		assert.Contains(t, specs, spec1)
-		assert.Contains(t, specs, spec2)
-	})
-
-	t.Run("resolves specs from directory", func(t *testing.T) {
-		specs := resolveSpecs([]string{dir})
-		assert.Len(t, specs, 2)
-	})
-
-	t.Run("skips flags", func(t *testing.T) {
-		specs := resolveSpecs([]string{"--port", "3000", spec1})
-		assert.Len(t, specs, 1)
-	})
-
-	t.Run("skips non-spec files", func(t *testing.T) {
-		specs := resolveSpecs([]string{nonSpec})
-		assert.Empty(t, specs)
-	})
-
-	t.Run("returns nil for no matches", func(t *testing.T) {
-		specs := resolveSpecs([]string{"/nonexistent/path"})
-		assert.Nil(t, specs)
-	})
-
-	t.Run("downloads URL specs", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte("openapi: 3.0.0"))
-		}))
-		defer srv.Close()
-
-		specs := resolveSpecs([]string{srv.URL + "/petstore.yml"})
-		require.Len(t, specs, 1)
-		data, err := os.ReadFile(specs[0])
-		require.NoError(t, err)
-		assert.Equal(t, "openapi: 3.0.0", string(data))
-	})
-
-	t.Run("mixes files and URLs", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte("openapi: 3.0.0"))
-		}))
-		defer srv.Close()
-
-		specs := resolveSpecs([]string{spec1, srv.URL + "/stripe.yml"})
-		assert.Len(t, specs, 2)
-	})
-
-	t.Run("skips failed URL downloads", func(t *testing.T) {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			w.WriteHeader(http.StatusNotFound)
-		}))
-		defer srv.Close()
-
-		specs := resolveSpecs([]string{srv.URL + "/missing.yml"})
-		assert.Empty(t, specs)
-	})
-
-	t.Run("resolves static directory into specs", func(t *testing.T) {
-		rootDir := t.TempDir()
-		svcDir := filepath.Join(rootDir, "static", "myapi", "users", "get")
-		require.NoError(t, os.MkdirAll(svcDir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(svcDir, "index.json"), []byte(`{"id":1,"name":"John"}`), 0o644))
-
-		specs := resolveSpecs([]string{rootDir})
-		require.Len(t, specs, 1)
-		assert.Contains(t, specs[0], "myapi.yml")
-
-		data, err := os.ReadFile(specs[0])
-		require.NoError(t, err)
-		assert.Contains(t, string(data), "openapi")
-	})
-
-	t.Run("mixes spec files and static dir", func(t *testing.T) {
-		rootDir := t.TempDir()
-
-		// Add a regular spec
-		require.NoError(t, os.WriteFile(filepath.Join(rootDir, "petstore.yml"), []byte("openapi: 3.0.0\ninfo:\n  title: test\n  version: '1'\npaths: {}"), 0o644))
-
-		// Add a static service
-		svcDir := filepath.Join(rootDir, "static", "myapi", "users", "get")
-		require.NoError(t, os.MkdirAll(svcDir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(svcDir, "index.json"), []byte(`{"id":1}`), 0o644))
-
-		specs := resolveSpecs([]string{rootDir})
-		assert.Len(t, specs, 2)
-	})
-}
-
-func TestHasStaticDir(t *testing.T) {
-	t.Run("returns true for dir with static subdir containing service dirs", func(t *testing.T) {
-		dir := t.TempDir()
-		require.NoError(t, os.MkdirAll(filepath.Join(dir, "static", "myapi"), 0o755))
-		assert.True(t, hasStaticDir(dir))
-	})
-
-	t.Run("returns false for dir without static subdir", func(t *testing.T) {
-		assert.False(t, hasStaticDir(t.TempDir()))
-	})
-
-	t.Run("returns false for nonexistent dir", func(t *testing.T) {
-		assert.False(t, hasStaticDir("/nonexistent"))
-	})
-
-	t.Run("returns false for static dir with only files", func(t *testing.T) {
-		dir := t.TempDir()
-		staticDir := filepath.Join(dir, "static")
-		require.NoError(t, os.MkdirAll(staticDir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(staticDir, "readme.txt"), []byte("hi"), 0o644))
-		assert.False(t, hasStaticDir(dir))
-	})
-}
-
-func TestResolveStaticSpecs(t *testing.T) {
-	t.Run("returns nil for dir without static subdir", func(t *testing.T) {
-		assert.Nil(t, resolveStaticSpecs(t.TempDir()))
-	})
-
-	t.Run("skips non-directory entries in static dir", func(t *testing.T) {
-		dir := t.TempDir()
-		staticDir := filepath.Join(dir, "static")
-		require.NoError(t, os.MkdirAll(staticDir, 0o755))
-		require.NoError(t, os.WriteFile(filepath.Join(staticDir, "readme.txt"), []byte("hi"), 0o644))
-		specs := resolveStaticSpecs(dir)
-		assert.Empty(t, specs)
-	})
-
-	t.Run("skips service dirs with no static files", func(t *testing.T) {
-		dir := t.TempDir()
-		require.NoError(t, os.MkdirAll(filepath.Join(dir, "static", "empty-svc"), 0o755))
-		specs := resolveStaticSpecs(dir)
-		assert.Empty(t, specs)
 	})
 }
 
 func TestParseFlags(t *testing.T) {
-	t.Run("parses all flags", func(t *testing.T) {
-		fl, positional := parseFlags([]string{
+	t.Run("parses port and ready-stamp", func(t *testing.T) {
+		fl, pos := parseFlags([]string{"petstore.yml", "--port", "3000", "--ready-stamp"})
+		assert.Equal(t, 3000, fl.port)
+		assert.True(t, fl.readyStamp)
+		assert.Equal(t, []string{"petstore.yml"}, pos)
+	})
+	t.Run("defaults port to -1", func(t *testing.T) {
+		fl, _ := parseFlags([]string{"petstore.yml"})
+		assert.Equal(t, -1, fl.port)
+	})
+	t.Run("parses convenience flags", func(t *testing.T) {
+		fl, _ := parseFlags([]string{
 			"petstore.yml",
-			"--port", "3000",
-			"--config", "config.yml",
+			"--latency", "100ms",
+			"--mount", "pets/v2",
+			"--errors", "p5=500",
 			"--context", "ctx.yml",
 		})
-		assert.Equal(t, 3000, fl.port)
-		assert.Equal(t, "config.yml", fl.config)
+		assert.Equal(t, "100ms", fl.latency)
+		assert.Equal(t, "pets/v2", fl.mount)
+		assert.Equal(t, "p5=500", fl.errors)
 		assert.Equal(t, "ctx.yml", fl.context)
-		assert.Equal(t, []string{"petstore.yml"}, positional)
 	})
+}
 
-	t.Run("handles no flags", func(t *testing.T) {
-		fl, positional := parseFlags([]string{"spec1.yml", "spec2.yml"})
-
-		// -1 is the sentinel for "user didn't pass --port"; 0 is reserved
-		// for "let the kernel pick" (standard Unix idiom).
-		assert.Equal(t, -1, fl.port)
-		assert.Equal(t, "", fl.config)
-		assert.Equal(t, []string{"spec1.yml", "spec2.yml"}, positional)
+func TestParseErrorsFlag(t *testing.T) {
+	t.Run("single", func(t *testing.T) {
+		got, err := parseErrorsFlag("p5=500")
+		require.NoError(t, err)
+		assert.Equal(t, map[string]int{"p5": 500}, got)
 	})
+	t.Run("multiple", func(t *testing.T) {
+		got, err := parseErrorsFlag("p5=500,p10=503")
+		require.NoError(t, err)
+		assert.Equal(t, map[string]int{"p5": 500, "p10": 503}, got)
+	})
+	t.Run("rejects malformed pair", func(t *testing.T) {
+		_, err := parseErrorsFlag("p5")
+		assert.Error(t, err)
+	})
+	t.Run("rejects non-int status", func(t *testing.T) {
+		_, err := parseErrorsFlag("p5=oops")
+		assert.Error(t, err)
+	})
+}
 
-	t.Run("handles mixed order", func(t *testing.T) {
-		fl, positional := parseFlags([]string{
-			"--port", "8080",
-			"petstore.yml",
-			"stripe.yml",
+func TestBuildOverrides(t *testing.T) {
+	t.Run("nil when nothing set", func(t *testing.T) {
+		o, err := buildOverrides(flags{})
+		require.NoError(t, err)
+		assert.Nil(t, o)
+	})
+	t.Run("parses latency, mount, errors", func(t *testing.T) {
+		o, err := buildOverrides(flags{
+			latency: "150ms",
+			mount:   "pets/v2",
+			errors:  "p5=503",
 		})
-		assert.Equal(t, 8080, fl.port)
-		assert.Equal(t, []string{"petstore.yml", "stripe.yml"}, positional)
+		require.NoError(t, err)
+		require.NotNil(t, o)
+		assert.Equal(t, "150ms", o.latency.String())
+		assert.Equal(t, "pets/v2", o.mount)
+		assert.Equal(t, 503, o.errors["p5"])
+	})
+	t.Run("reads context file", func(t *testing.T) {
+		dir := t.TempDir()
+		ctx := filepath.Join(dir, "ctx.yml")
+		require.NoError(t, os.WriteFile(ctx, []byte("status: [active]"), 0o644))
+		o, err := buildOverrides(flags{context: ctx})
+		require.NoError(t, err)
+		assert.Contains(t, string(o.contextBytes), "status")
+	})
+	t.Run("errors on bad latency", func(t *testing.T) {
+		_, err := buildOverrides(flags{latency: "fast"})
+		assert.Error(t, err)
 	})
 }
