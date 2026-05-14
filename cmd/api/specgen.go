@@ -16,6 +16,10 @@ type Route struct {
 	Path        string
 	ContentType string
 	Content     string
+	// SourceFile is the on-disk path the route was scanned from,
+	// relative to nothing (caller decides what to do with it). Empty
+	// for synthetic routes that weren't materialised as a file.
+	SourceFile string
 }
 
 // httpMethods is the set of recognized HTTP methods used to identify method directories.
@@ -121,12 +125,14 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 				routes = append(routes, Route{
 					Method: "GET", Path: "/",
 					ContentType: contentType, Content: body,
+					SourceFile: path,
 				})
 			} else {
 				// Literal asset (e.g. spec file fetchable at its path).
 				routes = append(routes, Route{
 					Method: "GET", Path: "/" + info.Name(),
 					ContentType: contentType, Content: body,
+					SourceFile: path,
 				})
 			}
 			return nil
@@ -164,6 +170,7 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 			Path:        urlPath,
 			ContentType: contentType,
 			Content:     body,
+			SourceFile:  path,
 		})
 		return nil
 	})

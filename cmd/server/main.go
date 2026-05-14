@@ -91,29 +91,52 @@ func main() {
 }
 
 func runServer() int {
-	// `mockzilla info <url-or-file>` prints a JSON summary of the spec
-	// and exits. Used by the MCP bridge's peek_openapi tool, but also
-	// handy on its own to eyeball a spec before serving it.
-	if len(os.Args) > 1 && os.Args[1] == "info" {
-		return inspect.Run(os.Args[2:])
+	args := os.Args[1:]
+
+	if exit, ok := dispatchSubcommand(args); ok {
+		return exit
 	}
 
-	if len(os.Args) > 1 && os.Args[1] == "simplify" {
-		return runCobraSubcommand(simplifyCommand(), os.Args[1:])
+	if portable.IsPortableMode(args) {
+		return portable.Run(args)
 	}
 
-	// Check for portable mode: if args contain spec files or directories with spec files
-	if len(os.Args) > 1 && portable.IsPortableMode(os.Args[1:]) {
-		return portable.Run(os.Args[1:])
-	}
+	return runAppMode(args)
+}
 
+// dispatchSubcommand checks args[0] against the known subcommands and
+// runs the matching one if any. Returns (exitCode, true) when a
+// subcommand handled the call, otherwise (0, false) so the caller can
+// fall through to portable / app mode dispatch.
+func dispatchSubcommand(args []string) (int, bool) {
+	if len(args) == 0 {
+		return 0, false
+	}
+	switch args[0] {
+	case "info":
+		// `mockzilla info <url-or-file>` prints a JSON summary of a
+		// spec or a .mockz manifest and exits. Used by the MCP
+		// bridge's peek_openapi tool.
+		return inspect.Run(args[1:]), true
+	case "simplify":
+		return runCobraSubcommand(simplifyCommand(), args), true
+	case "pack":
+		return runCobraSubcommand(packCommand(), args), true
+	}
+	return 0, false
+}
+
+// runAppMode is the legacy codegen-server entrypoint: watches
+// resources/data/, registers services discovered there, and serves
+// the HTTP API with hot-reload on disk changes.
+func runAppMode(args []string) int {
 	appDir := "."
 	if v := os.Getenv("APP_DIR"); v != "" {
 		appDir = v
 	}
-	if len(os.Args) > 1 {
-		if info, err := os.Stat(os.Args[1]); err == nil && info.IsDir() {
-			appDir = os.Args[1]
+	if len(args) > 0 {
+		if info, err := os.Stat(args[0]); err == nil && info.IsDir() {
+			appDir = args[0]
 		}
 	}
 	_ = godotenv.Load(fmt.Sprintf("%s/.env", appDir), fmt.Sprintf("%s/.env.dist", appDir))
@@ -251,8 +274,8 @@ func runServer() int {
 
 // runCobraSubcommand attaches a cobra subcommand to a stub root and executes
 // it with the given args (which should start with the subcommand name).
-// Used to slot new cobra-based subcommands alongside the legacy if-based
-// dispatch in runServer.
+// Used by dispatchSubcommand to plug cobra-based subcommands into the
+// top-level entry point.
 func runCobraSubcommand(sub *cobra.Command, args []string) int {
 	root := &cobra.Command{Use: "mockzilla", SilenceUsage: true, SilenceErrors: true}
 	root.AddCommand(sub)
@@ -279,6 +302,7 @@ Usage:
                                                Portable mode: serve a spec, directory, or package
   mockzilla info <spec.yaml | https://...>     Print a JSON summary of a spec and exit
   mockzilla simplify <spec.yaml | https://...> Simplify a spec (drop unions, limit optional props)
+  mockzilla pack <dir>                         Pack a service directory into a .mockz archive
   mockzilla [<app-dir>]                        App mode: serve a configured mockzilla project
   mockzilla --version                          Print version and exit
   mockzilla --help                             Print this message

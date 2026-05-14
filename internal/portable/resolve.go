@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	cmdapi "github.com/mockzilla/mockzilla/v2/cmd/api"
+	"github.com/mockzilla/mockzilla/v2/pkg/pack"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -140,6 +141,9 @@ func resolveOne(arg string) ([]Service, error) {
 
 // resolveDir handles the recognised directory shapes, in order:
 //
+//  0. A `.mockzilla.json` manifest at the root → trust it, build the
+//     service list directly from the declared entries.
+//
 //  1. `services/<name>/` subdir → multi-service from that subtree.
 //
 //  2. The dir has a `config.yml`, has static endpoints, or has exactly
@@ -152,6 +156,12 @@ func resolveOne(arg string) ([]Service, error) {
 //     becomes its own service named after its filename basename.
 //     An optional `context.yml` at the root applies to every service.
 func resolveDir(dir string) ([]Service, error) {
+	if services, err := resolveFromManifest(dir); err != nil {
+		return nil, err
+	} else if services != nil {
+		return services, nil
+	}
+
 	servicesRoot := filepath.Join(dir, servicesDir)
 	if info, err := os.Stat(servicesRoot); err == nil && info.IsDir() {
 		return resolveServicesRoot(servicesRoot)
@@ -273,6 +283,64 @@ func resolveServiceDir(dir, name string) (Service, error) {
 	svc.SpecPath = tmpPath
 	svc.StaticDir = dir
 	return svc, nil
+}
+
+// resolveFromManifest reads `.mockzilla.json` at the root of dir and
+// builds the service list directly from its declared entries. Returns
+// (nil, nil) when the manifest is absent so the caller can fall
+// through to the discovery-based shapes (services/, single-folder,
+// flat-root). A malformed or future-format manifest is an error.
+//
+// For each manifest entry, the service folder is `dir + entry.Dir`
+// (or dir itself when Dir is empty). The resulting Service mirrors
+// what discovery would have produced, except we already know the name
+// and mount from pack time so we don't re-infer them.
+func resolveFromManifest(dir string) ([]Service, error) {
+	manifest, err := pack.LoadManifestFromDir(dir)
+	if err != nil {
+		return nil, fmt.Errorf("loading manifest: %w", err)
+	}
+	if manifest == nil {
+		return nil, nil
+	}
+
+	out := make([]Service, 0, len(manifest.Services))
+	for _, entry := range manifest.Services {
+		svc, err := serviceFromManifestEntry(dir, entry)
+		if err != nil {
+			slog.Error("Skipping manifest service", "name", entry.Name, "error", err)
+			continue
+		}
+		out = append(out, svc)
+	}
+	if len(out) == 0 {
+		return nil, errors.New("manifest declares no usable services")
+	}
+	return out, nil
+}
+
+// serviceFromManifestEntry turns a manifest service entry into a
+// runtime-ready Service. Static and merge modes still need a spec
+// document; we reuse resolveServiceDir on the service folder to
+// synthesize or merge it (the manifest declaration gives us name and
+// mode upfront so the runtime trusts them rather than re-inferring).
+func serviceFromManifestEntry(archiveDir string, entry pack.ServiceEntry) (Service, error) {
+	svcDir := archiveDir
+	if entry.Dir != "" {
+		svcDir = filepath.Join(archiveDir, filepath.FromSlash(entry.Dir))
+	}
+	if entry.Mode == pack.ModeSpec && entry.Files.Spec != "" {
+		return Service{
+			Name:      entry.Name,
+			SpecPath:  filepath.Join(archiveDir, filepath.FromSlash(entry.Files.Spec)),
+			ConfigDir: svcDir,
+		}, nil
+	}
+	// Static / merge modes need a synthesized or overlaid spec.
+	// resolveServiceDir already handles both; let it run on the folder
+	// the manifest pointed at, using the manifest-supplied name (skips
+	// the re-inference step).
+	return resolveServiceDir(svcDir, entry.Name)
 }
 
 // writeTempSpec persists a synthesized/merged spec into a per-process
