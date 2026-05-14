@@ -1,0 +1,571 @@
+package mockzilla
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/mockzilla/mockzilla/v2/internal/integrationtest"
+	"github.com/mockzilla/mockzilla/v2/internal/portable"
+)
+
+const (
+	// maxRoutesPerSpec caps how many endpoints each spec exercises.
+	// Large specs (clarifai, stripe) have 400+ routes; testing all of
+	// them dominates the suite without proportional coverage gain.
+	maxRoutesPerSpec = 20
+
+	// requestTimeout bounds any single HTTP roundtrip against the
+	// in-process portable server. Without it a hung handler would
+	// freeze the whole suite (default client has no timeout).
+	requestTimeout = 30 * time.Second
+
+	// portableCacheFileName is the on-disk cache of passing specs for
+	// this suite. Kept separate from the codegen cache - the two suites
+	// exercise different code paths and a spec can pass one while
+	// failing the other.
+	portableCacheFileName = ".portable-integration-cache.json"
+)
+
+// TestPortableIntegration runs the spec corpus through portable mode
+// in-process. Per spec it builds an HTTP handler equivalent to
+// `mockzilla <spec>`, hits /.services for the registered service,
+// generates a payload per route, calls the endpoint with it, and
+// asserts the server didn't 5xx.
+//
+// Env vars (same UX as TestIntegration):
+//   - SPEC: single spec path (relative to testdata/specs or absolute)
+//   - SPECS: space-separated list of spec paths
+//   - MAX_FAILS: total endpoint failures across all specs before
+//     remaining and in-flight subtests abort (default 200)
+//   - NO_CACHE: bypass the on-disk pass cache without wiping it
+//   - CLEAR_CACHE: wipe the cache, then run
+//
+// Concurrency is controlled by go test's -parallel flag.
+func TestPortableIntegration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping portable integration test in short mode")
+	}
+
+	// Silence portable runtime's INFO logs - one line per HTTP request,
+	// per registered service, etc. Errors still surface.
+	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
+		Level: slog.LevelError,
+	})))
+
+	integrationtest.SetSpecsFS(specsFS)
+
+	var specPaths []string
+	if s := os.Getenv("SPEC"); s != "" {
+		specPaths = append(specPaths, s)
+	}
+	if s := os.Getenv("SPECS"); s != "" {
+		specPaths = append(specPaths, strings.Fields(s)...)
+	}
+
+	specs := integrationtest.CollectSpecs(t, specPaths)
+	specs = excludeMarkedSpecs(specs)
+	if len(specs) == 0 {
+		t.Skip("No specs to process")
+	}
+
+	maxFailsAllowed := 200
+	if v := os.Getenv("MAX_FAILS"); v != "" {
+		if _, err := fmt.Sscanf(v, "%d", &maxFailsAllowed); err != nil {
+			t.Logf("Ignoring unparseable MAX_FAILS=%q", v)
+		}
+	}
+
+	cache := loadPortableCache(t)
+	if cache != nil && cache.Size() > 0 && os.Getenv("CLEAR_CACHE") == "" {
+		before := len(specs)
+		specs = cache.FilterUncached(specs)
+		if skipped := before - len(specs); skipped > 0 {
+			t.Logf("Skipping %d cached passing spec(s)", skipped)
+		}
+	}
+	if len(specs) == 0 {
+		t.Logf("All specs cached as passing - use CLEAR_CACHE=1 to retest")
+		return
+	}
+
+	// Shared cancel so in-flight subtests abort when MAX_FAILS hits or
+	// the test framework times out. Each request uses this context so
+	// pending HTTP roundtrips fail fast instead of running to timeout.
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+
+	stats := &portableStats{}
+	totalSpecs := len(specs)
+	t.Logf("Running portable integration on %d spec(s)", totalSpecs)
+
+	t.Cleanup(func() {
+		stats.printSummary(totalSpecs)
+		if cache != nil {
+			if err := cache.Save(); err != nil {
+				t.Logf("Failed to save cache: %v", err)
+			}
+		}
+	})
+
+	client := &http.Client{Timeout: requestTimeout}
+
+	// cacheSaveMu serializes incremental cache flushes so we don't write
+	// the file from multiple goroutines simultaneously. Save itself is
+	// cheap (small JSON), and saving per-spec means a SIGKILL'd run
+	// still preserves progress on every spec that completed.
+	var cacheSaveMu sync.Mutex
+
+	for _, spec := range specs {
+		t.Run(spec, func(t *testing.T) {
+			t.Parallel()
+			if stats.totalRouteFailures.Load() >= int64(maxFailsAllowed) {
+				t.SkipNow()
+				return
+			}
+
+			result := runOneSpec(ctx, spec, client)
+			stats.record(spec, result, cache)
+			stats.printSpecLine(spec, result, totalSpecs)
+
+			if cache != nil {
+				cacheSaveMu.Lock()
+				_ = cache.Save() // best-effort - next spec will retry
+				cacheSaveMu.Unlock()
+			}
+
+			if result.failed() {
+				if int(stats.totalRouteFailures.Load()) >= maxFailsAllowed {
+					cancel()
+				}
+				t.Fail() // status already shown in the live spec line; no message needed
+			}
+		})
+	}
+}
+
+type specResult struct {
+	bootDuration time.Duration
+	testDuration time.Duration
+	routesTested int
+	failures     []routeFailure
+	bootErr      error
+}
+
+type routeFailure struct {
+	method string
+	path   string
+	phase  string // "generate" or "endpoint"
+	detail string
+}
+
+func (r specResult) failed() bool {
+	return r.bootErr != nil || len(r.failures) > 0
+}
+
+type portableStats struct {
+	passedSpecs        atomic.Int64
+	failedSpecs        atomic.Int64
+	totalRoutesTested  atomic.Int64
+	totalRouteFailures atomic.Int64
+	totalBootNs        atomic.Int64
+	totalTestNs        atomic.Int64
+	completedSpecs     atomic.Int64
+
+	mu      sync.Mutex
+	results []specRow // appended under mu
+}
+
+type specRow struct {
+	spec   string
+	result specResult
+}
+
+func (s *portableStats) record(spec string, r specResult, cache *integrationtest.ResultCache) {
+	s.totalRoutesTested.Add(int64(r.routesTested))
+	s.totalRouteFailures.Add(int64(len(r.failures)))
+	s.totalBootNs.Add(int64(r.bootDuration))
+	s.totalTestNs.Add(int64(r.testDuration))
+
+	s.mu.Lock()
+	s.results = append(s.results, specRow{spec: spec, result: r})
+	s.mu.Unlock()
+
+	if r.failed() {
+		s.failedSpecs.Add(1)
+		if cache != nil {
+			cache.MarkFailed(spec)
+		}
+	} else {
+		s.passedSpecs.Add(1)
+		if cache != nil {
+			cache.MarkPassed(spec)
+		}
+	}
+}
+
+func (s *portableStats) printSpecLine(spec string, r specResult, total int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	i := s.completedSpecs.Add(1)
+	status := "ok"
+	if r.failed() {
+		status = "FAIL"
+	}
+	if r.bootErr != nil {
+		fmt.Fprintf(os.Stderr, "  [%d/%d] %s %s (boot error: %v)\n", i, total, status, spec, r.bootErr)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "  [%d/%d] %s %s (boot=%s test=%s, %d routes, %d failures)\n",
+		i, total, status, spec,
+		formatShortDuration(r.bootDuration), formatShortDuration(r.testDuration),
+		r.routesTested, len(r.failures))
+}
+
+func (s *portableStats) printSummary(totalSpecs int) {
+	p := s.passedSpecs.Load()
+	f := s.failedSpecs.Load()
+	if p+f == 0 {
+		return
+	}
+
+	totalOps := s.totalRoutesTested.Load()
+	totalFails := s.totalRouteFailures.Load()
+	totalOK := totalOps - totalFails
+	bootTotal := time.Duration(s.totalBootNs.Load())
+	testTotal := time.Duration(s.totalTestNs.Load())
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "=== Portable Integration Results ===")
+	fmt.Fprintf(os.Stderr, "Total operations tested: %d\n", totalOps)
+	fmt.Fprintf(os.Stderr, "OK: %d   Failures: %d\n", totalOK, totalFails)
+	fmt.Fprintln(os.Stderr, "========================================")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "=== Services Summary ===")
+
+	s.mu.Lock()
+	rows := make([]specRow, len(s.results))
+	copy(rows, s.results)
+	s.mu.Unlock()
+	sort.Slice(rows, func(i, j int) bool { return rows[i].spec < rows[j].spec })
+
+	for _, row := range rows {
+		status := "OK  "
+		if row.result.failed() {
+			status = "FAIL"
+		}
+		fails := len(row.result.failures)
+		fmt.Fprintf(os.Stderr, "  %s %-60s ops=%-4d fails=%-3d boot=%6s test=%7s\n",
+			status, row.spec, row.result.routesTested, fails,
+			formatShortDuration(row.result.bootDuration),
+			formatShortDuration(row.result.testDuration))
+	}
+
+	skipped := int64(totalSpecs) - (p + f)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "  Total: %d specs (passed: %d, failed: %d, skipped: %d), %d operations tested\n",
+		totalSpecs, p, f, skipped, totalOps)
+	fmt.Fprintf(os.Stderr, "         OK: %d   Failures: %d\n", totalOK, totalFails)
+	fmt.Fprintf(os.Stderr, "         Boot: %s   Test: %s   Total: %s\n",
+		formatDuration(bootTotal), formatDuration(testTotal), formatDuration(bootTotal+testTotal))
+
+	if f > 0 {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Failing specs (first failure per spec):")
+		for _, row := range rows {
+			if !row.result.failed() || len(row.result.failures) == 0 {
+				continue
+			}
+			first := row.result.failures[0]
+			fmt.Fprintf(os.Stderr, "  %s\n    %s %s [%s]: %s\n",
+				row.spec, first.method, first.path, first.phase,
+				truncate([]byte(first.detail), 200))
+		}
+	}
+	fmt.Fprintln(os.Stderr, "========================================")
+}
+
+func formatDuration(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%.1fs", d.Seconds())
+	}
+	mins := int(d.Minutes())
+	secs := d.Seconds() - float64(mins*60)
+	return fmt.Sprintf("%dm%.0fs", mins, secs)
+}
+
+// formatShortDuration renders sub-second values in ms so small specs
+// don't all collapse to "0.0s" in the output - small specs are real
+// work, just fast. Anything >= 1s uses seconds with one decimal.
+func formatShortDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return fmt.Sprintf("%.1fs", d.Seconds())
+}
+
+func loadPortableCache(t *testing.T) *integrationtest.ResultCache {
+	if os.Getenv("NO_CACHE") != "" {
+		return nil
+	}
+	cache, err := integrationtest.NewResultCacheNamed(".", portableCacheFileName)
+	if err != nil {
+		t.Logf("Failed to load portable cache: %v", err)
+		return nil
+	}
+	if os.Getenv("CLEAR_CACHE") != "" {
+		if err := cache.Clear(); err != nil {
+			t.Logf("Failed to clear cache: %v", err)
+		} else {
+			t.Logf("Portable cache cleared")
+		}
+	}
+	return cache
+}
+
+func runOneSpec(ctx context.Context, specPath string, client *http.Client) specResult {
+	res := specResult{}
+
+	bootStart := time.Now()
+
+	specBytes, err := integrationtest.ReadSpecFileWithBaseDir(specPath, "testdata/specs")
+	if err != nil {
+		res.bootErr = fmt.Errorf("read spec: %w", err)
+		return res
+	}
+
+	root, cleanup, err := materializeSpec(specPath, specBytes)
+	if err != nil {
+		res.bootErr = fmt.Errorf("materialize: %w", err)
+		return res
+	}
+	defer cleanup()
+
+	setup, err := portable.BuildSetup([]string{root})
+	if err != nil {
+		res.bootErr = fmt.Errorf("build setup: %w", err)
+		return res
+	}
+
+	ts := httptest.NewServer(setup.Router)
+	defer ts.Close()
+
+	res.bootDuration = time.Since(bootStart)
+
+	testStart := time.Now()
+	for _, svc := range setup.Services {
+		if ctx.Err() != nil {
+			break
+		}
+		failures, n := testService(ctx, client, ts.URL, svc.Name)
+		res.routesTested += n
+		res.failures = append(res.failures, failures...)
+	}
+	res.testDuration = time.Since(testStart)
+
+	return res
+}
+
+func materializeSpec(specPath string, specBytes []byte) (root string, cleanup func(), err error) {
+	ext := filepath.Ext(specPath)
+	name := strings.TrimSuffix(filepath.Base(specPath), ext)
+	root, err = os.MkdirTemp("", "portable-int-")
+	if err != nil {
+		return "", nil, err
+	}
+	svcDir := filepath.Join(root, "services", name)
+	if err := os.MkdirAll(svcDir, 0o755); err != nil {
+		_ = os.RemoveAll(root)
+		return "", nil, err
+	}
+	if err := os.WriteFile(filepath.Join(svcDir, "openapi"+ext), specBytes, 0o644); err != nil {
+		_ = os.RemoveAll(root)
+		return "", nil, err
+	}
+	return root, func() { _ = os.RemoveAll(root) }, nil
+}
+
+func testService(ctx context.Context, client *http.Client, baseURL, serviceName string) ([]routeFailure, int) {
+	urlName := serviceName
+	if urlName == "" {
+		urlName = ".root"
+	}
+
+	routes, err := listRoutes(ctx, client, baseURL, urlName)
+	if err != nil {
+		return []routeFailure{{phase: "list", detail: err.Error()}}, 0
+	}
+
+	if len(routes) > maxRoutesPerSpec {
+		routes = routes[:maxRoutesPerSpec]
+	}
+
+	mountPrefix := "/" + serviceName
+	if serviceName == "" {
+		mountPrefix = ""
+	}
+
+	var failures []routeFailure
+	for _, route := range routes {
+		if ctx.Err() != nil {
+			break
+		}
+		if f, ok := testOneRoute(ctx, client, baseURL, urlName, mountPrefix, route); !ok {
+			failures = append(failures, f)
+		}
+	}
+	return failures, len(routes)
+}
+
+type routeInfo struct {
+	Method string `json:"method"`
+	Path   string `json:"path"`
+}
+
+type generatedResponse struct {
+	Body        any    `json:"body"`
+	ContentType string `json:"contentType"`
+	Path        string `json:"path"`
+}
+
+func listRoutes(ctx context.Context, client *http.Client, baseURL, urlName string) ([]routeInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/.services/"+urlName, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("GET /.services/%s: %w", urlName, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("GET /.services/%s: status %d body=%s", urlName, resp.StatusCode, truncate(body, 200))
+	}
+
+	var out struct {
+		Endpoints []routeInfo `json:"endpoints"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("decode routes: %w", err)
+	}
+	return out.Endpoints, nil
+}
+
+func testOneRoute(ctx context.Context, client *http.Client, baseURL, urlName, mountPrefix string, route routeInfo) (routeFailure, bool) {
+	gen, err := generatePayload(ctx, client, baseURL, urlName, route)
+	if err != nil {
+		return routeFailure{method: route.Method, path: route.Path, phase: "generate", detail: err.Error()}, false
+	}
+
+	targetPath := gen.Path
+	if targetPath == "" {
+		targetPath = route.Path
+	}
+	if strings.HasPrefix(targetPath, "{") && strings.HasSuffix(targetPath, "}") && !strings.HasPrefix(targetPath, "{{") {
+		return routeFailure{method: route.Method, path: route.Path, phase: "generate", detail: "unreplaced placeholders: " + targetPath}, false
+	}
+
+	if err := callEndpoint(ctx, client, baseURL+mountPrefix+targetPath, route.Method, gen); err != nil {
+		return routeFailure{method: route.Method, path: route.Path, phase: "endpoint", detail: err.Error()}, false
+	}
+	return routeFailure{}, true
+}
+
+func generatePayload(ctx context.Context, client *http.Client, baseURL, urlName string, route routeInfo) (generatedResponse, error) {
+	body, _ := json.Marshal(map[string]string{"path": route.Path, "method": route.Method})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/.services/"+urlName, bytes.NewReader(body))
+	if err != nil {
+		return generatedResponse{}, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return generatedResponse{}, errors.New("connection closed (server panic?)")
+		}
+		return generatedResponse{}, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return generatedResponse{}, fmt.Errorf("status %d: %s", resp.StatusCode, truncate(respBody, 200))
+	}
+
+	var gen generatedResponse
+	if err := json.Unmarshal(respBody, &gen); err != nil {
+		return generatedResponse{}, fmt.Errorf("decode payload: %w", err)
+	}
+	return gen, nil
+}
+
+func callEndpoint(ctx context.Context, client *http.Client, url, method string, gen generatedResponse) error {
+	var body io.Reader
+	if gen.Body != nil {
+		b, _ := json.Marshal(gen.Body)
+		body = bytes.NewReader(b)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
+	if err != nil {
+		return err
+	}
+	if gen.ContentType != "" {
+		req.Header.Set("Content-Type", gen.ContentType)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return errors.New("connection closed (server panic?)")
+		}
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode >= 500 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("status %d: %s", resp.StatusCode, truncate(respBody, 200))
+	}
+	return nil
+}
+
+func truncate(b []byte, max int) string {
+	if len(b) <= max {
+		return string(b)
+	}
+	return string(b[:max]) + "..."
+}
+
+// excludeMarkedSpecs filters out specs the corpus explicitly marks as
+// "do not test": a leading `-` in the basename (the convention used
+// across testdata/specs to flag broken/intentionally-skipped specs)
+// or anything under a `/stash/` directory. integrationtest.CollectSpecs
+// already enforces this on directory walks; when callers pass an
+// explicit list of paths (as the corpus Makefile target does), the
+// filter has to be re-applied here.
+func excludeMarkedSpecs(specs []string) []string {
+	out := specs[:0]
+	for _, s := range specs {
+		base := filepath.Base(s)
+		if strings.HasPrefix(base, "-") || strings.Contains(s, "/stash/") {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
+}

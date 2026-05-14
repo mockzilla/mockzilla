@@ -37,9 +37,9 @@ build: clean
 .PHONY: test
 test:
 	@if [ -z "$(PKG)" ]; then \
-		go test -race $$(go list ./... | grep -Ev '/cmd/(api|fake_list|gen/)|/resources/') -skip=TestIntegration -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh; \
+		go test -race $$(go list ./... | grep -Ev '/cmd/(api|fake_list|gen/)|/resources/') -skip='Test(Portable)?Integration' -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh; \
 	else \
-  		go test -race ./... -skip=TestIntegration -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh ./$(PKG)/...; \
+  		go test -race ./... -skip='Test(Portable)?Integration' -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh ./$(PKG)/...; \
 	fi
 	@git ls-files '**/*go.mod' -z | xargs -0 -I{} bash -c 'cd $$(dirname {}) && if [ -f Makefile ] && go list ./... >/dev/null 2>&1; then make test; fi'
 
@@ -64,6 +64,10 @@ test-integration:
 # Usage: TEST_TIMEOUT=120m make test-integration
 # Each service runs independently: setup → generate → build → start → test → stop
 # Aborts early when MAX_FAILS is reached. Generated code kept in .sandbox/
+
+.PHONY: test-portable
+test-portable:
+	@SPECS="$(or $(SPECS),$(filter-out $@,$(MAKECMDGOALS)))" scripts/test-portable.sh
 
 .PHONY: test-with-check-coverage
 test-with-check-coverage: test

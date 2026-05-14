@@ -266,11 +266,19 @@ export const generateResult = (service, ix, path, method) => {
             return res;
         })
         .then(res => res && res.json())
-        .then(res => {
+        .then(async res => {
             if (!res) {
                 console.log(`No response`);
                 return;
             }
+
+            // Populate the name → prefix map before we build URLs. On a
+            // deep link straight to #/services/<name>?ix=N we may reach
+            // this point before services.show() has fetched the list,
+            // in which case getServicePrefix returns undefined and the
+            // call below would hit /<service> (the folder-snake-cased
+            // name) instead of the actual mount.
+            await services.ensureLoaded();
 
             // Clear previous data first
             document.getElementById('request-path').innerHTML = '';
