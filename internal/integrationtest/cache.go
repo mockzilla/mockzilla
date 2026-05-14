@@ -58,15 +58,24 @@ type ResultCache struct {
 	path    string
 }
 
-// NewResultCache creates or loads a cache from the given directory
+// NewResultCache creates or loads the codegen integration cache from
+// the given directory using the default cache file name.
 func NewResultCache(cacheDir string) (*ResultCache, error) {
-	cachePath := filepath.Join(cacheDir, CacheFileName)
+	return NewResultCacheNamed(cacheDir, CacheFileName)
+}
+
+// NewResultCacheNamed creates or loads a cache from the given directory
+// under the supplied file name. Use a distinct file name per test suite
+// (codegen vs portable) so passing results from one don't mask failures
+// in the other - the two suites exercise different code paths and a
+// spec can pass one while failing the other.
+func NewResultCacheNamed(cacheDir, fileName string) (*ResultCache, error) {
+	cachePath := filepath.Join(cacheDir, fileName)
 	cache := &ResultCache{
 		Entries: make(map[string]CacheEntry),
 		path:    cachePath,
 	}
 
-	// Try to load existing cache
 	data, err := os.ReadFile(cachePath)
 	if err == nil {
 		if err := json.Unmarshal(data, cache); err != nil {

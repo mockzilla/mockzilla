@@ -4,9 +4,29 @@ import * as navi from "./navi.js";
 const STORAGE_KEY_STARS = 'mz-starred-services';
 
 let cachedServices = null;
+let loadPromise = null;
 const servicePrefixes = {};
 
 export const getServicePrefix = (name) => servicePrefixes[name];
+
+// ensureLoaded resolves once the services list (and its name → prefix map)
+// is fetched. Callers that need getServicePrefix must await this first,
+// otherwise a deep link straight to #/services/<name> can race the list
+// fetch and fall back to using <name> as the URL prefix.
+export const ensureLoaded = () => {
+    if (cachedServices) return Promise.resolve(cachedServices);
+    if (loadPromise) return loadPromise;
+    loadPromise = fetch(config.serviceUrl)
+        .then(res => res.json())
+        .then(data => {
+            cachedServices = data['items'];
+            for (const item of cachedServices) {
+                servicePrefixes[item.name] = item.prefix;
+            }
+            return cachedServices;
+        });
+    return loadPromise;
+};
 
 const getStarred = () => {
     try {
@@ -99,22 +119,9 @@ const renderServices = (services, selected) => {
 };
 
 export const show = (selected = '') => {
-    if (cachedServices) {
-        renderServices(cachedServices, selected);
-        return;
+    if (!cachedServices) {
+        console.log("loading service list");
+        config.serviceList.innerHTML = '';
     }
-
-    console.log("loading service list");
-
-    config.serviceList.innerHTML = '';
-
-    fetch(config.serviceUrl)
-        .then(res => res.json())
-        .then(data => {
-            cachedServices = data['items'];
-            for (const item of cachedServices) {
-                servicePrefixes[item.name] = item.prefix;
-            }
-            renderServices(cachedServices, selected);
-        });
+    ensureLoaded().then(items => renderServices(items, selected));
 }

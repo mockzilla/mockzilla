@@ -5,6 +5,7 @@
 .build
 .sandbox
 .integration-cache.json
+.portable-integration-cache.json
 .DS_Store
 coverage.html
 coverage.out

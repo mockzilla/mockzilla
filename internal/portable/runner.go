@@ -29,18 +29,35 @@ const (
 	exitCodeError    = 1
 )
 
-// Run starts the server in portable mode. The args are positional
-// inputs (files, URLs, dirs, packages); per-service configuration is
-// discovered alongside each service.
-func Run(args []string) int {
-	configureLogger()
+// Setup is a fully-configured portable mode ready to be served:
+// router with all routes registered (including resolved services),
+// the resolved AppConfig, and the underlying service list. Run uses
+// this for the normal CLI flow (then binds a listener and serves);
+// in-process tests use the same function and wrap Router with
+// httptest.NewServer so the test exercises the real production path.
+type Setup struct {
+	Router   *api.Router
+	AppCfg   *config.AppConfig
+	Services []Service
 
+	// Internals needed by Run for serving + hot-reload. Tests don't
+	// need to touch these.
+	handlers map[string]*swappableHandler
+	flags    flags
+}
+
+// BuildSetup runs the portable startup pipeline up to (but not
+// including) port binding. Same code path Run uses.
+//
+// Does NOT call configureLogger - that's a CLI-process concern (takes
+// over slog's default). Run sets it; in-process callers (tests) keep
+// their own slog config.
+func BuildSetup(args []string) (*Setup, error) {
 	fl, positional := parseFlags(args)
 
 	services, err := resolveServices(positional)
 	if err != nil {
-		slog.Error("Failed to resolve services", "error", err)
-		return exitCodeError
+		return nil, fmt.Errorf("resolving services: %w", err)
 	}
 
 	baseDir := filepath.Join(os.TempDir(), "mockzilla-portable")
@@ -48,7 +65,7 @@ func Run(args []string) int {
 
 	appCfg, err := loadAppConfig(rootFromArgs(positional), baseDir)
 	if err != nil {
-		slog.Error("Failed to load app.yml, using defaults", "error", err)
+		slog.Warn("Failed to load app.yml, using defaults", "error", err)
 		appCfg = config.NewDefaultAppConfig(baseDir)
 	}
 
@@ -89,13 +106,10 @@ func Run(args []string) int {
 
 	overrides, err := buildOverrides(fl)
 	if err != nil {
-		slog.Error("Invalid convenience flag", "error", err)
-		return exitCodeError
+		return nil, fmt.Errorf("invalid convenience flag: %w", err)
 	}
 	if overrides != nil && len(services) != 1 {
-		slog.Error("Convenience flags (--latency/--mount/--errors/--context) require exactly one service",
-			"services", len(services))
-		return exitCodeError
+		return nil, fmt.Errorf("convenience flags (--latency/--mount/--errors/--context) require exactly one service, got %d", len(services))
 	}
 
 	handlers := make(map[string]*swappableHandler)
@@ -107,35 +121,55 @@ func Run(args []string) int {
 	}
 
 	if len(handlers) == 0 {
-		slog.Error("No services registered")
+		return nil, fmt.Errorf("no services registered")
+	}
+
+	return &Setup{
+		Router:   router,
+		AppCfg:   appCfg,
+		Services: services,
+		handlers: handlers,
+		flags:    fl,
+	}, nil
+}
+
+// Run starts the server in portable mode. The args are positional
+// inputs (files, URLs, dirs, packages); per-service configuration is
+// discovered alongside each service.
+func Run(args []string) int {
+	configureLogger()
+
+	setup, err := BuildSetup(args)
+	if err != nil {
+		slog.Error("Portable setup failed", "error", err)
 		return exitCodeError
 	}
 
-	listener, err := bindListener(appCfg)
+	listener, err := bindListener(setup.AppCfg)
 	if err != nil {
 		return exitCodeError
 	}
 
-	if fl.readyStamp {
-		emitReadyStamp(appCfg, router)
+	if setup.flags.readyStamp {
+		emitReadyStamp(setup.AppCfg, setup.Router)
 	}
 
 	server := &http.Server{
-		Handler:      router,
+		Handler:      setup.Router,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
 	go func() {
-		slog.Info(fmt.Sprintf("Mockzilla portable mode on http://localhost:%d%s", appCfg.Port, appCfg.HomeURL))
+		slog.Info(fmt.Sprintf("Mockzilla portable mode on http://localhost:%d%s", setup.AppCfg.Port, setup.AppCfg.HomeURL))
 		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("Server failed", "error", err)
 			os.Exit(1)
 		}
 	}()
 
-	go watchServices(services, router, handlers)
+	go watchServices(setup.Services, setup.Router, setup.handlers)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
