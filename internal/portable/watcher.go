@@ -35,21 +35,43 @@ func watchServices(
 	// register watchers on directories (fsnotify can't watch nonexistent
 	// files), then route events back via the directory the event
 	// happened in, narrowed by filename when multiple services share it.
+	// Resolve to absolute paths: fsnotify echoes back event paths in the
+	// same form they were registered, and matchServices walks parents
+	// stopping at "/" or ".". Relative dirs like "." (from a bare spec
+	// in the cwd) would then never match anything.
 	dirToServices := make(map[string][]string)
 	watched := make(map[string]bool)
+
+	// bareSpecs: service-name → spec basename, for services where the
+	// user pointed at a single file (no ConfigDir, no StaticDir). The
+	// watched dir is then likely full of unrelated files (think
+	// `mockzilla petstore.yaml` from ~/Downloads), so we filter strictly
+	// to the spec's own filename.
+	bareSpecs := make(map[string]string)
 	for _, svc := range services {
+		if svc.ConfigDir == "" && svc.StaticDir == "" && svc.SpecPath != "" {
+			bareSpecs[svc.Name] = filepath.Base(svc.SpecPath)
+		}
+
 		for _, d := range dirsToWatch(svc) {
 			if d == "" {
 				continue
 			}
-			if !watched[d] {
-				if err := watcher.Add(d); err != nil {
-					slog.Debug("Failed to watch dir", "dir", d, "error", err)
+
+			abs, err := filepath.Abs(d)
+			if err != nil {
+				slog.Debug("Failed to resolve watch dir", "dir", d, "error", err)
+				continue
+			}
+
+			if !watched[abs] {
+				if err := watcher.Add(abs); err != nil {
+					slog.Debug("Failed to watch dir", "dir", abs, "error", err)
 					continue
 				}
-				watched[d] = true
+				watched[abs] = true
 			}
-			dirToServices[d] = append(dirToServices[d], svc.Name)
+			dirToServices[abs] = append(dirToServices[abs], svc.Name)
 		}
 	}
 
@@ -72,6 +94,7 @@ func watchServices(
 				continue
 			}
 			names := matchServices(event.Name, dirToServices)
+			names = filterBareSpecs(names, event.Name, bareSpecs)
 			if len(names) == 0 {
 				continue
 			}
@@ -190,6 +213,26 @@ func matchServices(eventPath string, dirToServices map[string][]string) []string
 	// Ambiguous files (e.g. unknown extensions) reload every candidate.
 	// Safer to over-reload than to miss an edit.
 	return candidates
+}
+
+// filterBareSpecs drops bare-spec services from `names` unless the event
+// is on the spec file itself. Bare specs watch their parent dir purely
+// because fsnotify can't reliably follow editor-rename-on-save on a
+// single file, but the parent (e.g. ~/Downloads) is full of noise that
+// shouldn't trigger reloads.
+func filterBareSpecs(names []string, eventPath string, bareSpecs map[string]string) []string {
+	if len(bareSpecs) == 0 || len(names) == 0 {
+		return names
+	}
+	base := filepath.Base(eventPath)
+	out := names[:0]
+	for _, n := range names {
+		if specBase, ok := bareSpecs[n]; ok && base != specBase {
+			continue
+		}
+		out = append(out, n)
+	}
+	return out
 }
 
 func isReloadEvent(event fsnotify.Event) bool {
