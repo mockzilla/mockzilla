@@ -19,6 +19,7 @@ github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f h1:lO4WD4F/r
 github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f/go.mod h1:cuUVRXasLTGF7a8hSLbxyZXjz+1KgoB3wDUb6vlszIc=
 github.com/doordash-oss/oapi-codegen-dd/v3 v3.75.2 h1:zvVhVFwQA6kTNM6Uu4TjQuli4WaJanxkXe0wUW/D5SU=
 github.com/doordash-oss/oapi-codegen-dd/v3 v3.75.2/go.mod h1:B/2dCvBVmDo+pdBf+wfc583utG8j07DvR+5IxnKMJuw=
+github.com/doordash-oss/oapi-codegen-dd/v3 v3.75.3/go.mod h1:B/2dCvBVmDo+pdBf+wfc583utG8j07DvR+5IxnKMJuw=
 github.com/fsnotify/fsnotify v1.9.0 h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=
 github.com/fsnotify/fsnotify v1.9.0/go.mod h1:8jBTzvmWwFyi3Pb8djgCCO5IBqzKJ/Jwo8TRcHyHii0=
 github.com/gabriel-vasile/mimetype v1.4.13 h1:46nXokslUBsAJE/wMsp5gtO500a4F3Nkz9Ufpk2AcUM=
