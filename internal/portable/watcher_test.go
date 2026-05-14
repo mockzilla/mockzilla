@@ -86,4 +86,41 @@ func TestMatchServices(t *testing.T) {
 		m := map[string][]string{"/src/petstore": {"petstore"}}
 		assert.Empty(t, matchServices("/elsewhere/file.yml", m))
 	})
+
+	t.Run("bare spec in cwd resolves to absolute and matches", func(t *testing.T) {
+		cwd, err := os.Getwd()
+		assert.NoError(t, err)
+		m := map[string][]string{cwd: {"petstore"}}
+		assert.Equal(t,
+			[]string{"petstore"},
+			matchServices(filepath.Join(cwd, "petstore.yaml"), m))
+	})
+}
+
+func TestFilterBareSpecs(t *testing.T) {
+	bare := map[string]string{"petstore": "petstore.yaml"}
+
+	t.Run("event on the spec file passes through", func(t *testing.T) {
+		got := filterBareSpecs([]string{"petstore"}, "/Users/ig/Downloads/petstore.yaml", bare)
+		assert.Equal(t, []string{"petstore"}, got)
+	})
+
+	t.Run("event on unrelated file in same dir is dropped", func(t *testing.T) {
+		got := filterBareSpecs([]string{"petstore"}, "/Users/ig/Downloads/some-download.pdf", bare)
+		assert.Empty(t, got)
+	})
+
+	t.Run("non-bare service is unaffected", func(t *testing.T) {
+		got := filterBareSpecs([]string{"petstore"}, "/src/petstore/config.yml", map[string]string{})
+		assert.Equal(t, []string{"petstore"}, got)
+	})
+
+	t.Run("mixed: bare-spec dropped, folder-service kept", func(t *testing.T) {
+		got := filterBareSpecs(
+			[]string{"petstore", "other"},
+			"/shared/random.pdf",
+			map[string]string{"petstore": "petstore.yaml"},
+		)
+		assert.Equal(t, []string{"other"}, got)
+	})
 }
