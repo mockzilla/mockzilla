@@ -33,7 +33,10 @@ jobs:
           else
             TAG="${{ github.event.workflow_run.head_branch }}"
           fi
-          echo "MOCKZILLA_VERSION=${TAG#v}" >> $GITHUB_ENV
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+
+      - name: Substitute version in snapcraft.yaml
+        run: sed -i "s/__VERSION__/${{ steps.ver.outputs.version }}/g" .snap/snapcraft.yaml
 
       - name: Build snap
         id: snap
