@@ -101,6 +101,8 @@ func resolveServices(args []string) ([]Service, error) {
 
 func resolveOne(arg string) ([]Service, error) {
 	if isURL(arg) {
+		// Fast path: URL has a recognised package extension. Skips the
+		// content sniff and goes straight to download-and-extract.
 		if isPackageFile(filenameFromURL(arg)) {
 			dir, err := downloadAndExtract(arg)
 			if err != nil {
@@ -108,11 +110,10 @@ func resolveOne(arg string) ([]Service, error) {
 			}
 			return resolveDir(dir)
 		}
-		path, err := downloadSpec(arg)
-		if err != nil {
-			return nil, err
-		}
-		return []Service{{Name: serviceNameFromURL(arg, path), SpecPath: path}}, nil
+
+		// Slow path: URL has no extension hint.
+		// Fetch the body and dispatch based on Content-Type and gzip magic bytes.
+		return resolveURLByContent(arg)
 	}
 
 	info, err := os.Stat(arg)
@@ -580,6 +581,111 @@ func downloadSpec(rawURL string) (string, error) {
 
 	slog.Info("Downloaded spec", "url", rawURL, "path", path)
 	return path, nil
+}
+
+// resolveURLByContent fetches an extensionless URL once, classifies the
+// body as either a portable package or an OpenAPI spec, and dispatches.
+func resolveURLByContent(rawURL string) ([]Service, error) {
+	body, contentType, err := fetchURL(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, fmt.Errorf("parsing URL: %w", err)
+	}
+
+	if isPackageBytes(contentType, body) {
+		path, err := writeTempBytes(
+			filepath.Join(os.TempDir(), "mockzilla-portable", "packages"),
+			packageNameFromURL(parsed),
+			body,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		slog.Info("Downloaded package", "url", rawURL, "path", path, "content_type", contentType)
+		dir, err := extractPackage(path)
+		if err != nil {
+			return nil, err
+		}
+		return resolveDir(dir)
+	}
+
+	path, err := writeTempBytes(
+		filepath.Join(os.TempDir(), "mockzilla-portable", "specs"),
+		specNameFromURL(parsed),
+		body,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	slog.Info("Downloaded spec", "url", rawURL, "path", path, "content_type", contentType)
+	return []Service{{Name: serviceNameFromURL(rawURL, path), SpecPath: path}}, nil
+}
+
+func fetchURL(rawURL string) ([]byte, string, error) {
+	resp, err := http.Get(rawURL) //nolint:gosec
+	if err != nil {
+		return nil, "", fmt.Errorf("fetching: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return nil, "", fmt.Errorf("HTTP %d from %s", resp.StatusCode, rawURL)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, "", fmt.Errorf("reading body: %w", err)
+	}
+	return body, resp.Header.Get("Content-Type"), nil
+}
+
+// isPackageBytes decides whether a fetched body should be unpacked as a
+// portable .mockz. Content-Type wins when explicit (`application/gzip`,
+// our vendor types). Magic bytes catch ambiguous types like
+// `application/octet-stream` and the missing-Content-Type case. The tar
+// inside is validated later in extractPackage; this is a fast pre-filter.
+func isPackageBytes(contentType string, body []byte) bool {
+	ct := strings.ToLower(strings.TrimSpace(strings.SplitN(contentType, ";", 2)[0]))
+	switch ct {
+	case "application/gzip", "application/x-gzip",
+		"application/vnd.mockz", "application/vnd.mockz+gzip":
+		return true
+	}
+	return len(body) >= 2 && body[0] == 0x1f && body[1] == 0x8b
+}
+
+func writeTempBytes(dir, name string, body []byte) (string, error) {
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("creating temp dir: %w", err)
+	}
+	path := filepath.Join(dir, name)
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		return "", fmt.Errorf("writing %s: %w", path, err)
+	}
+	return path, nil
+}
+
+func packageNameFromURL(parsed *url.URL) string {
+	name := filepath.Base(parsed.Path)
+	if name == "" || name == "." || name == "/" {
+		return "package.mockz"
+	}
+	return name
+}
+
+func specNameFromURL(parsed *url.URL) string {
+	name := filepath.Base(parsed.Path)
+	if name == "" || name == "." || name == "/" {
+		name = parsed.Host
+	}
+	if !isSpecFile(name) {
+		name += ".yml"
+	}
+	return name
 }
 
 func downloadAndExtract(rawURL string) (string, error) {
