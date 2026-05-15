@@ -32,9 +32,13 @@ go run github.com/mockzilla/mockzilla/v2/cmd/gen/discover@latest
 
 # Scan custom directory
 go run github.com/mockzilla/mockzilla/v2/cmd/gen/discover@latest pkg/services
+
+# Write to a custom output path (default: cmd/mockzilla/services_gen.go)
+go run github.com/mockzilla/mockzilla/v2/cmd/gen/discover@latest \
+  -output cmd/server/services_gen.go pkg
 ```
 
-This generates `cmd/mockzilla/services_gen.go` with imports for all discovered services.
+This generates `cmd/mockzilla/services_gen.go` (or the path given via `-output`) with imports for all discovered services.
 
 Nested directories are supported:
 ```

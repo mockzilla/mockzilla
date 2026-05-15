@@ -32,6 +32,11 @@ type eventHandler struct {
 type dataWatcher struct {
 	paths config.Paths
 
+	// cmdDir is the project-relative path to the main package
+	// (e.g. "cmd/mockzilla", "cmd/server"). Configurable via the
+	// MOCKZILLA_CMD_DIR env var so templates with non-default layouts work.
+	cmdDir string
+
 	watcher  *fsnotify.Watcher
 	stopChan chan struct{}
 
@@ -57,8 +62,14 @@ func newDataWatcher(paths config.Paths) (*dataWatcher, error) {
 		return nil, fmt.Errorf("failed to create watcher: %w", err)
 	}
 
+	cmdDir := os.Getenv("MOCKZILLA_CMD_DIR")
+	if cmdDir == "" {
+		cmdDir = "cmd/mockzilla"
+	}
+
 	sw := &dataWatcher{
 		paths:              paths,
+		cmdDir:             cmdDir,
 		watcher:            watcher,
 		stopChan:           make(chan struct{}),
 		registeredServices: make(map[string]bool),
@@ -130,7 +141,7 @@ func (dw *dataWatcher) processExistingFiles() error {
 	if generated > 0 {
 		slog.Info("Processed existing files", "services", generated)
 
-		if err := runGenDiscover(); err != nil {
+		if err := dw.runGenDiscover(); err != nil {
 			return fmt.Errorf("running gen-discover: %w", err)
 		}
 
@@ -301,7 +312,7 @@ func (dw *dataWatcher) onServiceCreate(event fileEvent) {
 	dw.mu.Unlock()
 
 	// Run gen-discover
-	if err := runGenDiscover(); err != nil {
+	if err := dw.runGenDiscover(); err != nil {
 		slog.Error("Failed to run gen-discover", "error", err)
 		return
 	}
@@ -776,7 +787,7 @@ func (dw *dataWatcher) rebuildServer() error {
 
 	serverBinary := filepath.Join(buildDir, "server")
 	slog.Info("Building server binary...", "output", serverBinary)
-	if err := runCmd(dw.paths.Base, "go", "build", "-o", serverBinary, "./cmd/mockzilla"); err != nil {
+	if err := runCmd(dw.paths.Base, "go", "build", "-o", serverBinary, "./"+dw.cmdDir); err != nil {
 		return fmt.Errorf("build failed: %w", err)
 	}
 
@@ -811,10 +822,12 @@ func runGenService(specPath, serviceDir, configPath string) error {
 }
 
 // runGenDiscover runs the discover command to update services_gen.go
-func runGenDiscover() error {
+func (dw *dataWatcher) runGenDiscover() error {
 	slog.Info("Running discover...")
 
-	if err := cmdapi.Discover(cmdapi.DiscoverOptions{}); err != nil {
+	if err := cmdapi.Discover(cmdapi.DiscoverOptions{
+		OutputFile: filepath.Join(dw.cmdDir, "services_gen.go"),
+	}); err != nil {
 		return fmt.Errorf("discover failed: %w", err)
 	}
 
