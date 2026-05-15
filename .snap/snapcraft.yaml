@@ -1,0 +1,42 @@
+name: mockzilla
+base: core22
+adopt-info: mockzilla
+summary: Generate API mocks with meaningful responses, latency, error codes
+description: |
+  Mockzilla is an OpenAPI mock engine that generates API mocks with meaningful
+  responses, configurable latency, error codes and more.
+
+  See https://mockzilla.github.io/mockzilla/ for full documentation.
+license: MIT
+grade: stable
+confinement: classic
+source-code: https://github.com/mockzilla/mockzilla
+issues: https://github.com/mockzilla/mockzilla/issues
+website: https://mockzilla.github.io/mockzilla/
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+parts:
+  mockzilla:
+    plugin: nil
+    build-packages:
+      - curl
+    override-build: |
+      set -e
+      ARCH=$(dpkg --print-architecture)
+      case "$ARCH" in
+        amd64|arm64) GOARCH=$ARCH ;;
+        *) echo "Unsupported architecture: $ARCH" >&2; exit 1 ;;
+      esac
+      VERSION="${MOCKZILLA_VERSION:?MOCKZILLA_VERSION must be set}"
+      URL="https://github.com/mockzilla/mockzilla/releases/download/v${VERSION}/mockzilla-v${VERSION}-linux-${GOARCH}"
+      mkdir -p "$CRAFT_PART_INSTALL/bin"
+      curl -fsSL "$URL" -o "$CRAFT_PART_INSTALL/bin/mockzilla"
+      chmod +x "$CRAFT_PART_INSTALL/bin/mockzilla"
+      craftctl set version="$VERSION"
+
+apps:
+  mockzilla:
+    command: bin/mockzilla
