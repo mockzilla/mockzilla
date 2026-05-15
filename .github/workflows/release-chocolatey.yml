@@ -1,0 +1,56 @@
+name: Release Chocolatey
+
+on:
+  workflow_run:
+    workflows: ["Release Binaries"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v2.5.5)'
+        required: true
+
+jobs:
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v')) }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: ver
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+
+      - name: Compute SHA256
+        id: sha
+        shell: bash
+        run: |
+          URL="https://github.com/mockzilla/mockzilla/releases/download/${{ steps.ver.outputs.tag }}/mockzilla-${{ steps.ver.outputs.tag }}-windows-amd64.exe"
+          HASH=$(curl -sL "$URL" | sha256sum | awk '{print toupper($1)}')
+          echo "amd64=$HASH" >> $GITHUB_OUTPUT
+
+      - name: Substitute placeholders
+        shell: pwsh
+        run: |
+          $version = '${{ steps.ver.outputs.version }}'
+          $sha = '${{ steps.sha.outputs.amd64 }}'
+          (Get-Content .chocolatey/mockzilla.nuspec)              -replace '\$version\$', $version | Set-Content .chocolatey/mockzilla.nuspec
+          (Get-Content .chocolatey/tools/chocolateyInstall.ps1)   -replace '\$version\$', $version -replace '\$checksum_amd64\$', $sha | Set-Content .chocolatey/tools/chocolateyInstall.ps1
+
+      - name: Pack
+        shell: pwsh
+        run: choco pack .chocolatey/mockzilla.nuspec --outdir .
+
+      - name: Push
+        shell: pwsh
+        env:
+          CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: choco push "mockzilla.${{ steps.ver.outputs.version }}.nupkg" --source https://push.chocolatey.org/ --api-key "$env:CHOCOLATEY_API_KEY"

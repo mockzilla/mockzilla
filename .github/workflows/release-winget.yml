@@ -1,0 +1,27 @@
+name: Release Winget
+
+on:
+  workflow_run:
+    workflows: ["Release Binaries"]
+    types: [completed]
+
+jobs:
+  publish:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract version
+        id: ver
+        run: |
+          TAG="${{ github.event.workflow_run.head_branch }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+
+      - name: Publish to WinGet
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: Mockzilla.Mockzilla
+          version: ${{ steps.ver.outputs.version }}
+          release-tag: ${{ steps.ver.outputs.tag }}
+          installers-regex: '-windows-(amd64|arm64)\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}

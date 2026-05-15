@@ -1,0 +1,27 @@
+VERIFICATION
+
+Mockzilla is a portable Windows executable distributed through this Chocolatey
+package. The binary downloaded by chocolateyInstall.ps1 is the official build
+from the Mockzilla GitHub release.
+
+Source release page:
+  https://github.com/mockzilla/mockzilla/releases
+
+To verify the SHA256 checksum manually:
+
+  1. Download the binary directly from the GitHub release linked in
+     chocolateyInstall.ps1.
+
+  2. Compute the SHA256 hash in PowerShell:
+
+       Get-FileHash mockzilla-v<version>-windows-amd64.exe -Algorithm SHA256
+
+  3. Compare the resulting hash against the checksum64 value embedded in
+     chocolateyInstall.ps1 for this package version.
+
+The hash committed to chocolateyInstall.ps1 is computed by the Mockzilla
+release workflow (.github/workflows/release-chocolatey.yml) directly from
+the GitHub release asset at publish time.
+
+License (MIT):
+  https://github.com/mockzilla/mockzilla/blob/main/LICENSE
