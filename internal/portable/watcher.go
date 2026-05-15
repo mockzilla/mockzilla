@@ -29,22 +29,49 @@ func watchServices(
 	}
 	defer func() { _ = watcher.Close() }()
 
-	// Map: filesystem path → service name. We register watchers on
-	// directories (fsnotify can't watch nonexistent files), then route
-	// events back to the affected service via the directory the event
-	// happened in.
-	dirToService := make(map[string]string)
+	// Map: filesystem path → service names. A single dir can host
+	// several services (flat-root mode: each top-level spec is its own
+	// service sharing the parent dir), so the value is a slice. We
+	// register watchers on directories (fsnotify can't watch nonexistent
+	// files), then route events back via the directory the event
+	// happened in, narrowed by filename when multiple services share it.
+	// Resolve to absolute paths: fsnotify echoes back event paths in the
+	// same form they were registered, and matchServices walks parents
+	// stopping at "/" or ".". Relative dirs like "." (from a bare spec
+	// in the cwd) would then never match anything.
+	dirToServices := make(map[string][]string)
+	watched := make(map[string]bool)
+
+	// bareSpecs: service-name → spec basename, for services where the
+	// user pointed at a single file (no ConfigDir, no StaticDir). The
+	// watched dir is then likely full of unrelated files (think
+	// `mockzilla petstore.yaml` from ~/Downloads), so we filter strictly
+	// to the spec's own filename.
+	bareSpecs := make(map[string]string)
 	for _, svc := range services {
-		dirs := dirsToWatch(svc)
-		for _, d := range dirs {
+		if svc.ConfigDir == "" && svc.StaticDir == "" && svc.SpecPath != "" {
+			bareSpecs[svc.Name] = filepath.Base(svc.SpecPath)
+		}
+
+		for _, d := range dirsToWatch(svc) {
 			if d == "" {
 				continue
 			}
-			if err := watcher.Add(d); err != nil {
-				slog.Debug("Failed to watch dir", "dir", d, "error", err)
+
+			abs, err := filepath.Abs(d)
+			if err != nil {
+				slog.Debug("Failed to resolve watch dir", "dir", d, "error", err)
 				continue
 			}
-			dirToService[d] = svc.Name
+
+			if !watched[abs] {
+				if err := watcher.Add(abs); err != nil {
+					slog.Debug("Failed to watch dir", "dir", abs, "error", err)
+					continue
+				}
+				watched[abs] = true
+			}
+			dirToServices[abs] = append(dirToServices[abs], svc.Name)
 		}
 	}
 
@@ -63,16 +90,19 @@ func watchServices(
 			if !ok {
 				return
 			}
-			name := matchService(event.Name, dirToService)
-			if name == "" {
+			if !isReloadEvent(event) {
 				continue
 			}
-			if !isReloadEvent(event) {
+			names := matchServices(event.Name, dirToServices)
+			names = filterBareSpecs(names, event.Name, bareSpecs)
+			if len(names) == 0 {
 				continue
 			}
 
 			mu.Lock()
-			pending[name] = true
+			for _, n := range names {
+				pending[n] = true
+			}
 			if debounceTimer != nil {
 				debounceTimer.Stop()
 			}
@@ -108,7 +138,13 @@ func dirsToWatch(svc Service) []string {
 	if svc.ConfigDir != "" {
 		dirs = append(dirs, svc.ConfigDir)
 	}
-	if svc.SpecPath != "" {
+
+	// Skip the spec's parent when the spec was synthesized: each reload
+	// rewrites that file via writeTempSpec, which would feed straight
+	// back into the watcher and loop forever. StaticDir != "" is the
+	// synthesis signal; the real sources live under ConfigDir/StaticDir
+	// which are already watched.
+	if svc.SpecPath != "" && svc.StaticDir == "" {
 		dirs = append(dirs, filepath.Dir(svc.SpecPath))
 	}
 	if svc.StaticDir != "" {
@@ -130,20 +166,73 @@ func dedup(in []string) []string {
 	return out
 }
 
-// matchService returns the service name for an event path by walking
-// the directory hierarchy up until it hits a watched directory.
-func matchService(eventPath string, dirToService map[string]string) string {
+// matchServices returns the service names for an event path. It walks
+// the directory hierarchy up until it hits a watched directory (the
+// tightest-fitting one wins). When that dir hosts multiple services
+// (flat-root), it narrows by the event's filename: a spec file
+// `<name>.<ext>` routes to just that service; shared signals like
+// config.yml/context.yml reload all candidates.
+func matchServices(eventPath string, dirToServices map[string][]string) []string {
+	var candidates []string
 	dir := filepath.Dir(eventPath)
 	for dir != "/" && dir != "." {
-		if name, ok := dirToService[dir]; ok {
-			return name
+		if names, ok := dirToServices[dir]; ok {
+			candidates = names
+			break
 		}
 		dir = filepath.Dir(dir)
 	}
-	if name, ok := dirToService[eventPath]; ok {
-		return name
+
+	if candidates == nil {
+		if names, ok := dirToServices[eventPath]; ok {
+			candidates = names
+		}
 	}
-	return ""
+	if len(candidates) <= 1 {
+		return candidates
+	}
+
+	base := filepath.Base(eventPath)
+	// Shared signals apply to every service sharing the dir. Checked
+	// before isSpecFile because context.yml/config.yml are also `.yml`.
+	if base == configFile || base == contextFile {
+		return candidates
+	}
+
+	if isSpecFile(base) {
+		stem := serviceNameFromFile(base)
+		for _, n := range candidates {
+			if n == stem {
+				return []string{n}
+			}
+		}
+		// Spec file in the shared dir but no matching service: ignore.
+		return nil
+	}
+
+	// Ambiguous files (e.g. unknown extensions) reload every candidate.
+	// Safer to over-reload than to miss an edit.
+	return candidates
+}
+
+// filterBareSpecs drops bare-spec services from `names` unless the event
+// is on the spec file itself. Bare specs watch their parent dir purely
+// because fsnotify can't reliably follow editor-rename-on-save on a
+// single file, but the parent (e.g. ~/Downloads) is full of noise that
+// shouldn't trigger reloads.
+func filterBareSpecs(names []string, eventPath string, bareSpecs map[string]string) []string {
+	if len(bareSpecs) == 0 || len(names) == 0 {
+		return names
+	}
+	base := filepath.Base(eventPath)
+	out := names[:0]
+	for _, n := range names {
+		if specBase, ok := bareSpecs[n]; ok && base != specBase {
+			continue
+		}
+		out = append(out, n)
+	}
+	return out
 }
 
 func isReloadEvent(event fsnotify.Event) bool {
@@ -169,14 +258,20 @@ func reloadService(svc Service, router *api.Router, handlers map[string]*swappab
 		return
 	}
 
-	// Re-resolve from disk so spec/static changes are picked up
-	// uniformly regardless of which mode the folder is in now. It can
-	// even flip between modes (e.g. a user drops their first static
-	// file alongside an existing spec).
-	rebuilt, err := resolveServiceDir(svc.ConfigDir, svc.Name)
-	if err != nil {
-		slog.Error("Failed to re-resolve service", "name", svc.Name, "error", err)
-		return
+	// Static/merge services need to re-resolve so changes to static
+	// endpoint files get re-synthesized into the spec. Pure-spec
+	// services don't: the on-disk spec IS the source of truth, and
+	// re-resolving by ConfigDir would break bare-spec mode (empty
+	// ConfigDir) and flat-root mode (shared ConfigDir, where
+	// findSpecInDir would pick the wrong service's spec).
+	rebuilt := svc
+	if svc.StaticDir != "" {
+		r, err := resolveServiceDir(svc.StaticDir, svc.Name)
+		if err != nil {
+			slog.Error("Failed to re-resolve service", "name", svc.Name, "error", err)
+			return
+		}
+		rebuilt = r
 	}
 
 	h, err := buildHandler(rebuilt)

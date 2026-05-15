@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	output := flag.String("output", "", "Output file path (default: cmd/mockzilla/services_gen.go)")
 	flag.Parse()
 
 	// Get services directory from positional argument
@@ -19,6 +20,7 @@ func main() {
 
 	err := cmdapi.Discover(cmdapi.DiscoverOptions{
 		ServicesDir: servicesDir,
+		OutputFile:  *output,
 	})
 
 	if err != nil {
