@@ -1,4 +1,4 @@
-mockzilla (__VERSION__~__SERIES__1) __SERIES__; urgency=medium
+mockzilla (__VERSION__~__SERIES____REV__) __SERIES__; urgency=medium
 
   * Release __VERSION__. See https://github.com/mockzilla/mockzilla/releases/tag/v__VERSION__
 

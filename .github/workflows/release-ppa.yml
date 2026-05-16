@@ -45,6 +45,7 @@ jobs:
           PKGVER="${VERSION}~${{ matrix.series }}${REV}"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "rev=$REV" >> $GITHUB_OUTPUT
           echo "pkgver=$PKGVER" >> $GITHUB_OUTPUT
 
       - name: Stage source tree
@@ -66,6 +67,7 @@ jobs:
           sed -i \
             -e "s/__VERSION__/${{ steps.ver.outputs.version }}/g" \
             -e "s/__SERIES__/${{ matrix.series }}/g" \
+            -e "s/__REV__/${{ steps.ver.outputs.rev }}/g" \
             -e "s/__DATE__/${DATE}/g" \
             "$BUILD/debian/changelog"
 
