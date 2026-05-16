@@ -83,7 +83,7 @@ jobs:
           chmod 600 "$PASSFILE"
           printf '%s' "$GPG_PASS" > "$PASSFILE"
           cd "$BUILD"
-          dpkg-buildpackage -S -sa -us -uc
+          dpkg-buildpackage -S -sa -us -uc -d
           cd ..
           debsign --re-sign \
             -p"gpg --batch --pinentry-mode loopback --passphrase-file $PASSFILE" \
