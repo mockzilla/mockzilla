@@ -9,6 +9,10 @@ on:
       tag:
         description: 'Release tag (e.g. v2.5.5)'
         required: true
+      revision:
+        description: 'PPA revision suffix (bump if re-uploading same tag)'
+        required: false
+        default: '1'
 
 jobs:
   publish:
@@ -37,7 +41,8 @@ jobs:
             TAG="${{ github.event.workflow_run.head_branch }}"
           fi
           VERSION="${TAG#v}"
-          PKGVER="${VERSION}~${{ matrix.series }}1"
+          REV="${{ inputs.revision || '1' }}"
+          PKGVER="${VERSION}~${{ matrix.series }}${REV}"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "pkgver=$PKGVER" >> $GITHUB_OUTPUT
