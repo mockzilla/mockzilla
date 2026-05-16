@@ -1,0 +1,105 @@
+name: Release PPA
+
+on:
+  workflow_run:
+    workflows: ["Release Binaries"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v2.5.5)'
+        required: true
+
+jobs:
+  publish:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v')) }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        series: [jammy, noble]
+    env:
+      KEY_FPR: 29299D7CBDE2A4857E0649A5753FC6BF27B4C2A7
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install packaging tooling
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends devscripts debhelper dput
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          fi
+          VERSION="${TAG#v}"
+          PKGVER="${VERSION}~${{ matrix.series }}1"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "pkgver=$PKGVER" >> $GITHUB_OUTPUT
+
+      - name: Stage source tree
+        run: |
+          BUILD=/tmp/build/mockzilla-${{ steps.ver.outputs.pkgver }}
+          mkdir -p "$BUILD/debian" "$BUILD/prebuilt"
+          cp -r .debian/. "$BUILD/debian/"
+          chmod +x "$BUILD/debian/rules"
+          for arch in amd64 arm64; do
+            curl -fsSL -o "$BUILD/prebuilt/mockzilla-linux-${arch}" \
+              "https://github.com/mockzilla/mockzilla/releases/download/${{ steps.ver.outputs.tag }}/mockzilla-${{ steps.ver.outputs.tag }}-linux-${arch}"
+            chmod +x "$BUILD/prebuilt/mockzilla-linux-${arch}"
+          done
+
+      - name: Substitute changelog placeholders
+        run: |
+          BUILD=/tmp/build/mockzilla-${{ steps.ver.outputs.pkgver }}
+          DATE=$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')
+          sed -i \
+            -e "s/__VERSION__/${{ steps.ver.outputs.version }}/g" \
+            -e "s/__SERIES__/${{ matrix.series }}/g" \
+            -e "s/__DATE__/${DATE}/g" \
+            "$BUILD/debian/changelog"
+
+      - name: Import GPG signing key
+        env:
+          GPG_KEY: ${{ secrets.LAUNCHPAD_GPG_KEY }}
+        run: |
+          mkdir -p ~/.gnupg && chmod 700 ~/.gnupg
+          echo "allow-loopback-pinentry" > ~/.gnupg/gpg-agent.conf
+          gpgconf --kill gpg-agent
+          printf '%s' "$GPG_KEY" | gpg --batch --import
+          gpg --list-secret-keys "$KEY_FPR"
+
+      - name: Build and sign source package
+        env:
+          GPG_PASS: ${{ secrets.LAUNCHPAD_GPG_PASS }}
+        run: |
+          BUILD=/tmp/build/mockzilla-${{ steps.ver.outputs.pkgver }}
+          PASSFILE=$(mktemp)
+          chmod 600 "$PASSFILE"
+          printf '%s' "$GPG_PASS" > "$PASSFILE"
+          cd "$BUILD"
+          dpkg-buildpackage -S -sa -us -uc
+          cd ..
+          debsign --re-sign \
+            -p"gpg --batch --pinentry-mode loopback --passphrase-file $PASSFILE" \
+            -k"$KEY_FPR" \
+            "mockzilla_${{ steps.ver.outputs.pkgver }}_source.changes"
+          rm -f "$PASSFILE"
+
+      - name: Upload to PPA
+        run: |
+          cat > ~/.dput.cf <<'EOF'
+          [mockzilla-ppa]
+          fqdn = ppa.launchpad.net
+          method = ftp
+          incoming = ~mockzilla/ubuntu/mockzilla/
+          login = anonymous
+          allow_unsigned_uploads = 0
+          EOF
+          cd /tmp/build
+          dput mockzilla-ppa "mockzilla_${{ steps.ver.outputs.pkgver }}_source.changes"

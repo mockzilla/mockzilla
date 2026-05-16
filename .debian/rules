@@ -1,0 +1,16 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+
+override_dh_auto_build:
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	install -D -m 0755 prebuilt/mockzilla-linux-$(DEB_HOST_ARCH) $(CURDIR)/debian/mockzilla/usr/bin/mockzilla
+
+override_dh_strip:
+	# Go binaries are already stripped at build time (-s -w)
