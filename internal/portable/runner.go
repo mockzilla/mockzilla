@@ -399,11 +399,14 @@ func buildOverrides(fl flags) (*cliOverrides, error) {
 // applied. We can't fully resolve mounts here without re-reading every
 // config.yml, so we approximate with the signals available at this
 // point: an empty Name (no inside-the-folder identity signal) means
-// the service will mount at "/" by default, and a CLI --mount="/"
-// override forces that mount regardless of folder identity.
+// the service will mount at "/" by default. A CLI --mount is only
+// valid for single-service runs and overrides whatever the service
+// would otherwise pick, so when it's set it decides for the whole
+// batch — including the static-fallback case where Name is empty but
+// the flag relocates the mount somewhere else.
 func anyServiceClaimsRoot(services []Service, fl flags) bool {
-	if fl.mount == "/" {
-		return true
+	if fl.mount != "" {
+		return fl.mount == "/"
 	}
 	for _, s := range services {
 		if s.Name == "" {

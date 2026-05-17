@@ -42,15 +42,23 @@ const (
 var specExts = []string{".yml", ".yaml", ".json"}
 
 // isPortableArg returns true if arg looks like something portable mode
-// can serve: a spec, a URL, a package, or a recognised directory shape.
+// can serve: a spec, a URL, a package, a recognised directory shape,
+// or any single static-content file (.json/.html/.txt/.xml/.yml/...)
+// that we can fall back to serving at `GET /`.
 func isPortableArg(arg string) bool {
 	if isURL(arg) || isSpecFile(arg) || isPackageFile(arg) {
 		return true
 	}
+
 	info, err := os.Stat(arg)
-	if err != nil || !info.IsDir() {
+	if err != nil {
 		return false
 	}
+
+	if !info.IsDir() {
+		return isStaticContentFile(arg)
+	}
+
 	if dirHasServicesRoot(arg) {
 		return true
 	}
@@ -134,7 +142,22 @@ func resolveOne(arg string) ([]Service, error) {
 	}
 
 	if isSpecFile(arg) {
+		data, err := os.ReadFile(arg)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", arg, err)
+		}
+		if !looksLikeOpenAPISpec(data) {
+			return resolveStaticFile(arg, data, "")
+		}
 		return []Service{{Name: serviceNameFromFile(arg), SpecPath: arg}}, nil
+	}
+
+	if isStaticContentFile(arg) {
+		data, err := os.ReadFile(arg)
+		if err != nil {
+			return nil, fmt.Errorf("reading %s: %w", arg, err)
+		}
+		return resolveStaticFile(arg, data, "")
 	}
 
 	return nil, fmt.Errorf("unrecognised input: %s", arg)
@@ -612,6 +635,12 @@ func resolveURLByContent(rawURL string) ([]Service, error) {
 			return nil, err
 		}
 		return resolveDir(dir)
+	}
+
+	if !looksLikeOpenAPISpec(body) {
+		slog.Info("Remote body is not an OpenAPI spec; serving as static",
+			"url", rawURL, "content_type", contentType)
+		return resolveStaticFile(parsed.Path, body, contentType)
 	}
 
 	path, err := writeTempBytes(

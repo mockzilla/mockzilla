@@ -56,14 +56,14 @@ func main() {
 			// Brief pause before restart
 			time.Sleep(100 * time.Millisecond)
 
-			// Get the path to the newly built server binary
-			// The watcher builds to ".build/server/server" in the working directory
+			// Get the path to the newly built binary. The watcher
+			// rebuilds to ".build/mockzilla" in the working directory.
 			appDir := os.Getenv("APP_DIR")
 			if appDir == "" {
 				_, b, _, _ := runtime.Caller(0)
 				appDir = filepath.Dir(filepath.Dir(filepath.Dir(b)))
 			}
-			newBinary := filepath.Join(appDir, ".build", "server", "server")
+			newBinary := filepath.Join(appDir, ".build", "mockzilla")
 
 			// Make sure the new binary exists
 			if _, err := os.Stat(newBinary); err != nil {
@@ -317,8 +317,9 @@ func printUsage() {
 	fmt.Print(`mockzilla: generate mock servers from OpenAPI specs
 
 Usage:
-  mockzilla <spec.yaml | dir | package.mockz | https://...>  [flags]
-                                               Portable mode: serve a spec, directory, or package
+  mockzilla <spec.yaml | dir | package.mockz | static.json | https://...>  [flags]
+                                               Portable mode: serve a spec, directory, package,
+                                               or a single static response file (mounted at GET /)
   mockzilla info <spec.yaml | https://...>     Print a JSON summary of a spec and exit
   mockzilla simplify <spec.yaml | https://...> Simplify a spec (drop unions, limit optional props)
   mockzilla pack <dir>                         Pack a service directory into a .mockz archive
@@ -341,7 +342,9 @@ registered, typically with a single spec file or single folder arg):
 Layout:
   Point the CLI at one of:
     - A single OpenAPI spec file:    mockzilla petstore.yml
+    - A single static response file: mockzilla some.json   (served at GET /)
     - A remote spec URL:             mockzilla https://api.example.com/openapi.json
+    - A remote static response:      mockzilla https://example.com/data.json
     - A single-service folder:       mockzilla ./pets/
         (folder contains a *.{yml,yaml,json} spec and/or index.<ext>
          response files at <path>/<method>/ or <path>/)

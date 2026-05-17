@@ -769,12 +769,12 @@ func (dw *dataWatcher) rebuildServer() error {
 		return fmt.Errorf("go mod vendor failed: %w", err)
 	}
 
-	buildDir := filepath.Join(dw.paths.Base, ".build", "server")
+	buildDir := filepath.Join(dw.paths.Base, ".build")
 	if err := os.MkdirAll(buildDir, 0755); err != nil {
 		return fmt.Errorf("failed to create build directory: %w", err)
 	}
 
-	serverBinary := filepath.Join(buildDir, "server")
+	serverBinary := filepath.Join(buildDir, "mockzilla")
 	slog.Info("Building server binary...", "output", serverBinary)
 	if err := runCmd(dw.paths.Base, "go", "build", "-o", serverBinary, "./cmd/mockzilla"); err != nil {
 		return fmt.Errorf("build failed: %w", err)

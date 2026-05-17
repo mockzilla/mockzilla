@@ -32,7 +32,7 @@ lint:
 build: clean
 	@echo "Go version: $(GO_VERSION)"
 	@go mod download
-	@go build $(GO_BUILD_FLAGS) -ldflags="-X main.version=$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)" -o ${build_dir}/server/mockzilla ./cmd/mockzilla
+	@go build $(GO_BUILD_FLAGS) -ldflags="-X main.version=$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)" -o ${build_dir}/mockzilla ./cmd/mockzilla
 
 .PHONY: test
 test:
@@ -42,6 +42,7 @@ test:
   		go test -race ./... -skip='Test(Portable)?Integration' -count=1 -coverprofile=coverage.out && ./coverage-exclude.sh ./$(PKG)/...; \
 	fi
 	@git ls-files '**/*go.mod' -z | xargs -0 -I{} bash -c 'cd $$(dirname {}) && if [ -f Makefile ] && go list ./... >/dev/null 2>&1; then make test; fi'
+	node --test resources/ui/js/*.test.js
 
 .PHONY: fetch-specs
 fetch-specs:
@@ -164,9 +165,8 @@ check-fmt:
 .PHONY: server
 server:
 	@echo "Building and starting development server with built-in hot-reload..."
-	@mkdir -p ${build_dir}/server
-	@go build -ldflags="-X main.version=$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)" -o ${build_dir}/server/server ./cmd/mockzilla
-	@${build_dir}/server/server
+	@go build -ldflags="-X main.version=$(shell git describe --tags --abbrev=0 2>/dev/null || echo dev)" -o ${build_dir}/mockzilla ./cmd/mockzilla
+	@${build_dir}/mockzilla
 
 .PHONY: docker-build
 docker-build: build

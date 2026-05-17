@@ -97,7 +97,7 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 		}
 
 		ext := filepath.Ext(info.Name())
-		contentType := getContentType(ext)
+		contentType := GetContentType(ext)
 		if contentType == "" {
 			return nil
 		}
@@ -206,7 +206,7 @@ func HasStaticEndpoints(dir string) bool {
 		if stem != "index" {
 			return nil
 		}
-		if getContentType(filepath.Ext(filename)) == "" {
+		if GetContentType(filepath.Ext(filename)) == "" {
 			return nil
 		}
 		// A top-level `index.<ext>` is also a static endpoint
@@ -219,9 +219,9 @@ func HasStaticEndpoints(dir string) bool {
 	return found
 }
 
-// getContentType returns the content type for a file extension.
+// GetContentType returns the content type for a file extension.
 // Returns empty string for unsupported extensions.
-func getContentType(ext string) string {
+func GetContentType(ext string) string {
 	switch ext {
 	case ".json":
 		return "application/json"
