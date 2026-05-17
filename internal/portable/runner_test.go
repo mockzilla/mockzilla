@@ -297,6 +297,30 @@ func TestIntegration_ScannerSkipsNoisyDirs(t *testing.T) {
 	}
 }
 
+func TestAnyServiceClaimsRoot(t *testing.T) {
+	rootSvc := []Service{{Name: ""}}
+	named := []Service{{Name: "petstore"}}
+
+	cases := []struct {
+		name     string
+		services []Service
+		fl       flags
+		want     bool
+	}{
+		{"empty-name service with no mount flag claims root", rootSvc, flags{}, true},
+		{"named service with no mount flag does not claim root", named, flags{}, false},
+		{"--mount=/ forces root regardless of name", named, flags{mount: "/"}, true},
+		{"--mount=/foo/bar relocates the root-name service away from /", rootSvc, flags{mount: "/foo/bar"}, false},
+		{"--mount=foo/bar (no leading /) also relocates away from /", rootSvc, flags{mount: "foo/bar"}, false},
+		{"no services no flag means no root claim", nil, flags{}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, anyServiceClaimsRoot(c.services, c.fl))
+		})
+	}
+}
+
 // TestIntegration_ConvenienceFlags verifies --latency/--mount/--errors
 // take effect for a single-spec invocation.
 func TestIntegration_ConvenienceFlags(t *testing.T) {
@@ -327,4 +351,49 @@ func TestIntegration_ConvenienceFlags(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+}
+
+// TestIntegration_StaticFallbackWithMount verifies that the static-file
+// fallback (single non-spec JSON arg) combines correctly with --mount,
+// including the trailing-slash form that users tend to pass.
+func TestIntegration_StaticFallbackWithMount(t *testing.T) {
+	cases := []struct {
+		name      string
+		mount     string
+		wantRoute string
+	}{
+		{"plain mount path", "/foo/bar", "/foo/bar/"},
+		{"trailing-slash mount path", "/foo/bar/", "/foo/bar/"},
+		{"no-leading-slash mount path", "foo/bar", "/foo/bar/"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			dir := t.TempDir()
+			staticFile := filepath.Join(dir, "hello.json")
+			require.NoError(t, os.WriteFile(staticFile, []byte(`{"hi":"there"}`), 0o644))
+
+			services, err := resolveServices([]string{staticFile})
+			require.NoError(t, err)
+			require.Len(t, services, 1)
+			assert.Empty(t, services[0].Name)
+
+			overrides, err := buildOverrides(flags{mount: c.mount})
+			require.NoError(t, err)
+			require.NotNil(t, overrides)
+
+			router := testRouter(t)
+			handlers := make(map[string]*swappableHandler)
+			require.NoError(t, registerService(router, services[0], overrides, handlers))
+
+			ts := httptest.NewServer(router)
+			defer ts.Close()
+			resp, err := http.Get(ts.URL + c.wantRoute)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+			assert.JSONEq(t, `{"hi":"there"}`, string(body))
+		})
+	}
 }

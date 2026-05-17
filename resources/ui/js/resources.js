@@ -4,6 +4,7 @@ import * as validators from './validators.js';
 import * as navi from "./navi.js";
 import * as services from "./services.js";
 import * as presets from "./presets.js";
+import { joinServiceUrl } from "./url.js";
 
 export const addCustomHeaderRow = (enabled = true, name = '', value = '', visible = true) => {
     const container = document.getElementById('custom-headers-rows');
@@ -324,15 +325,14 @@ export const generateResult = (service, ix, path, method) => {
 
             const curlBlock = document.getElementById('example-curl');
 
+            // The server-reported prefix is the source of truth — including
+            // when `--mount` overrides a root-named service. joinServiceUrl
+            // collapses the "/" prefix (root mount) and any trailing slash
+            // from a CLI mount value so the join with reqPath stays clean.
             const lookupName = service === '.root' ? '' : service;
-            // Root-mounted services register their prefix as "/", but reqPath
-            // also starts with "/" — concatenating naively would yield "//"
-            // in the displayed URL. Force an empty prefix for the root case;
-            // every other service contributes a single-leading-slash prefix.
-            const urlPrefix = service === '.root'
-                ? ''
-                : (services.getServicePrefix(lookupName) || `/${service}`);
-            curlBlock.textContent = `curl --request ${method.toUpperCase()} \\\n'${config.baseUrl}${urlPrefix}${reqPath}'`;
+            const rawPrefix = services.getServicePrefix(lookupName) ?? (service === '.root' ? '' : `/${service}`);
+            const fullUrl = joinServiceUrl(config.baseUrl, rawPrefix, reqPath);
+            curlBlock.textContent = `curl --request ${method.toUpperCase()} \\\n'${fullUrl}'`;
             if (reqContentType) {
                 curlBlock.textContent += ` \\\n--header 'Content-Type: ${reqContentType}'`
             }
@@ -361,10 +361,9 @@ export const generateResult = (service, ix, path, method) => {
 
             // Make actual API call to get response
             if (reqPath) {
-                // Reuse the same prefix as the curl example so the live
-                // request and the displayed command stay in lockstep, including
-                // the root-mount empty-prefix special case above.
-                const apiUrl = `${config.baseUrl}${urlPrefix}${reqPath}`;
+                // Reuse the same join so the live request and the displayed
+                // curl command stay in lockstep.
+                const apiUrl = fullUrl;
                 const fetchOptions = {
                     method: method.toUpperCase(),
                     headers: { ...reqHeaders }

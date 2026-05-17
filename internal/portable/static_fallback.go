@@ -77,7 +77,7 @@ func resolveStaticFile(pathHint string, data []byte, contentType string) ([]Serv
 	if err != nil {
 		return nil, fmt.Errorf("resolving static fallback: %w", err)
 	}
-	slog.Info("Serving file as static response", "source", pathHint, "mount", "/")
+	slog.Info("Serving file as static response", "source", pathHint)
 	return []Service{svc}, nil
 }
 

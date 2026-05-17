@@ -56,14 +56,14 @@ func main() {
 			// Brief pause before restart
 			time.Sleep(100 * time.Millisecond)
 
-			// Get the path to the newly built server binary
-			// The watcher builds to ".build/server/server" in the working directory
+			// Get the path to the newly built binary. The watcher
+			// rebuilds to ".build/mockzilla" in the working directory.
 			appDir := os.Getenv("APP_DIR")
 			if appDir == "" {
 				_, b, _, _ := runtime.Caller(0)
 				appDir = filepath.Dir(filepath.Dir(filepath.Dir(b)))
 			}
-			newBinary := filepath.Join(appDir, ".build", "server", "server")
+			newBinary := filepath.Join(appDir, ".build", "mockzilla")
 
 			// Make sure the new binary exists
 			if _, err := os.Stat(newBinary); err != nil {
