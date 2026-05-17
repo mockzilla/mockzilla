@@ -325,8 +325,14 @@ export const generateResult = (service, ix, path, method) => {
             const curlBlock = document.getElementById('example-curl');
 
             const lookupName = service === '.root' ? '' : service;
-            const servicePrefix = services.getServicePrefix(lookupName);
-            curlBlock.textContent = `curl --request ${method.toUpperCase()} \\\n'${config.baseUrl}${servicePrefix}${reqPath}'`;
+            // Root-mounted services register their prefix as "/", but reqPath
+            // also starts with "/" — concatenating naively would yield "//"
+            // in the displayed URL. Force an empty prefix for the root case;
+            // every other service contributes a single-leading-slash prefix.
+            const urlPrefix = service === '.root'
+                ? ''
+                : (services.getServicePrefix(lookupName) || `/${service}`);
+            curlBlock.textContent = `curl --request ${method.toUpperCase()} \\\n'${config.baseUrl}${urlPrefix}${reqPath}'`;
             if (reqContentType) {
                 curlBlock.textContent += ` \\\n--header 'Content-Type: ${reqContentType}'`
             }
@@ -355,13 +361,10 @@ export const generateResult = (service, ix, path, method) => {
 
             // Make actual API call to get response
             if (reqPath) {
-                // Use the prefix the service is actually mounted at (may be
-                // multi-segment, e.g. /pets/v2) rather than the service name,
-                // so mount overrides reach the right URL.
-                const prefix = service === '.root'
-                    ? ''
-                    : (services.getServicePrefix(lookupName) || `/${service}`);
-                const apiUrl = `${config.baseUrl}${prefix}${reqPath}`;
+                // Reuse the same prefix as the curl example so the live
+                // request and the displayed command stay in lockstep, including
+                // the root-mount empty-prefix special case above.
+                const apiUrl = `${config.baseUrl}${urlPrefix}${reqPath}`;
                 const fetchOptions = {
                     method: method.toUpperCase(),
                     headers: { ...reqHeaders }
