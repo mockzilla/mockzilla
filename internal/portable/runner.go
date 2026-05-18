@@ -22,6 +22,8 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/factory"
+	"github.com/mockzilla/mockzilla/v2/pkg/middleware"
+	validator "github.com/pb33f/libopenapi-validator"
 )
 
 const (
@@ -120,10 +122,9 @@ func BuildSetup(args []string) (*Setup, error) {
 		}
 	}
 
-	if len(handlers) == 0 {
-		return nil, fmt.Errorf("no services registered")
-	}
-
+	// Server boots even when zero services registered. The UI and internal
+	// routes are still useful, and operators can fix specs without
+	// restarting the process.
 	return &Setup{
 		Router:   router,
 		AppCfg:   appCfg,
@@ -459,11 +460,61 @@ func registerService(
 		return fmt.Errorf("creating handler: %w", err)
 	}
 
-	sw := &swappableHandler{handler: h}
+	var regOpts []api.HandlerOption
+	validationOn := svcCfg.Validation.RequestEnabled() || svcCfg.Validation.ResponseEnabled()
+
+	var v validator.Validator
+	if validationOn {
+		built, err := buildValidator(h)
+		if err != nil {
+			// Spec opted into validation but the validator can't be
+			// built. Drop the service entirely (don't silently register
+			// it with validation off — that would contradict the
+			// config). Server keeps running and registers other services.
+			return fmt.Errorf("building validator: %w", err)
+		}
+		v = built
+	}
+
+	sw := &swappableHandler{handler: h, validator: v}
 	handlers[svc.Name] = sw
-	router.RegisterService(svcCfg, sw)
+
+	if validationOn {
+		mw := func(p *middleware.Params) func(http.Handler) http.Handler {
+			return middleware.CreateValidationMiddleware(p, sw.Validator)
+		}
+		regOpts = append(regOpts, api.WithMiddleware(
+			[]func(*middleware.Params) func(http.Handler) http.Handler{mw},
+		))
+	}
+
+	router.RegisterService(svcCfg, sw, regOpts...)
 	slog.Info("Registered service", "name", svc.Name, "mount", api.ServicePrefix(svcCfg))
 	return nil
+}
+
+// buildValidator returns a validator built from the handler's parsed
+// spec document. Errors and panics are surfaced to the caller: when the
+// service config opts into validation, the caller refuses to register
+// the service rather than silently dropping validation. Spec
+// problems should be visible at startup, not papered over.
+func buildValidator(h *handler) (v validator.Validator, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("validator construction panicked: %v", r)
+			v = nil
+		}
+	}()
+
+	doc, docErr := h.factory.Document()
+	if docErr != nil {
+		return nil, fmt.Errorf("parsing spec: %w", docErr)
+	}
+	built, vErrs := validator.NewValidator(doc)
+	if len(vErrs) > 0 {
+		return nil, fmt.Errorf("validator construction: %w", errors.Join(vErrs...))
+	}
+	return built, nil
 }
 
 func emitReadyStamp(appCfg *config.AppConfig, router *api.Router) {

@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/factory"
+	validator "github.com/pb33f/libopenapi-validator"
 )
 
 // handler implements the api.Handler interface using a factory.Factory
@@ -126,9 +127,12 @@ func (h *handler) handleRequest(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", contentType)
 	}
 
-	// Determine status code from the spec
-	if op != nil && op.Response != nil && op.Response.SuccessCode > 0 {
-		w.WriteHeader(op.Response.SuccessCode)
+	// Determine status code from the spec. Prefer Factory.SuccessStatusCode
+	// over op.Response.SuccessCode: it accounts for the codegen-fabricated
+	// 204 (returned when the spec declares no 2xx), substituting a code the
+	// spec actually declares so response validation can pass.
+	if statusCode := h.factory.SuccessStatusCode(specPath, r.Method); statusCode > 0 {
+		w.WriteHeader(statusCode)
 	}
 
 	if resp.Body != nil {
@@ -136,10 +140,22 @@ func (h *handler) handleRequest(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// swappableHandler wraps a handler with a mutex for hot-swapping.
+// swappableHandler wraps a handler with a mutex for hot-swapping. The
+// validator is stored alongside so hot-reloads can rebuild both
+// atomically; the validation middleware reads through Validator() so it
+// always sees the validator built from the most recent spec.
 type swappableHandler struct {
-	mu      sync.RWMutex
-	handler *handler
+	mu        sync.RWMutex
+	handler   *handler
+	validator validator.Validator
+}
+
+// Validator returns the currently active validator for this service, or
+// nil when validation isn't configured for it.
+func (s *swappableHandler) Validator() validator.Validator {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.validator
 }
 
 func (s *swappableHandler) Routes() api.RouteDescriptions {
@@ -166,8 +182,9 @@ func (s *swappableHandler) handleRequest(w http.ResponseWriter, r *http.Request)
 	s.handler.handleRequest(w, r)
 }
 
-func (s *swappableHandler) swap(h *handler) {
+func (s *swappableHandler) swap(h *handler, v validator.Validator) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.handler = h
+	s.validator = v
 }

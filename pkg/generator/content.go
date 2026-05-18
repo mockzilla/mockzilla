@@ -162,12 +162,51 @@ func generateContentObject(schema *schema.Schema, valueReplacer replacer.ValueRe
 		}
 	}
 
-	// Generate additional properties if specified
-	if schema.AdditionalProperties != nil {
-		// Generate 3 additional properties by default
+	// Fill required fields the spec lists without a matching `properties`
+	// entry. JSON Schema permits this — `required: [foo]` without a `foo`
+	// in `properties` still demands the key be present, but constrains
+	// the value to "anything". A placeholder string keeps the consumer
+	// happy without inventing structure the spec didn't promise.
+	for _, name := range schema.Required {
+		if _, ok := res[name]; ok {
+			continue
+		}
+		if _, declared := schema.Properties[name]; declared {
+			continue
+		}
+		res[name] = name
+	}
+
+	// Generate additional properties to honour AdditionalProperties and/or
+	// MinProperties. Three reasons to enter this block:
+	//   1. The spec declares AdditionalProperties (a map type) - generate
+	//      a few entries using that schema as the value.
+	//   2. The spec declares MinProperties higher than what Properties
+	//      filled in - top up to meet the minimum.
+	//   3. The spec is a free-form object (no Properties, no
+	//      AdditionalProperties) with MinProperties > 0 - the spec author
+	//      requires at least N keys but didn't constrain values.
+	minNeeded := 0
+	if schema.MinProperties != nil && *schema.MinProperties > 0 {
+		need := int(*schema.MinProperties) - len(res)
+		if need > 0 {
+			minNeeded = need
+		}
+	}
+
+	if schema.AdditionalProperties != nil || minNeeded > 0 {
+		// Default fill is 3 entries; when MinProperties demands more, raise
+		// the target. For free-form objects (AdditionalProperties == nil),
+		// don't overshoot the minimum — there's nothing meaningful to add.
 		numAdditional := 3
+		if minNeeded > numAdditional {
+			numAdditional = minNeeded
+		}
+		if schema.AdditionalProperties == nil {
+			numAdditional = minNeeded
+		}
+
 		if schema.MaxProperties != nil && *schema.MaxProperties > 0 {
-			// Respect MaxProperties constraint
 			remaining := int(*schema.MaxProperties) - len(res)
 			if remaining < numAdditional {
 				numAdditional = remaining
@@ -176,15 +215,25 @@ func generateContentObject(schema *schema.Schema, valueReplacer replacer.ValueRe
 
 		f := faker.New()
 		startLen := len(res)
-		for attempts := 0; len(res)-startLen < numAdditional && attempts < numAdditional*3; attempts++ {
+		// Extra retries beyond numAdditional cover name collisions from the
+		// faker — without headroom we can fall short of MinProperties.
+		maxAttempts := numAdditional*3 + 5
+		for attempts := 0; len(res)-startLen < numAdditional && attempts < maxAttempts; attempts++ {
 			name := f.Music().Genre()
 			name = strings.ToLower(name)
 			name = strings.SplitN(name, " ", 2)[0]
 			if _, exists := res[name]; exists {
 				continue
 			}
-			s := state.NewFrom(state).WithOptions(replacer.WithName(name))
-			value := generateContentFromSchema(schema.AdditionalProperties, valueReplacer, s)
+			var value any
+			if schema.AdditionalProperties != nil {
+				s := state.NewFrom(state).WithOptions(replacer.WithName(name))
+				value = generateContentFromSchema(schema.AdditionalProperties, valueReplacer, s)
+			} else {
+				// Free-form object: the spec accepts any value for additional
+				// keys. A bare string is the most innocuous choice.
+				value = name
+			}
 			if value != nil {
 				res[name] = value
 			}
