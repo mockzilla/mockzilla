@@ -50,6 +50,15 @@ type Schema struct {
 	Deprecated           bool               `yaml:"deprecated,omitempty"`
 	AdditionalProperties *Schema            `yaml:"additionalProperties,omitempty"`
 
+	// AdditionalPropertiesForbidden is true when the spec declares
+	// `additionalProperties: false` (as a bool, not a schema). The
+	// generator uses this to refuse synthesising properties that
+	// aren't in the declared properties map - notably the placeholder
+	// fill for `required` names that have no matching `properties`
+	// entry, which would otherwise produce a body the validator
+	// rejects for "additional properties not allowed".
+	AdditionalPropertiesForbidden bool `yaml:"-" json:"-"`
+
 	// Discriminator describes the discriminator for oneOf/anyOf schemas.
 	// When set, the generator should use one of the valid discriminator values
 	// for the discriminator property instead of generating a random value.

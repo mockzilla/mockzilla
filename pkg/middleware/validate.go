@@ -8,11 +8,13 @@ import (
 	"net/http"
 	"net/url"
 	"runtime/debug"
+	"strconv"
 	"strings"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	validator "github.com/pb33f/libopenapi-validator"
 	"github.com/pb33f/libopenapi-validator/errors"
+	"go.yaml.in/yaml/v4"
 )
 
 // ValidatorSource yields the validator to use for the current request.
@@ -173,6 +175,15 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 
 			if allAmbiguousOneOf(validationErrs) {
 				RequestLog(log, req).Warn("oneOf variants overlap; skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"errors", len(validationErrs))
+				writeThrough(w, rw)
+				return
+			}
+
+			if allUnsatisfiableSchema(validationErrs) {
+				RequestLog(log, req).Warn("Spec schema is unsatisfiable (required name missing from properties + additionalProperties:false); skipping response validation",
 					"method", req.Method,
 					"path", req.URL.Path,
 					"errors", len(validationErrs))
@@ -348,6 +359,150 @@ func allPathMissing(errs []*errors.ValidationError) bool {
 	return true
 }
 
+// allUnsatisfiableSchema reports whether every validation failure
+// describes an internally inconsistent spec: a `required` name has no
+// matching `properties` entry while the schema also declares
+// `additionalProperties: false`. Such a schema has no valid body (the
+// required key must be present, yet no key outside `properties` is
+// permitted). The middleware treats these like ambiguous oneOf:
+// validator output suggests a spec defect, not a generator bug, so we
+// warn and let the response through.
+func allUnsatisfiableSchema(errs []*errors.ValidationError) bool {
+	if len(errs) == 0 {
+		return false
+	}
+
+	for _, e := range errs {
+		if len(e.SchemaValidationErrors) == 0 {
+			return false
+		}
+		for _, sve := range e.SchemaValidationErrors {
+			if !schemaFailureIsUnsatisfiable(sve) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// schemaFailureIsUnsatisfiable returns true when the validator's
+// nested failure is the "missing required" or "additional property"
+// form for a key that the spec's schema declares in `required` but
+// not in `properties`, alongside `additionalProperties: false`.
+// Navigates the SchemaValidationFailure's ReferenceSchema (a YAML
+// snippet of the outer schema) via the KeywordLocation JSON pointer
+// to find the specific offending sub-schema before checking.
+func schemaFailureIsUnsatisfiable(sve *errors.SchemaValidationFailure) bool {
+	if sve == nil || sve.ReferenceSchema == "" {
+		return false
+	}
+
+	key := extractPropertyName(sve.Reason)
+	if key == "" {
+		return false
+	}
+	var root any
+	if err := yaml.Unmarshal([]byte(sve.ReferenceSchema), &root); err != nil {
+		return false
+	}
+
+	target := resolveJSONPointer(root, trimKeywordSuffix(sve.KeywordLocation))
+	obj, ok := target.(map[string]any)
+	if !ok {
+		return false
+	}
+
+	addProps, ok := obj["additionalProperties"]
+	if !ok {
+		return false
+	}
+
+	if b, ok := addProps.(bool); !ok || b {
+		return false
+	}
+
+	required, _ := obj["required"].([]any)
+	requiredHasKey := false
+	for _, r := range required {
+		if s, ok := r.(string); ok && s == key {
+			requiredHasKey = true
+			break
+		}
+	}
+	if !requiredHasKey {
+		return false
+	}
+
+	properties, _ := obj["properties"].(map[string]any)
+	if _, declared := properties[key]; declared {
+		return false
+	}
+	return true
+}
+
+// trimKeywordSuffix drops the trailing schema-keyword segment from a
+// JSON pointer so it points at the containing schema rather than the
+// keyword (e.g. `.../stream/required` -> `.../stream`). The validator
+// always reports the failing keyword as the last segment; the schema
+// whose `required`/`additionalProperties` we want to inspect is its
+// parent.
+func trimKeywordSuffix(pointer string) string {
+	if i := strings.LastIndex(pointer, "/"); i > 0 {
+		return pointer[:i]
+	}
+	return ""
+}
+
+// resolveJSONPointer walks a YAML-decoded tree by an RFC 6901 pointer
+// (leading `/`, slash-separated tokens). Returns nil when any segment
+// can't be resolved.
+func resolveJSONPointer(root any, pointer string) any {
+	if pointer == "" {
+		return root
+	}
+	if !strings.HasPrefix(pointer, "/") {
+		return nil
+	}
+
+	cur := root
+	for _, raw := range strings.Split(pointer[1:], "/") {
+		token := strings.ReplaceAll(strings.ReplaceAll(raw, "~1", "/"), "~0", "~")
+		switch node := cur.(type) {
+		case map[string]any:
+			next, ok := node[token]
+			if !ok {
+				return nil
+			}
+			cur = next
+		case []any:
+			idx, err := strconv.Atoi(token)
+			if err != nil || idx < 0 || idx >= len(node) {
+				return nil
+			}
+			cur = node[idx]
+		default:
+			return nil
+		}
+	}
+	return cur
+}
+
+// extractPropertyName pulls a property name out of either of the two
+// failure reasons that pertain to the unsatisfiable schema check:
+// `missing property 'X'` and `additional properties 'X' not allowed`.
+// Returns "" if the reason has a different shape.
+func extractPropertyName(reason string) string {
+	for _, prefix := range []string{"missing property '", "additional properties '"} {
+		if idx := strings.Index(reason, prefix); idx >= 0 {
+			rest := reason[idx+len(prefix):]
+			if end := strings.IndexByte(rest, '\''); end >= 0 {
+				return rest[:end]
+			}
+		}
+	}
+	return ""
+}
+
 // allAmbiguousOneOf reports whether every validation failure is the
 // "oneOf matched more than one subschema" case. libopenapi-validator
 // surfaces this on the nested SchemaValidationErrors as `'oneOf'
@@ -382,18 +537,26 @@ func isAmbiguousOneOfReason(reason string) bool {
 }
 
 // allSchemaRenderFailure reports whether every validation failure is a
-// libopenapi-validator schema-rendering failure (typically caused by
-// circular $ref chains the validator can't unroll). These aren't
-// generator bugs — our mock body may well be fine — they're validator
-// limitations. The middleware treats them as "validation skipped" rather
-// than surfacing them as 500s to the client.
+// libopenapi-validator render or compile failure of the response
+// schema itself. These come from validator limitations (circular $ref
+// chains the validator can't unroll) or outright spec defects
+// (invalid `type:` values, malformed `$ref`s) that prevent the
+// validator from compiling the schema in the first place. Either way
+// mockzilla's generated body might be perfectly fine; the validator
+// just can't grade it. The middleware treats these as "validation
+// skipped" rather than surfacing them as 500s to the client.
 func allSchemaRenderFailure(errs []*errors.ValidationError) bool {
 	if len(errs) == 0 {
 		return false
 	}
 	for _, e := range errs {
-		if !strings.Contains(e.Reason, "schema render failure") &&
-			!strings.Contains(e.Message, "failed schema rendering") {
+		switch {
+		case strings.Contains(e.Reason, "schema render failure"),
+			strings.Contains(e.Message, "failed schema rendering"),
+			strings.Contains(e.Message, "failed schema compilation"),
+			strings.Contains(e.Reason, "JSON schema compile failed"):
+			continue
+		default:
 			return false
 		}
 	}

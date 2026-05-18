@@ -311,7 +311,7 @@ func (s *portableStats) printSummary(totalSpecs int) {
 			first := row.result.failures[0]
 			fmt.Fprintf(os.Stderr, "  %s\n    %s %s [%s]: %s\n",
 				row.spec, first.method, first.path, first.phase,
-				truncate([]byte(first.detail), 200))
+				truncate([]byte(first.detail), 2000))
 		}
 	}
 	fmt.Fprintln(os.Stderr, "========================================")
@@ -573,7 +573,7 @@ func callEndpoint(ctx context.Context, client *http.Client, url, method string, 
 
 	if resp.StatusCode >= 500 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("status %d: %s", resp.StatusCode, truncate(respBody, 200))
+		return fmt.Errorf("status %d: %s", resp.StatusCode, truncate(respBody, 2000))
 	}
 	return nil
 }

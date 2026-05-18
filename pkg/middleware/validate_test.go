@@ -324,6 +324,10 @@ func TestAllSchemaRenderFailure(t *testing.T) {
 		Message: "200 response body for '/x' failed schema rendering",
 		Reason:  "schema render failure, circular reference: `#/components/schemas/Foo`",
 	}
+	compile := &errors.ValidationError{
+		Message: "200 response body for '/x' failed schema compilation",
+		Reason:  "The response schema for status code '200' failed to compile: JSON schema compile failed: ...",
+	}
 	normal := &errors.ValidationError{
 		Message: "200 response body for '/x' failed to validate schema",
 		Reason:  "minProperties: got 0, want 1",
@@ -335,8 +339,102 @@ func TestAllSchemaRenderFailure(t *testing.T) {
 	t.Run("all render failures", func(t *testing.T) {
 		assert.True(t, allSchemaRenderFailure([]*errors.ValidationError{render}))
 	})
-	t.Run("mixed", func(t *testing.T) {
+	t.Run("schema compile failure counts", func(t *testing.T) {
+		assert.True(t, allSchemaRenderFailure([]*errors.ValidationError{compile}))
+	})
+	t.Run("mixed render and compile", func(t *testing.T) {
+		assert.True(t, allSchemaRenderFailure([]*errors.ValidationError{render, compile}))
+	})
+	t.Run("real failure not classified", func(t *testing.T) {
 		assert.False(t, allSchemaRenderFailure([]*errors.ValidationError{render, normal}))
+	})
+}
+
+func TestAllUnsatisfiableSchema(t *testing.T) {
+	const stream = `properties:
+  syncCatalog:
+    properties:
+      streams:
+        items:
+          properties:
+            stream:
+              additionalProperties: false
+              required:
+                - json_schema
+              properties:
+                jsonSchema:
+                  type: string
+`
+	missingRequired := &errors.ValidationError{
+		Message: "200 response body failed",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{{
+			Reason:          "missing property 'json_schema'",
+			KeywordLocation: "/properties/syncCatalog/properties/streams/items/properties/stream/required",
+			ReferenceSchema: stream,
+		}},
+	}
+	additionalProperty := &errors.ValidationError{
+		Message: "200 response body failed",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{{
+			Reason:          "additional properties 'json_schema' not allowed",
+			KeywordLocation: "/properties/syncCatalog/properties/streams/items/properties/stream/additionalProperties",
+			ReferenceSchema: stream,
+		}},
+	}
+	otherError := &errors.ValidationError{
+		Message: "200 response body failed",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{{
+			Reason:          "minProperties: got 0, want 1",
+			KeywordLocation: "/properties/syncCatalog/minProperties",
+			ReferenceSchema: stream,
+		}},
+	}
+
+	t.Run("empty slice is not unsatisfiable", func(t *testing.T) {
+		assert.False(t, allUnsatisfiableSchema(nil))
+	})
+	t.Run("missing required key absent from properties", func(t *testing.T) {
+		assert.True(t, allUnsatisfiableSchema([]*errors.ValidationError{missingRequired}))
+	})
+	t.Run("additional property that is also required", func(t *testing.T) {
+		assert.True(t, allUnsatisfiableSchema([]*errors.ValidationError{additionalProperty}))
+	})
+	t.Run("unrelated failure not classified", func(t *testing.T) {
+		assert.False(t, allUnsatisfiableSchema([]*errors.ValidationError{otherError}))
+	})
+	t.Run("mixed unsatisfiable + other fails", func(t *testing.T) {
+		assert.False(t, allUnsatisfiableSchema([]*errors.ValidationError{missingRequired, otherError}))
+	})
+}
+
+func TestExtractPropertyName(t *testing.T) {
+	assert.Equal(t, "foo", extractPropertyName("missing property 'foo'"))
+	assert.Equal(t, "foo", extractPropertyName("additional properties 'foo' not allowed"))
+	assert.Equal(t, "", extractPropertyName("minProperties: got 0, want 1"))
+}
+
+func TestResolveJSONPointer(t *testing.T) {
+	root := map[string]any{
+		"properties": map[string]any{
+			"foo": map[string]any{
+				"type": "string",
+				"enum": []any{"a", "b"},
+			},
+		},
+	}
+	t.Run("walks into nested map", func(t *testing.T) {
+		got := resolveJSONPointer(root, "/properties/foo/type")
+		assert.Equal(t, "string", got)
+	})
+	t.Run("walks into array by index", func(t *testing.T) {
+		got := resolveJSONPointer(root, "/properties/foo/enum/1")
+		assert.Equal(t, "b", got)
+	})
+	t.Run("empty pointer returns root", func(t *testing.T) {
+		assert.Equal(t, root, resolveJSONPointer(root, ""))
+	})
+	t.Run("missing key returns nil", func(t *testing.T) {
+		assert.Nil(t, resolveJSONPointer(root, "/properties/bar"))
 	})
 }
 

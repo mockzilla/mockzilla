@@ -190,6 +190,24 @@ func TestGenerateForKnownPattern(t *testing.T) {
 			ok:      true,
 		},
 		{
+			name:    "alphanumeric with required letter",
+			pattern: `^[0-9a-zA-Z]*?[a-zA-Z]+[0-9a-zA-Z]*$`,
+			want:    `^[0-9a-zA-Z]+$`,
+			ok:      true,
+		},
+		{
+			name:    "ISO 8601 calendar date",
+			pattern: `^\d{4}-[01]\d-[0-3]\d$`,
+			want:    `^\d{4}-[01]\d-[0-3]\d$`,
+			ok:      true,
+		},
+		{
+			name:    "ISO 8601 date with optional range tail",
+			pattern: `^\d{4}-[01]\d-[0-3]\d(?:-\d{4}-[01]\d-[0-3]\d)?$`,
+			want:    `^\d{4}-[01]\d-[0-3]\d$`,
+			ok:      true,
+		},
+		{
 			name:    "unrelated literal falls through",
 			pattern: `^foo-bar-[0-9]+$`,
 			ok:      false,

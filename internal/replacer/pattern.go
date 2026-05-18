@@ -2,13 +2,19 @@ package replacer
 
 import (
 	"fmt"
-	"math/rand"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/google/uuid"
+	"github.com/jaswdr/faker/v2"
 )
+
+// patternFaker is the package-local random source for pattern.go.
+// Faker's threadSafeRand wrapper makes it safe to share across
+// goroutines, so we don't keep a per-call instance like factories.go
+// does for the replace context.
+var patternFaker = faker.New()
 
 // simpleCharClassRE matches OpenAPI patterns built around a single
 // character class, with optional literal prefix and suffix surrounding
@@ -54,7 +60,7 @@ func generateForPattern(pattern string, length int) (string, bool) {
 
 	body := make([]byte, classLen)
 	for i := range body {
-		body[i] = chars[rand.Intn(len(chars))]
+		body[i] = chars[patternFaker.IntBetween(0, len(chars)-1)]
 	}
 
 	return prefix + string(body) + suffix, true
@@ -128,26 +134,42 @@ func generateForKnownPattern(pattern string) (string, bool) {
 	if ipv4 := randomIPv4(); re.MatchString(ipv4) {
 		return ipv4, true
 	}
-	if u := uuid.NewString(); re.MatchString(u) {
+	if u := patternFaker.UUID().V4(); re.MatchString(u) {
 		return u, true
 	}
 	if tz := randomTZOffset(); re.MatchString(tz) {
 		return tz, true
+	}
+	if d := randomISODate(); re.MatchString(d) {
+		return d, true
+	}
+
+	// Generic alphanumeric identifier with both cases and digits.
+	// Catches patterns like `^[0-9a-zA-Z]*?[a-zA-Z]+[0-9a-zA-Z]*$`
+	// (alphanumeric with at least one letter) or `^\w+$`. Anything
+	// stricter (digits only, single case, fixed length) is already
+	// handled by the simple character-class path before this fallback.
+	if word := randomAlphanumWord(); re.MatchString(word) {
+		return word, true
 	}
 
 	return "", false
 }
 
 func randomIPv4() string {
-	return fmt.Sprintf("%d.%d.%d.%d",
-		rand.Intn(223)+1, // 1-223 to avoid 0.x and 240+ multicast range
-		rand.Intn(256),
-		rand.Intn(256),
-		rand.Intn(256))
+	return patternFaker.Internet().Ipv4()
 }
 
 func randomIPv4CIDR() string {
-	return fmt.Sprintf("%s/%d", randomIPv4(), rand.Intn(32)+1)
+	return fmt.Sprintf("%s/%d", randomIPv4(), patternFaker.IntBetween(1, 32))
+}
+
+// randomISODate returns an ISO 8601 calendar date (`YYYY-MM-DD`),
+// matching patterns like `^\d{4}-[01]\d-[0-3]\d$` and date-range
+// patterns where the second date is optional (agrimetrics'
+// `^\d{4}-[01]\d-[0-3]\d(?:-\d{4}-[01]\d-[0-3]\d)?$`).
+func randomISODate() string {
+	return patternFaker.Time().Time(time.Now()).Format("2006-01-02")
 }
 
 // randomTZOffset returns a string in `+HH:MM` / `-HH:MM` form, the
@@ -155,10 +177,22 @@ func randomIPv4CIDR() string {
 // Redfish's `([-+][0-1][0-9]:[0-5][0-9])`).
 func randomTZOffset() string {
 	sign := "+"
-	if rand.Intn(2) == 0 {
+	if patternFaker.Bool() {
 		sign = "-"
 	}
-	return fmt.Sprintf("%s%02d:%02d", sign, rand.Intn(15), rand.Intn(60))
+	return fmt.Sprintf("%s%02d:%02d", sign, patternFaker.IntBetween(0, 14), patternFaker.IntBetween(0, 59))
+}
+
+// randomAlphanumWord returns an alphanumeric string with at least one
+// letter and one digit. It's the fallback sample for OpenAPI patterns
+// that compose multiple character classes around a required-letter
+// constraint (`^[0-9a-zA-Z]*?[a-zA-Z]+[0-9a-zA-Z]*$`, `^\w+$`, etc.)
+// which the simple character-class path doesn't try to derive.
+//
+// Uses Bothify's `?` (letter) / `#` (digit) template so faker drives
+// the randomness consistently with the rest of the package.
+func randomAlphanumWord() string {
+	return patternFaker.Bothify("?#???#???")
 }
 
 // expandCharClass expands a regex character class body (the part inside

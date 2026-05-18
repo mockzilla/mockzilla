@@ -51,3 +51,5 @@ require (
 	golang.org/x/tools v0.42.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/doordash-oss/oapi-codegen-dd/v3 => /Users/ig/Projects/oapi-codegen-oss

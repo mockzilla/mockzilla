@@ -163,18 +163,40 @@ func generateContentObject(schema *schema.Schema, valueReplacer replacer.ValueRe
 	}
 
 	// Fill required fields the spec lists without a matching `properties`
-	// entry. JSON Schema permits this — `required: [foo]` without a `foo`
+	// entry. JSON Schema permits this: `required: [foo]` without a `foo`
 	// in `properties` still demands the key be present, but constrains
 	// the value to "anything". A placeholder string keeps the consumer
-	// happy without inventing structure the spec didn't promise.
-	for _, name := range schema.Required {
-		if _, ok := res[name]; ok {
-			continue
+	// happy without inventing structure the spec didn't promise. Skip
+	// this when `additionalProperties: false` is set; the spec is
+	// internally inconsistent (the required key can't appear at all),
+	// and synthesising the placeholder would produce a body the
+	// validator rejects for the additional-property violation instead
+	// of the missing-required-key one.
+	if !schema.AdditionalPropertiesForbidden {
+		for _, name := range schema.Required {
+			if _, ok := res[name]; ok {
+				continue
+			}
+			if _, declared := schema.Properties[name]; declared {
+				continue
+			}
+			res[name] = name
 		}
-		if _, declared := schema.Properties[name]; declared {
-			continue
+	}
+
+	// When the schema declares a discriminator but its property name
+	// isn't already covered above (no entry in Properties, no entry in
+	// Required), emit a placeholder so the validator's "discriminator
+	// property X is missing" check passes. Specs sometimes attach a
+	// discriminator to a plain object schema without listing the
+	// discriminating field in properties; without this fill the
+	// generated body is rejected even though it satisfies every other
+	// constraint.
+	if schema.Discriminator != nil {
+		name := schema.Discriminator.PropertyName
+		if _, ok := res[name]; !ok && name != "" {
+			res[name] = name
 		}
-		res[name] = name
 	}
 
 	// Generate additional properties to honour AdditionalProperties and/or

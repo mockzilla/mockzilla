@@ -9,6 +9,7 @@ import (
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 	"github.com/mockzilla/mockzilla/v2/internal/types"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
+	"github.com/pb33f/libopenapi/datamodel/high/base"
 )
 
 type schemaContext struct {
@@ -630,6 +631,18 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		Example:              example,
 		Deprecated:           deref(deprecated),
 		AdditionalProperties: additionalProperties,
+
+		// `additionalProperties: false` doesn't flow through oapi-codegen's
+		// HasAdditionalProperties (it's lumped in with "not specified"), so
+		// detect it from the underlying libopenapi DynamicValue.
+		AdditionalPropertiesForbidden: hasExplicitAdditionalPropertiesFalse(inner),
+
+		// Discriminator on a plain object schema (not just oneOf/anyOf
+		// wrappers): some specs attach `discriminator: {propertyName: X}`
+		// to a regular object without listing X in `properties`. The
+		// generator uses this to synthesise X so the validator's
+		// "discriminator property missing" check passes.
+		Discriminator: discriminatorFromInner(goSchema.Discriminator, inner),
 	}
 
 	// Update the placeholder in cache with the actual result
@@ -646,6 +659,43 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 	}
 
 	return res
+}
+
+// discriminatorFromInner translates the discriminator declaration
+// into mockzilla's schema-level representation. It prefers the
+// oapi-codegen-derived one (which carries the type mapping resolved
+// against generated Go types) and falls back to the raw libopenapi
+// declaration so plain-object schemas with a discriminator still flow
+// through, even though oapi-codegen only populates its own
+// Discriminator inside the union pipeline.
+func discriminatorFromInner(d *codegen.Discriminator, inner *base.Schema) *schema.Discriminator {
+	if d != nil && d.Property != "" {
+		out := &schema.Discriminator{PropertyName: d.Property}
+		if len(d.Mapping) > 0 {
+			out.Mapping = make(map[string]string, len(d.Mapping))
+			for k, v := range d.Mapping {
+				out.Mapping[k] = v
+			}
+		}
+		return out
+	}
+	if inner == nil || inner.Discriminator == nil || inner.Discriminator.PropertyName == "" {
+		return nil
+	}
+	return &schema.Discriminator{PropertyName: inner.Discriminator.PropertyName}
+}
+
+// hasExplicitAdditionalPropertiesFalse reports whether the libopenapi
+// schema explicitly declares `additionalProperties: false` (the bool
+// form, not a schema). oapi-codegen treats this the same as "not
+// specified" for codegen purposes, so we read the underlying
+// DynamicValue here and surface the distinction to mockzilla's
+// generator, which needs to refuse synthesising stray properties.
+func hasExplicitAdditionalPropertiesFalse(inner *base.Schema) bool {
+	if inner == nil || inner.AdditionalProperties == nil {
+		return false
+	}
+	return inner.AdditionalProperties.IsB() && !inner.AdditionalProperties.B
 }
 
 func promoteProperties(schema *schema.Schema, properties map[string]*schema.Schema) {
