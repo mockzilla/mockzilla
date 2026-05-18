@@ -140,16 +140,17 @@ func NewTypeDefinitionRegistry(parseCtx *codegen.ParseContext, maxRecursionDepth
 				}
 			}
 
-			// Normalize JSON-based content types (e.g., application/vnd.api+json) to application/json
-			respContentType := resp.ContentType
-			if isMediaTypeJSON(respContentType) {
-				respContentType = "application/json"
-			}
-
+			// Preserve the spec's declared response content type verbatim
+			// (e.g. application/vnd.amadeus+json). Mockzilla used to
+			// normalise these to application/json so the encoder picked
+			// JSON serialisation, but that made the response header
+			// disagree with the spec and broke response validation. The
+			// encoder now recognises JSON-shaped media types directly
+			// via isMediaTypeJSON, so we keep the original here.
 			all[code] = &schema.ResponseItem{
 				Headers:     headers,
 				StatusCode:  code,
-				ContentType: respContentType,
+				ContentType: resp.ContentType,
 				Content:     respContent,
 			}
 		}

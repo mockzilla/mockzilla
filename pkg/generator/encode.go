@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"mime"
+	"strings"
 
 	"go.yaml.in/yaml/v4"
 )
@@ -18,11 +20,11 @@ func encodeContent(content any, contentType string) ([]byte, error) {
 		return rm, nil
 	}
 
-	switch contentType {
-	case "application/json", "":
-		// Empty content-type defaults to JSON
+	if contentType == "" || isJSONMediaType(contentType) {
 		return json.Marshal(content)
+	}
 
+	switch contentType {
 	case "application/x-www-form-urlencoded",
 		"multipart/form-data",
 		"multipart/formdata":
@@ -54,4 +56,15 @@ func encodeContent(content any, contentType string) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("cannot encode type %T with content-type %s", content, contentType)
+}
+
+// isJSONMediaType reports whether a Content-Type header value is JSON
+// or a JSON-shaped flavour (RFC 6839's `+json` structured suffix, used
+// by media types like application/vnd.amadeus+json).
+func isJSONMediaType(contentType string) bool {
+	parsed, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	return parsed == "application/json" || strings.HasSuffix(parsed, "+json")
 }
