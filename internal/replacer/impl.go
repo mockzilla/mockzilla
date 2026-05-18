@@ -647,12 +647,11 @@ func applySchemaStringConstraints(schema *schema.Schema, value string) any {
 
 	// When the spec declares a regex pattern and the current value
 	// (fake word, context lookup, etc.) doesn't satisfy it, try to
-	// generate a fresh value from the pattern's character class. This
-	// catches the common case of fixed-length identifiers like git SHAs
-	// (`^[0-9a-fA-F]+$`, length 40) where the prefix-then-pad approach
-	// below would produce something the response validator rejects.
-	// Complex patterns (alternation, anchors-in-the-middle, etc.) are
-	// left to fall through; they were unsupported before and still are.
+	// generate a fresh value the validator will accept. The cheap
+	// character-class generator handles fixed-length identifiers
+	// (commit SHAs, slugs, tag IDs); the known-pattern fallback
+	// catches structurally complex but well-known shapes (IPv4, CIDR,
+	// UUID). Anything else falls through to the original padding path.
 	if schema.Pattern != "" {
 		if matched, err := regexp.MatchString(schema.Pattern, value); err == nil && !matched {
 			length := len(value)
@@ -666,6 +665,9 @@ func applySchemaStringConstraints(schema *schema.Schema, value string) any {
 				length = 16
 			}
 			if v, ok := generateForPattern(schema.Pattern, length); ok {
+				return v
+			}
+			if v, ok := generateForKnownPattern(schema.Pattern); ok {
 				return v
 			}
 		}
@@ -682,73 +684,6 @@ func applySchemaStringConstraints(schema *schema.Schema, value string) any {
 	}
 
 	return value
-}
-
-// simpleCharClassRE matches OpenAPI patterns of the form ^[chars]+$,
-// ^[chars]*$, ^[chars]{n}$, or ^[chars]{n,m}$ where chars is a literal
-// character class with optional ranges. These cover the patterns most
-// commonly seen in real specs (hex SHAs, ASCII IDs, slugs); anything
-// fancier falls back to the caller's existing padding behaviour.
-var simpleCharClassRE = regexp.MustCompile(`^\^?\[([^\]]+)\](?:[+*]|\{\d+(?:,\d*)?\})?\$?$`)
-
-// generateForPattern returns a random string of the given length whose
-// characters are drawn from the pattern's character class. Reports
-// ok=false when the pattern is too complex to derive a class from.
-func generateForPattern(pattern string, length int) (string, bool) {
-	if pattern == "" || length <= 0 {
-		return "", false
-	}
-	m := simpleCharClassRE.FindStringSubmatch(pattern)
-	if m == nil {
-		return "", false
-	}
-	chars := expandCharClass(m[1])
-	if len(chars) == 0 {
-		return "", false
-	}
-	out := make([]byte, length)
-	for i := range out {
-		out[i] = chars[rand.Intn(len(chars))]
-	}
-	return string(out), true
-}
-
-// expandCharClass expands a regex character class body (the part inside
-// the brackets) into a flat list of allowed bytes. Supports ranges like
-// `0-9`, `a-z`, common shorthand escapes (\d, \w, \s) and literal
-// characters; ignores negation (`^` at start) since real specs almost
-// never use it for length-constrained string formats.
-func expandCharClass(class string) string {
-	var b strings.Builder
-	i := 0
-	if strings.HasPrefix(class, "^") {
-		i = 1
-	}
-	for ; i < len(class); i++ {
-		if class[i] == '\\' && i+1 < len(class) {
-			switch class[i+1] {
-			case 'd':
-				b.WriteString("0123456789")
-			case 'w':
-				b.WriteString("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_")
-			case 's':
-				b.WriteByte(' ')
-			default:
-				b.WriteByte(class[i+1])
-			}
-			i++
-			continue
-		}
-		if i+2 < len(class) && class[i+1] == '-' && class[i] <= class[i+2] {
-			for c := class[i]; c <= class[i+2]; c++ {
-				b.WriteByte(c)
-			}
-			i += 2
-			continue
-		}
-		b.WriteByte(class[i])
-	}
-	return b.String()
 }
 
 // isIntegerSchema returns true if the schema represents an integer value.
