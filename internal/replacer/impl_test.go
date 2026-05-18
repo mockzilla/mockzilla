@@ -1736,16 +1736,32 @@ func TestApplySchemaStringConstraints(t *testing.T) {
 		assert.Equal("hallo", res)
 	})
 
-	t.Run("pattern-is-ignored", func(t *testing.T) {
-		// Pattern validation/generation is intentionally skipped because
-		// oapi-codegen doesn't generate validation for regex patterns
+	t.Run("simple-pattern-is-honored", func(t *testing.T) {
+		// Simple character-class patterns (e.g. `[0-9]+`) are honored so
+		// response validation accepts the generated body. The original
+		// value is replaced with one drawn from the pattern's char class
+		// at the same length.
 		s := &schema.Schema{
 			Type:    types.TypeString,
 			Pattern: "[0-9]+",
 		}
 
 		res := applySchemaStringConstraints(s, "hallo welt!")
-		// Value is returned as-is since pattern is ignored
+		str, ok := res.(string)
+		assert.True(ok)
+		assert.Len(str, len("hallo welt!"))
+		assert.Regexp(`^[0-9]+$`, str)
+	})
+
+	t.Run("complex-pattern-is-ignored", func(t *testing.T) {
+		// Patterns we can't safely derive a character class from fall
+		// through to the existing length-only behavior.
+		s := &schema.Schema{
+			Type:    types.TypeString,
+			Pattern: "^(foo|bar)$",
+		}
+
+		res := applySchemaStringConstraints(s, "hallo welt!")
 		assert.Equal("hallo welt!", res)
 	})
 

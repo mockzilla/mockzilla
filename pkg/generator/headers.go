@@ -10,15 +10,21 @@ import (
 )
 
 // skipHeaders contains headers that should not be generated from the spec.
-// These headers are managed by the HTTP server/transport layer and setting them
-// from spec values causes client errors:
+// These headers are managed by the HTTP server/transport layer or by
+// mockzilla itself, and a spec-generated value would conflict with the
+// real one:
 // - Content-Encoding: We don't compress responses, so "gzip" causes "invalid header" errors
 // - Content-Length: Spec values don't match actual body size, causing "unexpected EOF" errors
 // - Transfer-Encoding: We don't use chunked encoding, causing parsing errors
+// - Content-Type: Set from the response media type by the handler;
+//   generating a random string from a `type: string` schema (as GitHub's
+//   spec declares for many responses) would override the real media type
+//   and break response validation.
 var skipHeaders = map[string]bool{
 	"content-encoding":  true,
 	"content-length":    true,
 	"transfer-encoding": true,
+	"content-type":      true,
 }
 
 // generateHeaders generates response headers from the given headers.
