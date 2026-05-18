@@ -339,3 +339,58 @@ func TestAllSchemaRenderFailure(t *testing.T) {
 		assert.False(t, allSchemaRenderFailure([]*errors.ValidationError{render, normal}))
 	})
 }
+
+func TestIsAmbiguousOneOfReason(t *testing.T) {
+	t.Run("subschemas matched is ambiguous", func(t *testing.T) {
+		assert.True(t, isAmbiguousOneOfReason("'oneOf' failed, subschemas 0, 1 matched"))
+	})
+	t.Run("none matched is a real failure", func(t *testing.T) {
+		assert.False(t, isAmbiguousOneOfReason("'oneOf' failed, none matched"))
+	})
+	t.Run("unrelated failure", func(t *testing.T) {
+		assert.False(t, isAmbiguousOneOfReason("minProperties: got 0, want 1"))
+	})
+}
+
+func TestAllAmbiguousOneOf(t *testing.T) {
+	ambiguous := &errors.ValidationError{
+		Message: "200 response body failed to validate schema",
+		Reason:  "The response body for status code '200' is defined as an object. However, it does not meet the schema requirements of the specification",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
+		},
+	}
+	noneMatched := &errors.ValidationError{
+		Message: "200 response body failed to validate schema",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{
+			{Reason: "'oneOf' failed, none matched"},
+		},
+	}
+	mixed := &errors.ValidationError{
+		Message: "200 response body failed to validate schema",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
+			{Reason: "minProperties: got 0, want 1"},
+		},
+	}
+	noNested := &errors.ValidationError{
+		Message: "request validation failed",
+		Reason:  "minProperties: got 0, want 1",
+	}
+
+	t.Run("empty slice is not all-ambiguous", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOf(nil))
+	})
+	t.Run("all ambiguous oneOf", func(t *testing.T) {
+		assert.True(t, allAmbiguousOneOf([]*errors.ValidationError{ambiguous}))
+	})
+	t.Run("none-matched is not ambiguous", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{noneMatched}))
+	})
+	t.Run("mixed reasons inside one error fail", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{mixed}))
+	})
+	t.Run("error without nested schema failures is not ambiguous", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{noNested}))
+	})
+}
