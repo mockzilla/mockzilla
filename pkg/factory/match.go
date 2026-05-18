@@ -64,21 +64,42 @@ func newPathMatcher(routes []typedef.RouteInfo) *pathMatcher {
 	return &pathMatcher{patterns: patterns}
 }
 
-// Match finds the spec path pattern that matches the given concrete path and method.
-// Returns the spec path and true if found, or empty string and false otherwise.
+// Match finds the spec path pattern that matches the given concrete
+// path and method. Returns the spec path and true if found, or empty
+// string and false otherwise.
+//
+// When several patterns match, the one with the fewest wildcards wins
+// (most specific). Within the same wildcard count, the last pattern in
+// iteration order wins. The last-wins tie-break aligns mockzilla's
+// runtime routing with libopenapi-validator's radix tree, which stores
+// only the most recently inserted leaf at any given parameter slot:
+// without alignment, specs that declare two operations on identical
+// URL shapes (e.g. pubsub's `/v1/{project}/snapshots` and
+// `/v1/{topic}/snapshots`) would have mockzilla generate the response
+// for one and the validator check it against the other.
 func (m *pathMatcher) Match(path, method string) (string, bool) {
 	method = strings.ToUpper(method)
 	segs := splitPath(path)
 
-	for _, p := range m.patterns {
+	var best *pathPattern
+	for i := range m.patterns {
+		p := &m.patterns[i]
 		if p.method != method {
 			continue
 		}
-		if matchSegments(segs, p.segments) {
-			return p.specPath, true
+
+		if !matchSegments(segs, p.segments) {
+			continue
+		}
+		if best == nil || p.wildcardCount <= best.wildcardCount {
+			best = p
 		}
 	}
-	return "", false
+
+	if best == nil {
+		return "", false
+	}
+	return best.specPath, true
 }
 
 // splitPath splits a URL path into non-empty segments.

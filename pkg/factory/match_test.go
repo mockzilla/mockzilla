@@ -120,3 +120,63 @@ func TestPathMatcher_PrefersSpecificPaths(t *testing.T) {
 	assert.True(ok)
 	assert.Equal("/users", path)
 }
+
+func TestPathMatcher_AmbiguousLastWins(t *testing.T) {
+	assert := assert2.New(t)
+
+	// When two patterns are equally specific and both match the URL
+	// (same wildcard count, identical shape), the LAST in iteration
+	// order wins. This aligns mockzilla's runtime routing with
+	// libopenapi-validator's radix tree, which keeps only the most
+	// recently inserted leaf per parameter slot. Without this, specs
+	// like pubsub that declare two operations on identical URL shapes
+	// (/v1/{project}/snapshots vs /v1/{topic}/snapshots) would have
+	// mockzilla generate the response for one and the validator check
+	// it against the other.
+	routes := []typedef.RouteInfo{
+		{ID: "listProjectSnapshots", Method: "GET", Path: "/v1/{project}/snapshots"},
+		{ID: "listTopicSnapshots", Method: "GET", Path: "/v1/{topic}/snapshots"},
+	}
+	m := newPathMatcher(routes)
+
+	path, ok := m.Match("/v1/abc/snapshots", "GET")
+	assert.True(ok)
+	assert.Equal("/v1/{topic}/snapshots", path)
+}
+
+func TestPathMatcher_SpecificBeatsLastWhenWildcardsDiffer(t *testing.T) {
+	assert := assert2.New(t)
+
+	// The last-wins tie-break in [TestPathMatcher_AmbiguousLastWins]
+	// must not override the more-specific-wins rule when wildcard
+	// counts differ. The exact path keeps winning even when it appears
+	// before the wildcard.
+	routes := []typedef.RouteInfo{
+		{ID: "getUsersMe", Method: "GET", Path: "/users/me"},
+		{ID: "getUser", Method: "GET", Path: "/users/{id}"},
+	}
+	m := newPathMatcher(routes)
+
+	path, ok := m.Match("/users/me", "GET")
+	assert.True(ok)
+	assert.Equal("/users/me", path)
+}
+
+func TestPathMatcher_StripsHashDiscriminator(t *testing.T) {
+	assert := assert2.New(t)
+
+	// AWS-style specs use a `#qparam1&qparam2` suffix on path keys to
+	// disambiguate operations that share a base path with different
+	// required query parameters. The suffix is never part of an actual
+	// URL, so the matcher strips it from pattern segments while keeping
+	// the original spec path as the returned key (callers look the
+	// operation up by that exact key).
+	routes := []typedef.RouteInfo{
+		{ID: "describeThumbnails", Method: "GET", Path: "/prod/channels/{id}/thumbnails#pipelineId&thumbnailType"},
+	}
+	m := newPathMatcher(routes)
+
+	path, ok := m.Match("/prod/channels/abc/thumbnails", "GET")
+	assert.True(ok)
+	assert.Equal("/prod/channels/{id}/thumbnails#pipelineId&thumbnailType", path)
+}
