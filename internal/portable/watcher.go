@@ -279,7 +279,17 @@ func reloadService(svc Service, router *api.Router, handlers map[string]*swappab
 		slog.Error("Failed to reload service", "name", svc.Name, "error", err)
 		return
 	}
-	sw.swap(h, buildValidator(svc.Name, h))
+	// Rebuild validator on reload. If the new spec breaks the validator,
+	// keep the old validator in place rather than swapping to nil — the
+	// previous successful state is the safest fallback while the operator
+	// fixes the spec.
+	v, vErr := buildValidator(h)
+	if vErr != nil {
+		slog.Error("Reload: validator could not be built for new spec; keeping previous validator",
+			"service", svc.Name, "error", vErr)
+		v = sw.Validator()
+	}
+	sw.swap(h, v)
 	slog.Info("Reloaded service", "name", svc.Name)
 	_ = router
 }
