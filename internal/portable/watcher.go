@@ -279,7 +279,7 @@ func reloadService(svc Service, router *api.Router, handlers map[string]*swappab
 		slog.Error("Failed to reload service", "name", svc.Name, "error", err)
 		return
 	}
-	sw.swap(h)
+	sw.swap(h, buildValidator(svc.Name, h))
 	slog.Info("Reloaded service", "name", svc.Name)
 	_ = router
 }

@@ -22,6 +22,8 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/factory"
+	"github.com/mockzilla/mockzilla/v2/pkg/middleware"
+	validator "github.com/pb33f/libopenapi-validator"
 )
 
 const (
@@ -459,11 +461,53 @@ func registerService(
 		return fmt.Errorf("creating handler: %w", err)
 	}
 
-	sw := &swappableHandler{handler: h}
+	sw := &swappableHandler{handler: h, validator: buildValidator(svc.Name, h)}
 	handlers[svc.Name] = sw
-	router.RegisterService(svcCfg, sw)
+
+	var regOpts []api.HandlerOption
+	if svcCfg.Validation.RequestEnabled() || svcCfg.Validation.ResponseEnabled() {
+		mw := func(p *middleware.Params) func(http.Handler) http.Handler {
+			return middleware.CreateValidationMiddleware(p, sw.Validator)
+		}
+		regOpts = append(regOpts, api.WithMiddleware(
+			[]func(*middleware.Params) func(http.Handler) http.Handler{mw},
+		))
+	}
+
+	router.RegisterService(svcCfg, sw, regOpts...)
 	slog.Info("Registered service", "name", svc.Name, "mount", api.ServicePrefix(svcCfg))
 	return nil
+}
+
+// buildValidator returns a validator built from the handler's parsed
+// spec document, or nil when the document fails to parse / the validator
+// fails to construct. libopenapi-validator can panic on malformed specs
+// during schema warm-up; recover and degrade to "validation disabled"
+// rather than taking the whole service down. Logged and swallowed: a
+// bad spec shouldn't tank the whole service, but it does mean
+// validation is silently skipped.
+func buildValidator(svcName string, h *handler) (v validator.Validator) {
+	defer func() {
+		if r := recover(); r != nil {
+			slog.Warn("Validation disabled: validator construction panicked",
+				"service", svcName, "panic", r)
+			v = nil
+		}
+	}()
+
+	doc, err := h.factory.Document()
+	if err != nil {
+		slog.Warn("Validation disabled: failed to parse spec for validator",
+			"service", svcName, "error", err)
+		return nil
+	}
+	built, vErrs := validator.NewValidator(doc)
+	if len(vErrs) > 0 {
+		slog.Warn("Validation disabled: validator construction failed",
+			"service", svcName, "errors", vErrs)
+		return nil
+	}
+	return built
 }
 
 func emitReadyStamp(appCfg *config.AppConfig, router *api.Router) {
