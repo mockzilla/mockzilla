@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"strings"
 
@@ -65,18 +66,24 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 			// mount stripped from URL.Path so spec lookup matches.
 			validatorReq := requestForValidator(req, cfg)
 
-			// TODO: re-enable validation for `#`-suffixed spec paths
-			// once libopenapi-validator stops returning the discriminator
-			// suffix as part of pathValue. Today its FindPath strips
-			// `#...` for matching but returns the original key, then
-			// ValidatePathParamsWithPathItem splits that key on `/` and
-			// panics in path_parameters.go:86 because the literal
-			// segment `name#qparam` never regex-matches the request's
-			// `name`. Until then, skip validation entirely for these
-			// routes - they're already known-correct via mockzilla's
-			// own path matcher.
+			// Skip validation for spec paths libopenapi-validator can't
+			// reliably look up:
+			//   * `#qparam` discriminators (its FindPath returns the
+			//     discriminator-suffixed key, then path-param regex
+			//     iteration panics in path_parameters.go:86 because the
+			//     literal `name#qparam` segment never matches the
+			//     request's `name`).
+			//   * spec paths with characters Go would URL-encode
+			//     (spaces, etc.). FindPath compares its escaped request
+			//     path against the spec's literal key, so a space in the
+			//     spec becomes `%20` in the lookup and never matches.
+			// In both cases mockzilla's own path matcher routes the
+			// request correctly; only the validator's path lookup is
+			// broken.
+			// TODO: re-enable once libopenapi-validator handles these
+			// shapes upstream.
 			if lookup != nil {
-				if specPath, ok := lookup(validatorReq.URL.Path, validatorReq.Method); ok && strings.Contains(specPath, "#") {
+				if specPath, ok := lookup(validatorReq.URL.Path, validatorReq.Method); ok && validatorCannotLookup(specPath) {
 					next.ServeHTTP(w, req)
 					return
 				}
@@ -245,15 +252,18 @@ func requestForValidator(req *http.Request, cfg *config.ServiceConfig) *http.Req
 	if cfg == nil {
 		return clone
 	}
+
 	prefix := servicePrefix(cfg)
 	if prefix == "" || prefix == "/" {
 		return clone
 	}
+
 	cloneURL := *req.URL
 	cloneURL.Path = stripPrefix(cloneURL.Path, prefix)
 	if cloneURL.RawPath != "" {
 		cloneURL.RawPath = stripPrefix(cloneURL.RawPath, prefix)
 	}
+
 	clone.URL = &cloneURL
 	clone.RequestURI = ""
 	return clone
@@ -289,6 +299,36 @@ func stripPrefix(p, prefix string) string {
 		return p
 	}
 	return stripped
+}
+
+// validatorCannotLookup reports whether libopenapi-validator's path
+// matching is known to mishandle this spec path. The middleware
+// short-circuits validation when this returns true; mockzilla's own
+// path matcher is the source of truth for these cases.
+func validatorCannotLookup(specPath string) bool {
+	if strings.Contains(specPath, "#") {
+		return true
+	}
+
+	// FindPath compares URL.EscapedPath() against the spec key. If a
+	// literal segment contains a character Go would percent-encode
+	// (spaces, reserved punctuation), the escaped form will never
+	// match the literal spec key. Detect via a per-segment escape
+	// round-trip, skipping placeholder segments like `{id}` whose
+	// braces always need escaping but never appear in real URLs.
+	for _, seg := range strings.Split(specPath, "/") {
+		if seg == "" || isPlaceholderSegment(seg) {
+			continue
+		}
+		if url.PathEscape(seg) != seg {
+			return true
+		}
+	}
+	return false
+}
+
+func isPlaceholderSegment(seg string) bool {
+	return len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}'
 }
 
 // allPathMissing reports whether every validation failure is the

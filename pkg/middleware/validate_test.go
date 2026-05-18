@@ -340,6 +340,26 @@ func TestAllSchemaRenderFailure(t *testing.T) {
 	})
 }
 
+func TestValidatorCannotLookup(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{"plain path", "/users/{id}", false},
+		{"root path", "/", false},
+		{"empty path", "", false},
+		{"discriminator suffix", "/foo/{id}#qparam", true},
+		{"space in literal segment", "/Your Pull DOC Request API Path", true},
+		{"reserved char in segment", "/foo/bar baz", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, validatorCannotLookup(tc.path))
+		})
+	}
+}
+
 func TestIsAmbiguousOneOfReason(t *testing.T) {
 	t.Run("subschemas matched is ambiguous", func(t *testing.T) {
 		assert.True(t, isAmbiguousOneOfReason("'oneOf' failed, subschemas 0, 1 matched"))
