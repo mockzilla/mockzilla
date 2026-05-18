@@ -184,6 +184,12 @@ func TestGenerateForKnownPattern(t *testing.T) {
 			ok:      true,
 		},
 		{
+			name:    "ISO 8601 timezone offset",
+			pattern: `([-+][0-1][0-9]:[0-5][0-9])`,
+			want:    `^[-+][0-1][0-9]:[0-5][0-9]$`,
+			ok:      true,
+		},
+		{
 			name:    "unrelated literal falls through",
 			pattern: `^foo-bar-[0-9]+$`,
 			ok:      false,

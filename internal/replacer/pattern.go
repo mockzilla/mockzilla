@@ -131,6 +131,9 @@ func generateForKnownPattern(pattern string) (string, bool) {
 	if u := uuid.NewString(); re.MatchString(u) {
 		return u, true
 	}
+	if tz := randomTZOffset(); re.MatchString(tz) {
+		return tz, true
+	}
 
 	return "", false
 }
@@ -145,6 +148,17 @@ func randomIPv4() string {
 
 func randomIPv4CIDR() string {
 	return fmt.Sprintf("%s/%d", randomIPv4(), rand.Intn(32)+1)
+}
+
+// randomTZOffset returns a string in `+HH:MM` / `-HH:MM` form, the
+// shape used by ISO 8601 timezone offsets in OpenAPI patterns (e.g.
+// Redfish's `([-+][0-1][0-9]:[0-5][0-9])`).
+func randomTZOffset() string {
+	sign := "+"
+	if rand.Intn(2) == 0 {
+		sign = "-"
+	}
+	return fmt.Sprintf("%s%02d:%02d", sign, rand.Intn(15), rand.Intn(60))
 }
 
 // expandCharClass expands a regex character class body (the part inside
