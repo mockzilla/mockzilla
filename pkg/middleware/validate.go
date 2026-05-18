@@ -44,8 +44,8 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource) func(htt
 			}
 
 			cfg := params.GetServiceConfig(req)
-			validateReq := cfg == nil || cfg.Validation.RequestEnabled()
-			validateResp := cfg == nil || cfg.Validation.ResponseEnabled()
+			validateReq := cfg == nil || cfg.Validate.RequestEnabled()
+			validateResp := cfg == nil || cfg.Validate.ResponseEnabled()
 
 			// Validator works against the OpenAPI spec's path space (no
 			// service mount prefix). Build a sibling request with the

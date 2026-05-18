@@ -89,7 +89,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		cfg        *config.ValidationConfig
+		cfg        *config.ValidateConfig
 		handler    http.Handler
 		reqBody    string
 		wantStatus int
@@ -121,7 +121,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 		},
 		{
 			name:       "response:true catches invalid response body with 500",
-			cfg:        &config.ValidationConfig{Response: boolPtr(true)},
+			cfg:        &config.ValidateConfig{Response: boolPtr(true)},
 			handler:    invalidHandler,
 			reqBody:    `{"name":"rex"}`,
 			wantStatus: http.StatusInternalServerError,
@@ -129,7 +129,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 		},
 		{
 			name:       "request:false skips request validation",
-			cfg:        &config.ValidationConfig{Request: boolPtr(false)},
+			cfg:        &config.ValidateConfig{Request: boolPtr(false)},
 			handler:    validHandler,
 			reqBody:    `{}`, // would normally fail
 			wantStatus: http.StatusOK,
@@ -137,7 +137,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 		},
 		{
 			name:       "response:false explicit (matches default) — invalid body still passes",
-			cfg:        &config.ValidationConfig{Response: boolPtr(false)},
+			cfg:        &config.ValidateConfig{Response: boolPtr(false)},
 			handler:    invalidHandler,
 			reqBody:    `{"name":"rex"}`,
 			wantStatus: http.StatusOK,
@@ -145,7 +145,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 		},
 		{
 			name:       "both disabled skips everything",
-			cfg:        &config.ValidationConfig{Request: boolPtr(false), Response: boolPtr(false)},
+			cfg:        &config.ValidateConfig{Request: boolPtr(false), Response: boolPtr(false)},
 			handler:    invalidHandler,
 			reqBody:    `{}`,
 			wantStatus: http.StatusOK,
@@ -155,7 +155,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := &config.ServiceConfig{Name: "test", Validation: tc.cfg}
+			cfg := &config.ServiceConfig{Name: "test", Validate: tc.cfg}
 			params := newTestParams(cfg)
 			mw := CreateValidationMiddleware(params, func() validator.Validator { return v })
 

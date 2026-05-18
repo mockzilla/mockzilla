@@ -42,10 +42,23 @@ type Setup struct {
 	AppCfg   *config.AppConfig
 	Services []Service
 
+	// Failed lists services that were resolved but could not be
+	// registered (spec parse failure, validator construction failure,
+	// etc). Run logs and continues so the server still boots; callers
+	// that need strict behaviour (integration tests) inspect this to
+	// fail loudly. Order matches the resolution order.
+	Failed []FailedService
+
 	// Internals needed by Run for serving + hot-reload. Tests don't
 	// need to touch these.
 	handlers map[string]*swappableHandler
 	flags    flags
+}
+
+// FailedService records a service that resolved but never registered.
+type FailedService struct {
+	Name string
+	Err  error
 }
 
 // BuildSetup runs the portable startup pipeline up to (but not
@@ -115,9 +128,11 @@ func BuildSetup(args []string) (*Setup, error) {
 	}
 
 	handlers := make(map[string]*swappableHandler)
+	var failed []FailedService
 	for _, svc := range services {
 		if err := registerService(router, svc, overrides, handlers); err != nil {
 			slog.Error("Failed to register service", "name", svc.Name, "error", err)
+			failed = append(failed, FailedService{Name: svc.Name, Err: err})
 			continue
 		}
 	}
@@ -129,6 +144,7 @@ func BuildSetup(args []string) (*Setup, error) {
 		Router:   router,
 		AppCfg:   appCfg,
 		Services: services,
+		Failed:   failed,
 		handlers: handlers,
 		flags:    fl,
 	}, nil
@@ -453,7 +469,17 @@ func registerService(
 	if ctxBytes != nil {
 		opts = append(opts, factory.WithServiceContext(ctxBytes))
 	}
-	opts = append(opts, factory.WithSpecOptions(&config.SpecOptions{LazyLoad: true}))
+
+	// Honor the per-service `spec:` block (lazyLoad, simplify, etc.).
+	// Tests can force eager parsing via `spec: { lazyLoad: false }` in
+	// config.yml to surface spec-parse failures at startup rather than
+	// on first request.
+	opts = append(opts, factory.WithSpecOptions(svcCfg.SpecOptions))
+
+	// Tag libopenapi's spec-parse warnings with the service name so
+	// parallel runs (integration tests) can attribute interleaved logs,
+	// and so the host logger's level/format settings apply to them.
+	opts = append(opts, factory.WithLogger(slog.Default().With("service", svc.Name)))
 
 	h, err := newHandler(specBytes, opts...)
 	if err != nil {
@@ -461,7 +487,7 @@ func registerService(
 	}
 
 	var regOpts []api.HandlerOption
-	validationOn := svcCfg.Validation.RequestEnabled() || svcCfg.Validation.ResponseEnabled()
+	validationOn := svcCfg.Validate.RequestEnabled() || svcCfg.Validate.ResponseEnabled()
 
 	var v validator.Validator
 	if validationOn {

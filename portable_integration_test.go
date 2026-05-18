@@ -24,11 +24,6 @@ import (
 )
 
 const (
-	// maxRoutesPerSpec caps how many endpoints each spec exercises.
-	// Large specs (clarifai, stripe) have 400+ routes; testing all of
-	// them dominates the suite without proportional coverage gain.
-	maxRoutesPerSpec = 20
-
 	// requestTimeout bounds any single HTTP roundtrip against the
 	// in-process portable server. Without it a hung handler would
 	// freeze the whole suite (default client has no timeout).
@@ -73,12 +68,21 @@ func TestPortableIntegration(t *testing.T) {
 	if s := os.Getenv("SPEC"); s != "" {
 		specPaths = append(specPaths, s)
 	}
-	if s := os.Getenv("SPECS"); s != "" {
-		specPaths = append(specPaths, strings.Fields(s)...)
-	}
+	specPaths = append(specPaths, integrationtest.ParseSpecsEnv(os.Getenv("SPECS"))...)
 
 	specs := integrationtest.CollectSpecs(t, specPaths)
 	specs = excludeMarkedSpecs(specs)
+
+	// Skip oversized specs (default 10MB via MAX_SPEC_SIZE_MB). Matches
+	// the codegen integration suite — both pipelines hit libopenapi
+	// memory pressure on the multi-megabyte specs (stripe, clarifai,
+	// AWS), and the marginal coverage isn't worth the run-time cost.
+	runtimeOpts := integrationtest.NewRuntimeOptionsFromEnv()
+	if filtered, excluded := integrationtest.FilterSpecsBySize(specs, runtimeOpts.MaxSpecSizeBytes); excluded > 0 {
+		t.Logf("Excluded %d spec(s) larger than %dMB", excluded, runtimeOpts.MaxSpecSizeMB)
+		specs = filtered
+	}
+
 	if len(specs) == 0 {
 		t.Skip("No specs to process")
 	}
@@ -91,7 +95,13 @@ func TestPortableIntegration(t *testing.T) {
 	}
 
 	cache := loadPortableCache(t)
-	if cache != nil && cache.Size() > 0 && os.Getenv("CLEAR_CACHE") == "" {
+	// When the operator names specific specs (SPEC or SPECS), bypass the
+	// pass-cache. They asked for those specs explicitly; silently
+	// short-circuiting on "already passed last time" is surprising and
+	// makes targeted re-runs require CLEAR_CACHE=1 every time. The cache
+	// still records the result; it just doesn't skip the run.
+	explicitTargets := len(specPaths) > 0
+	if cache != nil && cache.Size() > 0 && !explicitTargets && os.Getenv("CLEAR_CACHE") == "" {
 		before := len(specs)
 		specs = cache.FilterUncached(specs)
 		if skipped := before - len(specs); skipped > 0 {
@@ -287,7 +297,15 @@ func (s *portableStats) printSummary(totalSpecs int) {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Failing specs (first failure per spec):")
 		for _, row := range rows {
-			if !row.result.failed() || len(row.result.failures) == 0 {
+			if !row.result.failed() {
+				continue
+			}
+			if row.result.bootErr != nil {
+				fmt.Fprintf(os.Stderr, "  %s\n    boot: %s\n",
+					row.spec, truncate([]byte(row.result.bootErr.Error()), 200))
+				continue
+			}
+			if len(row.result.failures) == 0 {
 				continue
 			}
 			first := row.result.failures[0]
@@ -361,6 +379,16 @@ func runOneSpec(ctx context.Context, specPath string, client *http.Client) specR
 		return res
 	}
 
+	// Any resolved-but-not-registered service is a spec or validator
+	// failure the integration suite must surface. The server keeps
+	// running in production, but for tests "service silently dropped"
+	// is the kind of regression this suite exists to catch.
+	if len(setup.Failed) > 0 {
+		first := setup.Failed[0]
+		res.bootErr = fmt.Errorf("service %q failed to register: %w", first.Name, first.Err)
+		return res
+	}
+
 	ts := httptest.NewServer(setup.Router)
 	defer ts.Close()
 
@@ -396,20 +424,12 @@ func materializeSpec(specPath string, specBytes []byte) (root string, cleanup fu
 		_ = os.RemoveAll(root)
 		return "", nil, err
 	}
-	// Validation: the runtime defaults to request: true, response: false
-	// (response is opt-in). This suite is a generator smoke test —
-	// "does each route serve without 5xx?" — and benefits from strict
-	// validation when explicitly requested. Two modes:
-	//
-	//   VALIDATE unset → write both: false. Pure smoke test, matches the
-	//                    pre-validation behaviour the cache was built
-	//                    against.
-	//   VALIDATE=1     → write both: true. Surfaces every generator/spec
-	//                    divergence as a failure.
-	cfgBody := "validation:\n  request: false\n  response: false\n"
-	if os.Getenv("VALIDATE") != "" {
-		cfgBody = "validation:\n  request: true\n  response: true\n"
-	}
+
+	// Eager parsing: the suite exercises every endpoint of every spec,
+	// so on-demand parsing would just defer the same work behind first
+	// requests. Eager surfaces spec-parse failures at boot — easier to
+	// attribute to a spec, and faster overall.
+	cfgBody := "spec:\n  lazyLoad: false\nvalidate:\n  request: true\n  response: true\n"
 	if err := os.WriteFile(filepath.Join(svcDir, "config.yml"), []byte(cfgBody), 0o644); err != nil {
 		_ = os.RemoveAll(root)
 		return "", nil, err
@@ -426,10 +446,6 @@ func testService(ctx context.Context, client *http.Client, baseURL, serviceName 
 	routes, err := listRoutes(ctx, client, baseURL, urlName)
 	if err != nil {
 		return []routeFailure{{phase: "list", detail: err.Error()}}, 0
-	}
-
-	if len(routes) > maxRoutesPerSpec {
-		routes = routes[:maxRoutesPerSpec]
 	}
 
 	mountPrefix := "/" + serviceName

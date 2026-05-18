@@ -77,6 +77,31 @@ func ReadSpecFileWithBaseDir(specPath, baseDir string) ([]byte, error) {
 	return content, nil
 }
 
+// ParseSpecsEnv splits the SPECS env var into individual paths. When the value
+// contains newlines, it splits on newlines only — so filenames containing
+// spaces survive. Otherwise it splits on any whitespace, matching the common
+// case where users type `SPECS="a.yml b.yml"`.
+func ParseSpecsEnv(s string) []string {
+	if s == "" {
+		return nil
+	}
+
+	var sep func(string) []string
+	if strings.ContainsRune(s, '\n') {
+		sep = func(s string) []string { return strings.Split(s, "\n") }
+	} else {
+		sep = strings.Fields
+	}
+
+	out := make([]string, 0)
+	for _, p := range sep(s) {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // CollectSpecs collects all spec files to process based on provided paths
 func CollectSpecs(t *testing.T, specPaths []string) []string {
 	var specs []string

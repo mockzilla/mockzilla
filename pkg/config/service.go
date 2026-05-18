@@ -39,14 +39,14 @@ type ServiceConfig struct {
 	History     *HistoryConfig                        `yaml:"history,omitempty"`
 	Mount       string                                `yaml:"mount,omitempty"`
 	SpecOptions *SpecOptions                          `yaml:"spec,omitempty"`
-	Validation  *ValidationConfig                     `yaml:"validation,omitempty"`
+	Validate    *ValidateConfig                       `yaml:"validate,omitempty"`
 	Extra       map[string]any                        `yaml:"extra,omitempty"`
 
 	latencies []*KeyValue[int, time.Duration]
 	errors    []*KeyValue[int, int]
 }
 
-// ValidationConfig toggles request and response validation against the
+// ValidateConfig toggles request and response validation against the
 // OpenAPI schema. Request validation defaults to true; response
 // validation defaults to false (opt-in) since the spec-vs-mock body
 // shape is the spec author's responsibility, not the consumer's, and
@@ -54,20 +54,20 @@ type ServiceConfig struct {
 // addressed in the spec or via service config rather than failing
 // every request. In codegen mode validation is already wired into the
 // generated code, so this struct is ignored.
-type ValidationConfig struct {
+type ValidateConfig struct {
 	Request  *bool `yaml:"request,omitempty"`
 	Response *bool `yaml:"response,omitempty"`
 }
 
 // RequestEnabled reports whether request validation is enabled.
 // Defaults to true when unset.
-func (v *ValidationConfig) RequestEnabled() bool {
+func (v *ValidateConfig) RequestEnabled() bool {
 	return v == nil || v.Request == nil || *v.Request
 }
 
 // ResponseEnabled reports whether response validation is enabled.
 // Defaults to false when unset — opt-in via `response: true`.
-func (v *ValidationConfig) ResponseEnabled() bool {
+func (v *ValidateConfig) ResponseEnabled() bool {
 	return v != nil && v.Response != nil && *v.Response
 }
 
@@ -219,8 +219,8 @@ func (s *ServiceConfig) OverwriteWith(other *ServiceConfig) *ServiceConfig {
 		s.SpecOptions = other.SpecOptions
 	}
 
-	if other.Validation != nil {
-		s.Validation = other.Validation
+	if other.Validate != nil {
+		s.Validate = other.Validate
 	}
 
 	if other.Endpoints != nil {

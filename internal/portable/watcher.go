@@ -10,7 +10,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
-	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/factory"
 )
 
@@ -299,15 +298,21 @@ func buildHandler(svc Service) (*handler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading spec: %w", err)
 	}
+
 	ctxBytes, err := loadServiceContext(svc)
 	if err != nil {
 		return nil, fmt.Errorf("loading context: %w", err)
+	}
+
+	svcCfg, err := loadServiceConfig(svc)
+	if err != nil {
+		return nil, fmt.Errorf("loading config: %w", err)
 	}
 
 	var opts []factory.FactoryOption
 	if ctxBytes != nil {
 		opts = append(opts, factory.WithServiceContext(ctxBytes))
 	}
-	opts = append(opts, factory.WithSpecOptions(&config.SpecOptions{LazyLoad: true}))
+	opts = append(opts, factory.WithSpecOptions(svcCfg.SpecOptions))
 	return newHandler(specBytes, opts...)
 }
