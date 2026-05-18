@@ -3,8 +3,10 @@ package middleware
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"runtime/debug"
 	"strings"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
@@ -19,6 +21,14 @@ import (
 // this request (e.g. when the validator failed to build for the spec).
 type ValidatorSource func() validator.Validator
 
+// SpecPathLookup resolves a prefix-stripped request path and method to
+// the spec path that handles it (e.g. `/users/{id}`). It's used by the
+// validation middleware to detect routes that libopenapi-validator
+// can't validate without panicking (see [CreateValidationMiddleware]).
+// Returning ok=false means no match; the middleware falls through to
+// normal validation.
+type SpecPathLookup func(reqPath, method string) (specPath string, ok bool)
+
 // CreateValidationMiddleware returns middleware that validates incoming
 // requests and outgoing responses against the OpenAPI document.
 //
@@ -31,8 +41,11 @@ type ValidatorSource func() validator.Validator
 // passes, the captured response is written through unchanged.
 //
 // Either check is skipped when the corresponding flag in the service
-// config's validation block is false.
-func CreateValidationMiddleware(params *Params, source ValidatorSource) func(http.Handler) http.Handler {
+// config's validation block is false. When lookup is non-nil and
+// resolves the request to a spec path containing a `#` discriminator
+// suffix (e.g. AWS's `/foo#qparam` convention), validation is skipped
+// entirely - see the TODO inside.
+func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup SpecPathLookup) func(http.Handler) http.Handler {
 	log := params.Logger("validation")
 
 	return func(next http.Handler) http.Handler {
@@ -52,6 +65,23 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource) func(htt
 			// mount stripped from URL.Path so spec lookup matches.
 			validatorReq := requestForValidator(req, cfg)
 
+			// TODO: re-enable validation for `#`-suffixed spec paths
+			// once libopenapi-validator stops returning the discriminator
+			// suffix as part of pathValue. Today its FindPath strips
+			// `#...` for matching but returns the original key, then
+			// ValidatePathParamsWithPathItem splits that key on `/` and
+			// panics in path_parameters.go:86 because the literal
+			// segment `name#qparam` never regex-matches the request's
+			// `name`. Until then, skip validation entirely for these
+			// routes - they're already known-correct via mockzilla's
+			// own path matcher.
+			if lookup != nil {
+				if specPath, ok := lookup(validatorReq.URL.Path, validatorReq.Method); ok && strings.Contains(specPath, "#") {
+					next.ServeHTTP(w, req)
+					return
+				}
+			}
+
 			if validateReq {
 				body, restore, err := snapshotBody(req)
 				if err != nil {
@@ -59,7 +89,15 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource) func(htt
 				} else {
 					req.Body = restore
 					validatorReq.Body = io.NopCloser(bytes.NewReader(body))
-					if ok, validationErrs := v.ValidateHttpRequestSync(validatorReq); !ok {
+					if ok, validationErrs := safeValidateRequest(v, validatorReq); !ok {
+						if isValidatorPanic(validationErrs) {
+							RequestLog(log, req).Error("Request validator panicked",
+								"method", req.Method,
+								"path", req.URL.Path,
+								"reason", validationErrs[0].Reason)
+							writeValidationError(w, http.StatusInternalServerError, "request validator panicked", validationErrs)
+							return
+						}
 						// "Path not found in spec" is a 404 condition,
 						// not a 400. The downstream handler returns its
 						// own 404; skip validation and let it through.
@@ -93,7 +131,15 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource) func(htt
 					Header:     rw.Header().Clone(),
 					Body:       io.NopCloser(bytes.NewReader(rw.body.Bytes())),
 				}
-				if ok, validationErrs := v.ValidateHttpResponse(validatorReq, resp); !ok {
+				if ok, validationErrs := safeValidateResponse(v, validatorReq, resp); !ok {
+					if isValidatorPanic(validationErrs) {
+						RequestLog(log, req).Error("Response validator panicked",
+							"method", req.Method,
+							"path", req.URL.Path,
+							"reason", validationErrs[0].Reason)
+						writeValidationError(w, http.StatusInternalServerError, "response validator panicked", validationErrs)
+						return
+					}
 					// Schema-render failures (circular $ref chains the
 					// validator can't unroll) are libopenapi-validator
 					// limitations, not generator bugs. Log and let the
@@ -117,6 +163,56 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource) func(htt
 			writeThrough(w, rw)
 		})
 	}
+}
+
+// safeValidateRequest wraps validator.ValidateHttpRequestSync in a
+// recover so a panic inside libopenapi-validator does not take down the
+// request handler. A recovered panic is reported as a validation
+// failure with a synthetic ValidationError describing the panic (and
+// the captured stack), so the caller can short-circuit with a 4xx/5xx
+// the same way it would for a real failure, and integration-test
+// output gets a useful pointer to where libopenapi-validator blew up.
+func safeValidateRequest(v validator.Validator, req *http.Request) (ok bool, errs []*errors.ValidationError) {
+	defer func() {
+		if r := recover(); r != nil {
+			ok = false
+			errs = []*errors.ValidationError{panicValidationError(r, debug.Stack(), req, "request")}
+		}
+	}()
+	return v.ValidateHttpRequestSync(req)
+}
+
+// safeValidateResponse is the response-side counterpart to
+// safeValidateRequest. See that function's doc for the panic-handling
+// rationale.
+func safeValidateResponse(v validator.Validator, req *http.Request, resp *http.Response) (ok bool, errs []*errors.ValidationError) {
+	defer func() {
+		if r := recover(); r != nil {
+			ok = false
+			errs = []*errors.ValidationError{panicValidationError(r, debug.Stack(), req, "response")}
+		}
+	}()
+	return v.ValidateHttpResponse(req, resp)
+}
+
+func panicValidationError(r any, stack []byte, req *http.Request, kind string) *errors.ValidationError {
+	return &errors.ValidationError{
+		Message:           "validator panicked during " + kind + " validation",
+		Reason:            fmt.Sprintf("%v\n%s", r, stack),
+		ValidationType:    "panic",
+		ValidationSubType: kind,
+		RequestPath:       req.URL.Path,
+		RequestMethod:     req.Method,
+	}
+}
+
+func isValidatorPanic(errs []*errors.ValidationError) bool {
+	for _, e := range errs {
+		if e.ValidationType == "panic" {
+			return true
+		}
+	}
+	return false
 }
 
 // requestForValidator returns a shallow clone of req with URL.Path

@@ -27,12 +27,25 @@ func newPathMatcher(routes []typedef.RouteInfo) *pathMatcher {
 	patterns := make([]pathPattern, 0, len(routes))
 	for _, r := range routes {
 		segs := splitPath(r.Path)
+
+		// Some specs (notably AWS) suffix path keys with `#qparam1&qparam2`
+		// to disambiguate operations that share a base path but differ in
+		// required query parameters. The suffix is a spec-key convention,
+		// never part of an actual URL; strip it from the segment so the
+		// pattern still matches real requests against the same base path.
+		for i, s := range segs {
+			if idx := strings.IndexByte(s, '#'); idx >= 0 {
+				segs[i] = s[:idx]
+			}
+		}
+
 		wc := 0
 		for _, s := range segs {
 			if isPlaceholder(s) {
 				wc++
 			}
 		}
+
 		patterns = append(patterns, pathPattern{
 			specPath:      r.Path,
 			method:        strings.ToUpper(r.Method),

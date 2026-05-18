@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Run TestPortableIntegration. With no SPEC/SPECS, scans testdata/specs and
-# runs all specs in batches (libopenapi leaks across many specs and OOMs
-# in a single go test invocation).
+# runs all specs in batches.
 #
 # Env:
 #   SPEC=path            run one spec

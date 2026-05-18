@@ -157,7 +157,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &config.ServiceConfig{Name: "test", Validate: tc.cfg}
 			params := newTestParams(cfg)
-			mw := CreateValidationMiddleware(params, func() validator.Validator { return v })
+			mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
 
 			req := httptest.NewRequest(http.MethodPost, "/pets", strings.NewReader(tc.reqBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -175,7 +175,7 @@ func TestCreateValidationMiddleware_NilValidator(t *testing.T) {
 	// Source returning nil means validation is silently skipped: a bad
 	// spec at startup shouldn't make every request fail.
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return nil })
+	mw := CreateValidationMiddleware(params, func() validator.Validator { return nil }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTeapot)
@@ -195,7 +195,7 @@ func TestCreateValidationMiddleware_RequestBodyForwarded(t *testing.T) {
 	// still see the original bytes intact.
 	v := newValidatorFromSpec(t, validateTestSpec)
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v })
+	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
 
 	var got []byte
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +223,7 @@ func TestCreateValidationMiddleware_NonSuccessResponseSkipsValidation(t *testing
 	// than wrap them in another 500.
 	v := newValidatorFromSpec(t, validateTestSpec)
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v })
+	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -246,7 +246,7 @@ func TestValidationErrorPayload_Encoding(t *testing.T) {
 	// fields preserved.
 	v := newValidatorFromSpec(t, validateTestSpec)
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v })
+	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be reached on request failure")

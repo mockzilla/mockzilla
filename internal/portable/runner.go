@@ -507,7 +507,7 @@ func registerService(
 
 	if validationOn {
 		mw := func(p *middleware.Params) func(http.Handler) http.Handler {
-			return middleware.CreateValidationMiddleware(p, sw.Validator)
+			return middleware.CreateValidationMiddleware(p, sw.Validator, sw.MatchPath)
 		}
 		regOpts = append(regOpts, api.WithMiddleware(
 			[]func(*middleware.Params) func(http.Handler) http.Handler{mw},

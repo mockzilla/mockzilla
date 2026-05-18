@@ -158,6 +158,16 @@ func (s *swappableHandler) Validator() validator.Validator {
 	return s.validator
 }
 
+// MatchPath resolves a concrete request path and method to the spec path
+// pattern that handles it. The validation middleware uses this to detect
+// routes whose spec keys use the `#`-discriminator convention so it can
+// skip validation for them; see [middleware.CreateValidationMiddleware].
+func (s *swappableHandler) MatchPath(reqPath, method string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.handler.factory.MatchPath(reqPath, method)
+}
+
 func (s *swappableHandler) Routes() api.RouteDescriptions {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
