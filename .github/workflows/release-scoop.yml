@@ -1,0 +1,57 @@
+name: Release Scoop
+
+on:
+  workflow_run:
+    workflows: ["Release Binaries"]
+    types: [completed]
+
+jobs:
+  update-scoop:
+    if: ${{ github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract tag and version
+        run: |
+          TAG="${{ github.event.workflow_run.head_branch }}"
+          echo "TAG=$TAG" >> $GITHUB_ENV
+          echo "VERSION=${TAG#v}" >> $GITHUB_ENV
+
+      - name: Compute SHA256 hashes
+        run: |
+          BASE_URL="https://github.com/mockzilla/mockzilla/releases/download/${{ env.TAG }}"
+          for arch in amd64 arm64; do
+            HASH=$(curl -sL "${BASE_URL}/mockzilla-${{ env.TAG }}-windows-${arch}.exe" | sha256sum | awk '{print $1}')
+            echo "SHA_windows_${arch}=${HASH}" >> $GITHUB_ENV
+          done
+
+      - name: Update and push manifest to scoop-mockzilla
+        env:
+          GH_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+        run: |
+          git clone "https://x-access-token:${{ secrets.SCOOP_BUCKET_TOKEN }}@github.com/mockzilla/scoop-mockzilla.git" bucket
+          cd bucket
+
+          MANIFEST="bucket/mockzilla.json"
+
+          python3 - "$MANIFEST" "${{ env.VERSION }}" "${{ env.SHA_windows_amd64 }}" "${{ env.SHA_windows_arm64 }}" <<'PY'
+          import json, sys
+          path, version, sha_amd64, sha_arm64 = sys.argv[1:5]
+          with open(path) as f:
+              m = json.load(f)
+          m["version"] = version
+          archs = m["architecture"]
+          archs["64bit"]["url"] = f"https://github.com/mockzilla/mockzilla/releases/download/v{version}/mockzilla-v{version}-windows-amd64.exe#/mockzilla.exe"
+          archs["64bit"]["hash"] = sha_amd64
+          archs["arm64"]["url"] = f"https://github.com/mockzilla/mockzilla/releases/download/v{version}/mockzilla-v{version}-windows-arm64.exe#/mockzilla.exe"
+          archs["arm64"]["hash"] = sha_arm64
+          with open(path, "w") as f:
+              json.dump(m, f, indent=4)
+              f.write("\n")
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$MANIFEST"
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "mockzilla ${{ env.TAG }}"
+          git push

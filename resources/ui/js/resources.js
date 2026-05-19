@@ -4,6 +4,7 @@ import * as validators from './validators.js';
 import * as navi from "./navi.js";
 import * as services from "./services.js";
 import * as presets from "./presets.js";
+import { joinServiceUrl } from "./url.js";
 
 export const addCustomHeaderRow = (enabled = true, name = '', value = '', visible = true) => {
     const container = document.getElementById('custom-headers-rows');
@@ -324,9 +325,14 @@ export const generateResult = (service, ix, path, method) => {
 
             const curlBlock = document.getElementById('example-curl');
 
+            // The server-reported prefix is the source of truth — including
+            // when `--mount` overrides a root-named service. joinServiceUrl
+            // collapses the "/" prefix (root mount) and any trailing slash
+            // from a CLI mount value so the join with reqPath stays clean.
             const lookupName = service === '.root' ? '' : service;
-            const servicePrefix = services.getServicePrefix(lookupName);
-            curlBlock.textContent = `curl --request ${method.toUpperCase()} \\\n'${config.baseUrl}${servicePrefix}${reqPath}'`;
+            const rawPrefix = services.getServicePrefix(lookupName) ?? (service === '.root' ? '' : `/${service}`);
+            const fullUrl = joinServiceUrl(config.baseUrl, rawPrefix, reqPath);
+            curlBlock.textContent = `curl --request ${method.toUpperCase()} \\\n'${fullUrl}'`;
             if (reqContentType) {
                 curlBlock.textContent += ` \\\n--header 'Content-Type: ${reqContentType}'`
             }
@@ -355,13 +361,9 @@ export const generateResult = (service, ix, path, method) => {
 
             // Make actual API call to get response
             if (reqPath) {
-                // Use the prefix the service is actually mounted at (may be
-                // multi-segment, e.g. /pets/v2) rather than the service name,
-                // so mount overrides reach the right URL.
-                const prefix = service === '.root'
-                    ? ''
-                    : (services.getServicePrefix(lookupName) || `/${service}`);
-                const apiUrl = `${config.baseUrl}${prefix}${reqPath}`;
+                // Reuse the same join so the live request and the displayed
+                // curl command stay in lockstep.
+                const apiUrl = fullUrl;
                 const fetchOptions = {
                     method: method.toUpperCase(),
                     headers: { ...reqHeaders }

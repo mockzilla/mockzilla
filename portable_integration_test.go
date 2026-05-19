@@ -396,6 +396,24 @@ func materializeSpec(specPath string, specBytes []byte) (root string, cleanup fu
 		_ = os.RemoveAll(root)
 		return "", nil, err
 	}
+	// Validation: the runtime defaults to request: true, response: false
+	// (response is opt-in). This suite is a generator smoke test —
+	// "does each route serve without 5xx?" — and benefits from strict
+	// validation when explicitly requested. Two modes:
+	//
+	//   VALIDATE unset → write both: false. Pure smoke test, matches the
+	//                    pre-validation behaviour the cache was built
+	//                    against.
+	//   VALIDATE=1     → write both: true. Surfaces every generator/spec
+	//                    divergence as a failure.
+	cfgBody := "validation:\n  request: false\n  response: false\n"
+	if os.Getenv("VALIDATE") != "" {
+		cfgBody = "validation:\n  request: true\n  response: true\n"
+	}
+	if err := os.WriteFile(filepath.Join(svcDir, "config.yml"), []byte(cfgBody), 0o644); err != nil {
+		_ = os.RemoveAll(root)
+		return "", nil, err
+	}
 	return root, func() { _ = os.RemoveAll(root) }, nil
 }
 

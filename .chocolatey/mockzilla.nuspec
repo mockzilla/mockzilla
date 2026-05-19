@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>mockzilla</id>
+    <version>$version$</version>
+    <title>Mockzilla</title>
+    <authors>Mockzilla Development</authors>
+    <owners>Mockzilla Development</owners>
+    <licenseUrl>https://github.com/mockzilla/mockzilla/blob/main/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/mockzilla/mockzilla</projectUrl>
+    <projectSourceUrl>https://github.com/mockzilla/mockzilla</projectSourceUrl>
+    <packageSourceUrl>https://github.com/mockzilla/mockzilla/tree/main/.chocolatey</packageSourceUrl>
+    <docsUrl>https://mockzilla.github.io/mockzilla/</docsUrl>
+    <bugTrackerUrl>https://github.com/mockzilla/mockzilla/issues</bugTrackerUrl>
+    <releaseNotes>https://github.com/mockzilla/mockzilla/releases/tag/v$version$</releaseNotes>
+    <copyright>Copyright (c) 2026-present Mockzilla Development</copyright>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <tags>mockzilla mock api openapi testing cli</tags>
+    <summary>Generate API mocks with meaningful responses, configurable latency, error codes and more</summary>
+    <description>Mockzilla is an OpenAPI mock engine that generates API mocks with meaningful responses, configurable latency, error codes and more.
+
+## Usage
+
+```
+mockzilla --help
+```
+
+See the [documentation](https://mockzilla.github.io/mockzilla/) for full usage.</description>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

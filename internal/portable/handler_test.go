@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -236,7 +237,7 @@ func TestSwappableHandler(t *testing.T) {
 		h2, err := newHandler(specBytes)
 		require.NoError(t, err)
 
-		sw.swap(h2)
+		sw.swap(h2, nil)
 		assert.Equal(t, h2.Routes(), sw.Routes())
 	})
 }
@@ -389,7 +390,11 @@ func TestIntegration_EndToEnd(t *testing.T) {
 	})
 
 	t.Run("POST returns 201 with required fields", func(t *testing.T) {
-		resp, err := http.Post(ts.URL+"/petstore/pets", "application/json", nil)
+		// Spec requires a Pet body for POST /pets, so validation needs a
+		// real payload here. Sending nil would 400 before reaching the
+		// generator.
+		body := strings.NewReader(`{"id":1,"name":"rex"}`)
+		resp, err := http.Post(ts.URL+"/petstore/pets", "application/json", body)
 		require.NoError(t, err)
 		defer func() { _ = resp.Body.Close() }()
 

@@ -394,6 +394,48 @@ func TestIsPortableMode(t *testing.T) {
 	t.Run("detects .mockz arg", func(t *testing.T) {
 		assert.True(t, IsPortableMode([]string{"petstore.mockz"}))
 	})
+	t.Run("detects single static json file", func(t *testing.T) {
+		f := filepath.Join(t.TempDir(), "data.json")
+		require.NoError(t, os.WriteFile(f, []byte(`{"hello":"world"}`), 0o644))
+		assert.True(t, IsPortableMode([]string{f}))
+	})
+	t.Run("detects single static html file", func(t *testing.T) {
+		f := filepath.Join(t.TempDir(), "page.html")
+		require.NoError(t, os.WriteFile(f, []byte(`<h1>hi</h1>`), 0o644))
+		assert.True(t, IsPortableMode([]string{f}))
+	})
+}
+
+func TestResolveStaticFile(t *testing.T) {
+	t.Run("non-spec json file falls back to GET /", func(t *testing.T) {
+		f := filepath.Join(t.TempDir(), "data.json")
+		require.NoError(t, os.WriteFile(f, []byte(`{"hello":"world"}`), 0o644))
+		svcs, err := resolveOne(f)
+		require.NoError(t, err)
+		require.Len(t, svcs, 1)
+		assert.Empty(t, svcs[0].Name, "static fallback should mount at root")
+		assert.NotEmpty(t, svcs[0].StaticDir, "static fallback should track its synthesized dir")
+		assert.FileExists(t, filepath.Join(svcs[0].StaticDir, "index.json"))
+	})
+	t.Run("spec json file still routes to spec mode", func(t *testing.T) {
+		f := filepath.Join(t.TempDir(), "petstore.json")
+		require.NoError(t, os.WriteFile(f, []byte(`{"openapi":"3.0.0","info":{"title":"x","version":"1"},"paths":{}}`), 0o644))
+		svcs, err := resolveOne(f)
+		require.NoError(t, err)
+		require.Len(t, svcs, 1)
+		assert.Equal(t, "petstore", svcs[0].Name)
+		assert.Equal(t, f, svcs[0].SpecPath, "real spec should be used as-is, not materialised")
+		assert.Empty(t, svcs[0].StaticDir)
+	})
+	t.Run("html file is served as static at GET /", func(t *testing.T) {
+		f := filepath.Join(t.TempDir(), "page.html")
+		require.NoError(t, os.WriteFile(f, []byte(`<h1>hi</h1>`), 0o644))
+		svcs, err := resolveOne(f)
+		require.NoError(t, err)
+		require.Len(t, svcs, 1)
+		assert.Empty(t, svcs[0].Name)
+		assert.FileExists(t, filepath.Join(svcs[0].StaticDir, "index.html"))
+	})
 }
 
 // buildPackage creates a .mockz with the supplied in-archive contents.
@@ -463,6 +505,79 @@ func TestResolveOne_URLPackage(t *testing.T) {
 	assert.Equal(t, "petstore", services[0].Name)
 }
 
+// Extensionless URL whose response advertises application/gzip should be
+// unpacked, not naively treated as an OpenAPI spec.
+func TestResolveOne_URL_PackageByContentType(t *testing.T) {
+	pkgPath := buildPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
+		"services/petstore/openapi.yml": []byte("openapi: 3.0.0"),
+	})
+	pkgData, err := os.ReadFile(pkgPath)
+	require.NoError(t, err)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/gzip")
+		_, _ = w.Write(pkgData)
+	}))
+	defer srv.Close()
+
+	services, err := resolveOne(srv.URL + "/abc12345")
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	assert.Equal(t, "petstore", services[0].Name)
+}
+
+// Same scenario but Content-Type is the generic application/octet-stream;
+// the gzip magic-byte fallback should still recognise the body as a
+// package.
+func TestResolveOne_URL_PackageByMagicBytes(t *testing.T) {
+	pkgPath := buildPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
+		"services/petstore/openapi.yml": []byte("openapi: 3.0.0"),
+	})
+	pkgData, err := os.ReadFile(pkgPath)
+	require.NoError(t, err)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		_, _ = w.Write(pkgData)
+	}))
+	defer srv.Close()
+
+	services, err := resolveOne(srv.URL + "/abc12345")
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+	assert.Equal(t, "petstore", services[0].Name)
+}
+
+func TestIsPackageBytes(t *testing.T) {
+	gzipMagic := []byte{0x1f, 0x8b, 0x00, 0x00}
+	cases := []struct {
+		name string
+		ct   string
+		body []byte
+		want bool
+	}{
+		{"application/gzip", "application/gzip", nil, true},
+		{"application/x-gzip", "application/x-gzip", nil, true},
+		{"vnd.mockz", "application/vnd.mockz", nil, true},
+		{"vnd.mockz+gzip", "application/vnd.mockz+gzip", nil, true},
+		{"gzip with charset", "application/gzip; charset=binary", nil, true},
+		{"uppercase content type", "APPLICATION/GZIP", nil, true},
+		{"octet-stream + gzip magic", "application/octet-stream", gzipMagic, true},
+		{"missing CT + gzip magic", "", gzipMagic, true},
+		{"yaml content", "application/yaml", []byte("openapi: 3.0.0"), false},
+		{"json content", "application/json", []byte("{}"), false},
+		{"text plain", "text/plain", []byte("hi"), false},
+		{"octet-stream without magic", "application/octet-stream", []byte("not gzip"), false},
+		{"empty body no CT", "", nil, false},
+		{"single byte body", "", []byte{0x1f}, false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, isPackageBytes(c.ct, c.body))
+		})
+	}
+}
+
 func TestDownloadSpec(t *testing.T) {
 	t.Run("downloads spec", func(t *testing.T) {
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -494,6 +609,37 @@ func TestDownloadSpec(t *testing.T) {
 
 		_, err := downloadSpec(srv.URL + "/spec.yml")
 		assert.Error(t, err)
+	})
+}
+
+func TestResolveURLByContentFallback(t *testing.T) {
+	t.Run("non-spec json URL falls back to static", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"hello":"world"}`))
+		}))
+		defer srv.Close()
+
+		svcs, err := resolveURLByContent(srv.URL + "/data.json")
+		require.NoError(t, err)
+		require.Len(t, svcs, 1)
+		assert.Empty(t, svcs[0].Name, "static URL fallback should mount at root")
+		assert.NotEmpty(t, svcs[0].StaticDir)
+		assert.FileExists(t, filepath.Join(svcs[0].StaticDir, "index.json"))
+	})
+
+	t.Run("spec URL still routes to spec mode", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "application/yaml")
+			_, _ = w.Write([]byte("openapi: 3.0.0\ninfo:\n  title: x\n  version: 1\npaths: {}"))
+		}))
+		defer srv.Close()
+
+		svcs, err := resolveURLByContent(srv.URL + "/petstore.yml")
+		require.NoError(t, err)
+		require.Len(t, svcs, 1)
+		assert.NotEmpty(t, svcs[0].SpecPath)
+		assert.Empty(t, svcs[0].StaticDir, "real spec should not be materialised as static")
 	})
 }
 

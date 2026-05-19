@@ -1,0 +1,59 @@
+name: Release Snap
+
+on:
+  workflow_run:
+    workflows: ["Release Binaries"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v2.5.5)'
+        required: true
+
+jobs:
+  build:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && startsWith(github.event.workflow_run.head_branch, 'v')) }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: amd64
+          - runner: ubuntu-22.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ inputs.tag }}"
+          else
+            TAG="${{ github.event.workflow_run.head_branch }}"
+          fi
+          echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+
+      - name: Substitute version in snapcraft.yaml
+        run: sed -i "s/__VERSION__/${{ steps.ver.outputs.version }}/g" .snap/snapcraft.yaml
+
+      - name: Build snap
+        id: snap
+        uses: snapcore/action-build@v1
+        with:
+          path: .snap
+
+      - name: Upload snap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mockzilla-${{ matrix.arch }}.snap
+          path: ${{ steps.snap.outputs.snap }}
+
+      - name: Publish to Snap Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+        with:
+          snap: ${{ steps.snap.outputs.snap }}
+          release: stable

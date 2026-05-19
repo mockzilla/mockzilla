@@ -238,3 +238,105 @@ func TestFactory_ResponseFromRequest(t *testing.T) {
 		assert.NotEmpty(resp.Body)
 	})
 }
+
+func TestFactory_SuccessStatusCode(t *testing.T) {
+	tests := []struct {
+		name   string
+		spec   string
+		path   string
+		method string
+		want   int
+	}{
+		{
+			name: "declared 2xx is preserved",
+			spec: `openapi: 3.0.0
+info: {title: T, version: "1"}
+paths:
+  /pets:
+    get:
+      responses:
+        '200': {description: ok}
+`,
+			path: "/pets", method: "GET", want: 200,
+		},
+		{
+			name: "no 2xx, falls back to smallest declared (302)",
+			spec: `openapi: 3.0.0
+info: {title: T, version: "1"}
+paths:
+  /authorize:
+    get:
+      responses:
+        '302': {description: redirect}
+        '401': {description: unauthorized}
+`,
+			path: "/authorize", method: "GET", want: 302,
+		},
+		{
+			name: "no 2xx, only 400 declared → 400",
+			spec: `openapi: 3.0.0
+info: {title: T, version: "1"}
+paths:
+  /create:
+    post:
+      responses:
+        '400': {description: bad request}
+`,
+			path: "/create", method: "POST", want: 400,
+		},
+		{
+			name: "only default declared → 200",
+			spec: `openapi: 3.0.0
+info: {title: T, version: "1"}
+paths:
+  /any:
+    get:
+      responses:
+        default:
+          description: ok
+          content:
+            application/json:
+              schema: {type: object}
+`,
+			path: "/any", method: "GET", want: 200,
+		},
+		{
+			name: "non-numeric '2XX' is ignored, default fills in",
+			spec: `openapi: 3.0.0
+info: {title: T, version: "1"}
+paths:
+  /loose:
+    get:
+      responses:
+        '2XX': {description: wildcard}
+        default: {description: ok}
+`,
+			path: "/loose", method: "GET", want: 200,
+		},
+		{
+			name: "unknown path returns 200",
+			spec: `openapi: 3.0.0
+info: {title: T, version: "1"}
+paths:
+  /pets:
+    get:
+      responses:
+        '200': {description: ok}
+`,
+			path: "/missing", method: "GET", want: 200,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			f, err := NewFactory([]byte(tc.spec))
+			if err != nil {
+				t.Fatalf("NewFactory: %v", err)
+			}
+			got := f.SuccessStatusCode(tc.path, tc.method)
+			if got != tc.want {
+				t.Fatalf("SuccessStatusCode(%q, %q) = %d, want %d", tc.path, tc.method, got, tc.want)
+			}
+		})
+	}
+}
