@@ -101,7 +101,3 @@ Mockzilla ships an [MCP server](https://github.com/mockzilla/mockzilla-mcp), so 
 Copyright © 2023-present
 
 Licensed under the [MIT License](https://github.com/mockzilla/mockzilla/blob/main/LICENSE)
-
----
-
-Built with [Mockzilla](https://mockzilla.org/) – an open-source API simulation for OpenAPI-driven mock servers.
