@@ -257,14 +257,9 @@ func WithConfigOption(cfg *config.AppConfig) RouterOption {
 	}
 }
 
-// ServicePrefix returns the URL prefix at which a service mounts. When
-// Mount is set, it wins (and may contain `/` for multi-segment mount
-// points). Otherwise the service mounts at "/<Name>".
-//
-// Services with empty Name (no inside-the-folder identity signal)
-// mount at literal "/". The UI surfaces this service as `.root` for
-// display purposes only — see RootServiceName and the lookup helper
-// in services.go.
+// ServicePrefix returns the URL prefix at which a service mounts. When Mount is
+// set, it wins (may contain `/` for multi-segment mounts). Otherwise mounts at
+// "/<Name>", or "/" for empty Name (surfaced in the UI as `.root`).
 func ServicePrefix(cfg *config.ServiceConfig) string {
 	if cfg.Mount != "" {
 		if strings.HasPrefix(cfg.Mount, "/") {

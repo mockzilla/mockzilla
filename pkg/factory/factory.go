@@ -3,6 +3,7 @@ package factory
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 	"github.com/pb33f/libopenapi"
+	"github.com/pb33f/libopenapi/datamodel"
 	v3high "github.com/pb33f/libopenapi/datamodel/high/v3"
 )
 
@@ -29,6 +31,7 @@ type Factory struct {
 	docOnce   sync.Once
 	doc       libopenapi.Document
 	docErr    error
+	logger    *slog.Logger
 
 	declaredCodes sync.Map // operationKey ("PATH:METHOD") -> map[int]struct{}
 }
@@ -37,6 +40,7 @@ type factoryConfig struct {
 	serviceContext []byte
 	specOptions    *config.SpecOptions
 	codegenCfg     *codegen.Configuration
+	logger         *slog.Logger
 }
 
 // FactoryOption configures a Factory.
@@ -61,6 +65,17 @@ func WithSpecOptions(opts *config.SpecOptions) FactoryOption {
 func WithCodegenConfig(cfg codegen.Configuration) FactoryOption {
 	return func(c *factoryConfig) {
 		c.codegenCfg = &cfg
+	}
+}
+
+// WithLogger sets the slog.Logger used when constructing the libopenapi
+// Document. Without this option, libopenapi falls back to its built-in
+// JSON-stdout logger that bypasses slog.Default; supply the desired
+// logger here so spec-parse warnings flow through the host process's
+// logging configuration.
+func WithLogger(l *slog.Logger) FactoryOption {
+	return func(c *factoryConfig) {
+		c.logger = l
 	}
 }
 
@@ -101,14 +116,27 @@ func NewFactory(specBytes []byte, opts ...FactoryOption) (*Factory, error) {
 		gen:       gen,
 		matcher:   matcher,
 		specBytes: specBytes,
+		logger:    fc.logger,
 	}, nil
 }
 
 // Document returns the parsed libopenapi document, building it lazily on
 // first call. Callers that need access to the raw spec model (validators,
 // inspectors) use this to avoid re-parsing.
+//
+// When a logger was provided via WithLogger, libopenapi is constructed
+// with a DocumentConfiguration that routes its spec-parse warnings
+// through that logger; otherwise libopenapi falls back to its default
+// JSON-stdout logger, which bypasses slog.Default and produces output
+// the host process can't easily silence or attribute.
 func (f *Factory) Document() (libopenapi.Document, error) {
 	f.docOnce.Do(func() {
+		if f.logger != nil {
+			cfg := datamodel.NewDocumentConfiguration()
+			cfg.Logger = f.logger
+			f.doc, f.docErr = libopenapi.NewDocumentWithConfiguration(f.specBytes, cfg)
+			return
+		}
 		f.doc, f.docErr = libopenapi.NewDocument(f.specBytes)
 	})
 	return f.doc, f.docErr
@@ -126,11 +154,11 @@ func (f *Factory) Document() (libopenapi.Document, error) {
 // OpenAPI validation since the spec never declared it.
 //
 // Resolution order:
-//  1. SuccessCode is explicitly declared → keep it.
-//  2. At least one numeric code is declared → smallest declared code.
-//  3. Only "default" is declared → 200 (the spec writer didn't
-//     restrict codes; 200 is the canonical success).
-//  4. Neither doc nor declarations available → SuccessCode unchanged.
+//  1. SuccessCode declared in spec: keep it.
+//  2. Lowest declared 2xx, then 3xx, then 4xx.
+//  3. "default" declared: 200 (preferred over 5xx so the happy path stays green).
+//  4. Lowest declared 5xx.
+//  5. Nothing available: SuccessCode unchanged.
 func (f *Factory) SuccessStatusCode(path, method string) int {
 	op := f.registry.FindOperation(path, method)
 	if op == nil || op.Response == nil {
@@ -141,18 +169,40 @@ func (f *Factory) SuccessStatusCode(path, method string) int {
 	if _, ok := codes[regCode]; ok {
 		return regCode
 	}
-	if len(codes) > 0 {
-		best := 0
-		for code := range codes {
-			if best == 0 || code < best {
-				best = code
+
+	var min2xx, min3xx, min4xx, min5xx int
+	for code := range codes {
+		switch {
+		case code >= 200 && code < 300:
+			if min2xx == 0 || code < min2xx {
+				min2xx = code
+			}
+		case code >= 300 && code < 400:
+			if min3xx == 0 || code < min3xx {
+				min3xx = code
+			}
+		case code >= 400 && code < 500:
+			if min4xx == 0 || code < min4xx {
+				min4xx = code
+			}
+		case code >= 500:
+			if min5xx == 0 || code < min5xx {
+				min5xx = code
 			}
 		}
-		return best
 	}
 
-	if hasDefault {
+	switch {
+	case min2xx > 0:
+		return min2xx
+	case min3xx > 0:
+		return min3xx
+	case min4xx > 0:
+		return min4xx
+	case hasDefault:
 		return 200
+	case min5xx > 0:
+		return min5xx
 	}
 	return regCode
 }

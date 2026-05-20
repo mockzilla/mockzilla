@@ -9,6 +9,7 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	"github.com/stretchr/testify/assert"
+	"go.yaml.in/yaml/v4"
 )
 
 //go:embed testdata/**
@@ -84,6 +85,36 @@ func TestInferType(t *testing.T) {
 		assert.NotNil(t, offsetParam)
 		assert.NotNil(t, offsetParam.Schema)
 		assert.Equal(t, "integer", offsetParam.Schema.Type)
+	})
+}
+
+func TestInferTypeFromYAMLNodes(t *testing.T) {
+	cases := []struct {
+		name string
+		tags []string
+		want string
+	}{
+		{"string enum", []string{"!!str", "!!str"}, "string"},
+		{"int enum", []string{"!!int"}, "integer"},
+		{"float enum", []string{"!!float"}, "number"},
+		{"bool enum", []string{"!!bool"}, "boolean"},
+		{"empty", nil, ""},
+		{"unknown tag", []string{"!!timestamp"}, ""},
+		{"first usable tag wins", []string{"!!str", "!!int"}, "string"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			nodes := make([]*yaml.Node, len(tc.tags))
+			for i, tag := range tc.tags {
+				nodes[i] = &yaml.Node{Tag: tag}
+			}
+			assert.Equal(t, tc.want, inferTypeFromYAMLNodes(nodes))
+		})
+	}
+
+	t.Run("nil entries are skipped", func(t *testing.T) {
+		nodes := []*yaml.Node{nil, {Tag: "!!int"}}
+		assert.Equal(t, "integer", inferTypeFromYAMLNodes(nodes))
 	})
 }
 
@@ -1257,12 +1288,13 @@ components:
 	// The schema should be marked as nullable
 	assert.True(t, statusSchema.Nullable)
 
-	// The enum values include "null" as a string (YAML parses it this way)
-	// The replacer package filters this out at generation time
+	// The enum carries the null entry through to the replacer, which
+	// filters it at generation time. The carrier is nil (true JSON null)
+	// after convertEnumNode promotes `!!null` from the bare-`- null` YAML.
 	assert.Len(t, statusSchema.Enum, 3)
 	assert.Contains(t, statusSchema.Enum, "ACTIVE")
 	assert.Contains(t, statusSchema.Enum, "INACTIVE")
-	assert.Contains(t, statusSchema.Enum, "null") // string "null", not nil
+	assert.Contains(t, statusSchema.Enum, any(nil))
 }
 
 func TestMergeRequired(t *testing.T) {
@@ -1302,6 +1334,91 @@ func TestMergeRequired(t *testing.T) {
 	t.Run("both empty returns empty", func(t *testing.T) {
 		result := mergeRequired(nil, nil)
 		assert.Nil(t, result)
+	})
+}
+
+func TestRealcubeMalformedSpec(t *testing.T) {
+	parseCtx := loadTestSpec(t, "allof-required-undeclared.yml")
+	reg := NewTypeDefinitionRegistry(parseCtx, 10, nil)
+
+	t.Run("allOf branches contribute their Required to the parent", func(t *testing.T) {
+		op := reg.FindOperation("/translations", "GET")
+		assert.NotNil(t, op)
+		assert.NotNil(t, op.Response)
+
+		body := op.Response.GetSuccess().Content
+		assert.NotNil(t, body)
+
+		// PersistedRecord (allOf[0]) requires id/created_at/updated_at.
+		// allOf[2] requires name/user/organisation — none of which are
+		// declared as properties on the parent or anywhere in the allOf.
+		// Without the fix, the merged Required is lost and the validator
+		// rejects responses missing those four keys.
+		want := []string{"id", "updated_at", "created_at", "name", "user", "organisation"}
+		for _, k := range want {
+			assert.Contains(t, body.Required, k, "Required should include %q", k)
+		}
+	})
+
+	t.Run("array with primitive enum is dropped from parent properties", func(t *testing.T) {
+		op := reg.FindOperation("/features", "GET")
+		assert.NotNil(t, op)
+		body := op.Response.GetSuccess().Content
+		// Items get nil'd out so the array fails the "Type==array &&
+		// Items==nil → skip" filter in the parent property loop. The
+		// effect is that the (optional) malformed field is dropped
+		// before the generator ever sees it, and the validator's
+		// unsatisfiable enum-on-array check has nothing to reject.
+		assert.NotContains(t, body.Properties, "features")
+		// Sibling properties still come through normally.
+		assert.Contains(t, body.Properties, "name")
+	})
+}
+
+func TestAllOfDuplicateArrayProperty(t *testing.T) {
+	// When the same array property is declared in two allOf branches with
+	// identical `items: $ref Foo`, the merge must propagate Items —
+	// otherwise the merged schema has type=array with no items, and
+	// downstream type inference falls back to string.
+	parseCtx := loadTestSpec(t, "allof-duplicate-array-property.yml")
+	reg := NewTypeDefinitionRegistry(parseCtx, 10, nil)
+	op := reg.FindOperation("/cf", "GET")
+	body := op.Response.GetSuccess().Content
+	data := body.Properties["data"]
+	assert.NotNil(t, data)
+	dupList := data.Properties["enum_options"]
+	singleList := data.Properties["multi_enum_values"]
+	assert.NotNil(t, dupList)
+	assert.NotNil(t, singleList)
+	assert.Equal(t, "array", dupList.Type)
+	assert.Equal(t, "array", singleList.Type)
+	assert.NotNil(t, dupList.Items, "duplicated-in-two-branches array items should not be nil")
+	assert.NotNil(t, singleList.Items, "single-branch array items should not be nil")
+	assert.Equal(t, "object", dupList.Items.Type, "items merged across allOf branches should stay object")
+	assert.Equal(t, "object", singleList.Items.Type)
+}
+
+func TestAllOfStatusEnumIntersection(t *testing.T) {
+	parseCtx := loadTestSpec(t, "allof-conflicting-enums.yml")
+	reg := NewTypeDefinitionRegistry(parseCtx, 10, nil)
+	op := reg.FindOperation("/candidates", "POST")
+	body := op.Response.GetSuccess().Content
+
+	t.Run("direct allOf property", func(t *testing.T) {
+		primary := body.Properties["primaryAssignment"]
+		assert.NotNil(t, primary)
+		status := primary.Properties["status"]
+		assert.NotNil(t, status)
+		assert.Equal(t, []any{"INTERVIEW"}, status.Enum)
+	})
+
+	t.Run("allOf inside array items", func(t *testing.T) {
+		secondary := body.Properties["secondaryAssignments"]
+		assert.NotNil(t, secondary)
+		assert.NotNil(t, secondary.Items)
+		status := secondary.Items.Properties["status"]
+		assert.NotNil(t, status)
+		assert.Equal(t, []any{"INTERVIEW"}, status.Enum)
 	})
 }
 

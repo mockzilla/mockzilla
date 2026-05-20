@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"mime"
+	"strings"
 
 	"go.yaml.in/yaml/v4"
 )
@@ -18,11 +20,15 @@ func encodeContent(content any, contentType string) ([]byte, error) {
 		return rm, nil
 	}
 
-	switch contentType {
-	case "application/json", "":
-		// Empty content-type defaults to JSON
+	if contentType == "" || isJSONMediaType(contentType) {
 		return json.Marshal(content)
+	}
 
+	if isNDJSONMediaType(contentType) {
+		return encodeNDJSON(content)
+	}
+
+	switch contentType {
 	case "application/x-www-form-urlencoded",
 		"multipart/form-data",
 		"multipart/formdata":
@@ -54,4 +60,39 @@ func encodeContent(content any, contentType string) ([]byte, error) {
 	}
 
 	return nil, fmt.Errorf("cannot encode type %T with content-type %s", content, contentType)
+}
+
+// isJSONMediaType reports whether a Content-Type header value is JSON
+// or a JSON-shaped flavour (RFC 6839's `+json` structured suffix, used
+// by media types like application/vnd.amadeus+json).
+func isJSONMediaType(contentType string) bool {
+	parsed, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	return parsed == "application/json" || strings.HasSuffix(parsed, "+json")
+}
+
+func isNDJSONMediaType(contentType string) bool {
+	parsed, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		return false
+	}
+	switch parsed {
+	case "application/x-ndjson", "application/ndjson", "application/jsonl", "application/x-jsonlines":
+		return true
+	}
+	return false
+}
+
+// encodeNDJSON serializes content as JSON with a trailing newline.
+// libopenapi-validator parses NDJSON bodies as a single JSON document;
+// splitting an array into newline-delimited lines satisfies real
+// streaming clients but breaks the validator. JSON wins.
+func encodeNDJSON(content any) ([]byte, error) {
+	b, err := json.Marshal(content)
+	if err != nil {
+		return nil, err
+	}
+	return append(b, '\n'), nil
 }

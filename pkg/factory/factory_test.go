@@ -301,6 +301,45 @@ paths:
 			path: "/any", method: "GET", want: 200,
 		},
 		{
+			name: "only 5xx + default → 200 (default beats 5xx)",
+			spec: `openapi: 3.0.0
+info: {title: T, version: "1"}
+paths:
+  /broken:
+    post:
+      responses:
+        '500': {description: server error}
+        default: {description: unexpected}
+`,
+			path: "/broken", method: "POST", want: 200,
+		},
+		{
+			name: "5xx without default falls back to 5xx",
+			spec: `openapi: 3.0.0
+info: {title: T, version: "1"}
+paths:
+  /broken:
+    post:
+      responses:
+        '500': {description: server error}
+`,
+			path: "/broken", method: "POST", want: 500,
+		},
+		{
+			name: "4xx wins over 5xx",
+			spec: `openapi: 3.0.0
+info: {title: T, version: "1"}
+paths:
+  /op:
+    post:
+      responses:
+        '401': {description: unauth}
+        '500': {description: server error}
+        default: {description: unexpected}
+`,
+			path: "/op", method: "POST", want: 401,
+		},
+		{
 			name: "non-numeric '2XX' is ignored, default fills in",
 			spec: `openapi: 3.0.0
 info: {title: T, version: "1"}

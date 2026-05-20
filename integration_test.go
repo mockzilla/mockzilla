@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -57,9 +56,7 @@ func TestIntegration(t *testing.T) {
 	if spec := os.Getenv("SPEC"); spec != "" {
 		specPaths = append(specPaths, spec)
 	}
-	if specs := os.Getenv("SPECS"); specs != "" {
-		specPaths = append(specPaths, strings.Fields(specs)...)
-	}
+	specPaths = append(specPaths, integrationtest.ParseSpecsEnv(os.Getenv("SPECS"))...)
 
 	specs := integrationtest.CollectSpecs(t, specPaths)
 	if len(specs) == 0 {

@@ -122,6 +122,7 @@ func TestHandleServiceChange(t *testing.T) {
 
 	dw := &dataWatcher{
 		registeredServices: make(map[string]bool),
+		restartDebounce:    time.Hour, // prevent the timer firing during the test
 	}
 
 	event := fileEvent{
@@ -390,6 +391,7 @@ func TestRouteEvent(t *testing.T) {
 	dw := &dataWatcher{
 		paths:              paths,
 		registeredServices: make(map[string]bool),
+		restartDebounce:    time.Hour, // prevent rebuild goroutines firing during the test
 	}
 
 	// Create directories

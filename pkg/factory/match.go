@@ -27,12 +27,22 @@ func newPathMatcher(routes []typedef.RouteInfo) *pathMatcher {
 	patterns := make([]pathPattern, 0, len(routes))
 	for _, r := range routes {
 		segs := splitPath(r.Path)
+
+		// Strip the AWS-style `#qparam` discriminator suffix from spec
+		// path keys; it's never part of a real request URL.
+		for i, s := range segs {
+			if idx := strings.IndexByte(s, '#'); idx >= 0 {
+				segs[i] = s[:idx]
+			}
+		}
+
 		wc := 0
 		for _, s := range segs {
 			if isPlaceholder(s) {
 				wc++
 			}
 		}
+
 		patterns = append(patterns, pathPattern{
 			specPath:      r.Path,
 			method:        strings.ToUpper(r.Method),
@@ -51,21 +61,33 @@ func newPathMatcher(routes []typedef.RouteInfo) *pathMatcher {
 	return &pathMatcher{patterns: patterns}
 }
 
-// Match finds the spec path pattern that matches the given concrete path and method.
-// Returns the spec path and true if found, or empty string and false otherwise.
+// Match returns the spec path that matches the concrete request. Fewer
+// wildcards win; ties go to the last-inserted pattern so routing aligns
+// with libopenapi-validator's radix tree, which keeps only the most
+// recent leaf at any parameter slot.
 func (m *pathMatcher) Match(path, method string) (string, bool) {
 	method = strings.ToUpper(method)
 	segs := splitPath(path)
 
-	for _, p := range m.patterns {
+	var best *pathPattern
+	for i := range m.patterns {
+		p := &m.patterns[i]
 		if p.method != method {
 			continue
 		}
-		if matchSegments(segs, p.segments) {
-			return p.specPath, true
+
+		if !matchSegments(segs, p.segments) {
+			continue
+		}
+		if best == nil || p.wildcardCount <= best.wildcardCount {
+			best = p
 		}
 	}
-	return "", false
+
+	if best == nil {
+		return "", false
+	}
+	return best.specPath, true
 }
 
 // splitPath splits a URL path into non-empty segments.

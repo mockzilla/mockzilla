@@ -24,17 +24,12 @@ var specExts = []string{".yml", ".yaml", ".json"}
 // srcDir (so they round-trip cleanly as tar entry names inside the
 // archive).
 //
-// The discovery rules mirror what `internal/portable` applies at
-// runtime so a packed archive produces the same service set as a raw
-// directory invocation. Three shapes are recognised:
-//
-//   - `services/<name>/` subtree → one entry per child folder.
-//   - A `config.yml`, static endpoints, or exactly one spec at the
-//     root → single-service folder. Name inferred from
-//     `config.yml`'s `name:` or a non-generic spec basename; falls
-//     back to empty (root-mounted).
-//   - Multiple top-level spec files → flat-root mode, one service per
-//     spec named after the filename basename.
+// Mirrors `internal/portable`'s runtime discovery so a packed archive yields the
+// same service set as a raw directory invocation. Three shapes:
+//   - `services/<name>/` subtree: one entry per child folder.
+//   - `config.yml`, static endpoints, or one root-level spec: single-service folder,
+//     named from `config.yml`'s `name:` or a non-generic spec basename.
+//   - Multiple top-level spec files: flat-root mode, one service per spec basename.
 func Discover(srcDir string) ([]ServiceEntry, error) {
 	info, err := os.Stat(srcDir)
 	if err != nil {

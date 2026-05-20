@@ -1,0 +1,66 @@
+openapi: 3.0.0
+info: { title: t, version: "1" }
+paths:
+  /translations:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAccountTranslationIndex'
+  /features:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  features:
+                    type: array
+                    enum:
+                      - foo
+                      - bar
+                      - baz
+                    items: {}
+                  name:
+                    type: string
+components:
+  schemas:
+    PersistedRecord:
+      type: object
+      properties:
+        id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - id
+        - updated_at
+        - created_at
+    CustomerAccountTranslation:
+      type: object
+      properties:
+        language:
+          type: string
+        value:
+          type: string
+    CustomerAccountTranslationIndex:
+      allOf:
+        - $ref: '#/components/schemas/PersistedRecord'
+        - $ref: '#/components/schemas/CustomerAccountTranslation'
+        - required:
+            - name
+            - user
+            - organisation
+          properties:
+            customer_account_id:
+              type: string

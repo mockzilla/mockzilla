@@ -1,0 +1,51 @@
+openapi: 3.0.0
+info: { title: t, version: "1" }
+paths:
+  /candidates:
+    post:
+      responses:
+        '201':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Candidate'
+components:
+  schemas:
+    Candidate:
+      type: object
+      properties:
+        primaryAssignment:
+          allOf:
+            - $ref: '#/components/schemas/Job'
+            - $ref: '#/components/schemas/Assignment'
+        secondaryAssignments:
+          type: array
+          items:
+            allOf:
+              - $ref: '#/components/schemas/Job'
+              - $ref: '#/components/schemas/Assignment'
+    Job:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/JobStatus'
+    Assignment:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/CandidateStatusEnum'
+    JobStatus:
+      type: string
+      enum:
+        - CREATED
+        - SOURCING
+        - INTERVIEW
+        - OTHER
+    CandidateStatusEnum:
+      type: string
+      enum:
+        - LEAD
+        - NEW
+        - INTERVIEW
+        - HIRED

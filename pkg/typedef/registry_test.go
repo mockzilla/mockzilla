@@ -522,7 +522,7 @@ func TestNewTypeDefinitionRegistry_JSONContentTypes(t *testing.T) {
 		assert.Equal(t, "application/json", success.ContentType, "Response ContentType should be application/json")
 	})
 
-	t.Run("Normalizes application/vnd.api+json response to application/json", func(t *testing.T) {
+	t.Run("Preserves application/vnd.api+json response content type", func(t *testing.T) {
 		parseCtx := loadSpecForRegistry(t, "json-content-types.yml")
 		registry := NewTypeDefinitionRegistry(parseCtx, 0, nil)
 
@@ -531,7 +531,7 @@ func TestNewTypeDefinitionRegistry_JSONContentTypes(t *testing.T) {
 
 		success := op.Response.GetSuccess()
 		assert.NotNil(t, success)
-		assert.Equal(t, "application/json", success.ContentType, "Response ContentType should be normalized to application/json")
+		assert.Equal(t, "application/vnd.api+json", success.ContentType, "Response ContentType should preserve the spec's declared media type so response validation matches the spec")
 	})
 }
 

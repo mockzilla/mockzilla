@@ -17,10 +17,9 @@ import (
 // or `"openapi": "foo"` JSON bodies as specs.
 var openapiKeyRE = regexp.MustCompile(`(?mi)(^|[{,])\s*["']?openapi["']?\s*:\s*["']?3\.`)
 
-// looksLikeOpenAPISpec reports whether the bytes appear to declare an
-// OpenAPI document. Real specs (e.g. Stripe) can place `openapi:` after
-// big `components:` blocks, so we scan the whole body — the caller has
-// already read it into memory anyway.
+// looksLikeOpenAPISpec reports whether the bytes appear to declare an OpenAPI
+// document. Real specs can place `openapi:` after large `components:` blocks,
+// so the whole body is scanned.
 func looksLikeOpenAPISpec(data []byte) bool {
 	return openapiKeyRE.Match(data)
 }
@@ -48,15 +47,10 @@ func staticContentExt(pathHint, contentType string) string {
 	return ".json"
 }
 
-// resolveStaticFile turns a single non-spec file into a one-route
-// Service mounted at `/`. We drop the bytes into a fresh temp dir as
-// `index.<ext>` so the existing static-mode pipeline
-// (scanStaticFiles → GenerateSpecFromStaticDir) takes over: the file
-// becomes `GET /` on the synthesized spec.
-//
-// The service name is intentionally empty so the runtime mounts the
-// route at the server root, which is what a user expects from
-// `mockzilla some.json`.
+// resolveStaticFile turns a non-spec file into a one-route Service mounted at `/`.
+// Writes the bytes as `index.<ext>` in a temp dir so the static-mode pipeline
+// promotes it to `GET /`. The service name is left empty so the runtime mounts
+// the route at the server root.
 func resolveStaticFile(pathHint string, data []byte, contentType string) ([]Service, error) {
 	parent := filepath.Join(os.TempDir(), "mockzilla-portable", "static")
 	if err := os.MkdirAll(parent, 0o755); err != nil {

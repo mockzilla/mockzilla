@@ -970,6 +970,30 @@ additionalProperties:
 		assert.Equal([]any{}, nestedItems, "nested items should be empty array due to recursion")
 	})
 
+	t.Run("required-nullable-empty-object-emits-json-null", func(t *testing.T) {
+		// A required `nullable: true, type: object, properties: {}` schema
+		// returns nil from generateContentObject (no properties to emit)
+		// and the parent's nested-nullable branch suppresses the nil→{}
+		// rescue. Without special handling the field would disappear,
+		// breaking the validator's required-key check.
+		s := &schema.Schema{
+			Type:     "object",
+			Required: []string{"metadata"},
+			Properties: map[string]*schema.Schema{
+				"metadata": {Type: "object", Nullable: true},
+			},
+		}
+		state := replacer.NewReplaceState()
+		res := generateContentObject(s, nil, state)
+		resMap, ok := res.(map[string]any)
+		assert.True(ok)
+		raw, present := resMap["metadata"]
+		assert.True(present, "metadata key must be present")
+		jr, isRaw := raw.(json.RawMessage)
+		assert.True(isRaw, "metadata value must be a json.RawMessage")
+		assert.Equal("null", string(jr))
+	})
+
 	t.Run("required-non-array-property-with-recursion-returns-nil", func(t *testing.T) {
 		// Test line 151-153: required property that hits recursion and is NOT an array type
 		// should return nil (propagate recursion)

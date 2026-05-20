@@ -12,10 +12,18 @@ import (
 
 // generatePath generates Path from the given path and parameters.
 func generatePath(op *schema.Operation, valueReplacer replacer.ValueReplacer) string {
+	// Some specs (e.g. AWS) use a `#qparam1&qparam2` suffix on path keys as
+	// a disambiguator so multiple operations can share a base path with
+	// different required query parameters. The suffix isn't part of the
+	// real URL - keeping it would produce a URL fragment that http strips
+	// before sending, so the server would see no query string at all.
 	path := op.Path
+	if idx := strings.IndexByte(path, '#'); idx >= 0 {
+		path = path[:idx]
+	}
 
 	// Ensure all path placeholders have corresponding parameter definitions
-	pathParams := ensurePathParams(op.Path, op.PathParams)
+	pathParams := ensurePathParams(path, op.PathParams)
 
 	if pathParams != nil {
 		// Path params don't use WithWriteOnly - they're URL segments, not body content,

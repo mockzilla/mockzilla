@@ -77,6 +77,29 @@ func ReadSpecFileWithBaseDir(specPath, baseDir string) ([]byte, error) {
 	return content, nil
 }
 
+// ParseSpecsEnv splits the SPECS env var into individual paths. Newlines split only
+// on newlines (preserving filenames with spaces); otherwise splits on any whitespace.
+func ParseSpecsEnv(s string) []string {
+	if s == "" {
+		return nil
+	}
+
+	var sep func(string) []string
+	if strings.ContainsRune(s, '\n') {
+		sep = func(s string) []string { return strings.Split(s, "\n") }
+	} else {
+		sep = strings.Fields
+	}
+
+	out := make([]string, 0)
+	for _, p := range sep(s) {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
 // CollectSpecs collects all spec files to process based on provided paths
 func CollectSpecs(t *testing.T, specPaths []string) []string {
 	var specs []string
@@ -115,6 +138,41 @@ func CollectSpecs(t *testing.T, specPaths []string) []string {
 	}
 
 	return specs
+}
+
+// WalkSpecsDir walks the given on-disk directory and returns spec files
+// (.yml, .yaml, .json) suitable for the integration suites, skipping
+// basenames that begin with "-" or live under any /stash/ path. Unlike
+// CollectSpecs it doesn't require a testing.T and doesn't depend on the
+// embedded specsFS, so it can be used from cmd binaries that orchestrate
+// the integration suites externally.
+func WalkSpecsDir(rootDir string) ([]string, error) {
+	var specs []string
+	err := filepath.Walk(rootDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if !isSpecFile(info.Name()) || isExcludedSpecPath(info.Name(), path) {
+			return nil
+		}
+		specs = append(specs, path)
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("walk %s: %w", rootDir, err)
+	}
+	return specs, nil
+}
+
+func isSpecFile(name string) bool {
+	return strings.HasSuffix(name, ".yml") || strings.HasSuffix(name, ".yaml") || strings.HasSuffix(name, ".json")
+}
+
+func isExcludedSpecPath(name, path string) bool {
+	return name[0] == '-' || strings.Contains(path, "/stash/")
 }
 
 // FilterSpecsBySize filters out specs larger than maxBytes.

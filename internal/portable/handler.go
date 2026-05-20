@@ -127,15 +127,15 @@ func (h *handler) handleRequest(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", contentType)
 	}
 
-	// Determine status code from the spec. Prefer Factory.SuccessStatusCode
-	// over op.Response.SuccessCode: it accounts for the codegen-fabricated
-	// 204 (returned when the spec declares no 2xx), substituting a code the
-	// spec actually declares so response validation can pass.
+	// Factory.SuccessStatusCode rewrites the codegen-fabricated 204 when
+	// the spec declares no 2xx, substituting a code the spec actually
+	// declares so response validation passes.
 	if statusCode := h.factory.SuccessStatusCode(specPath, r.Method); statusCode > 0 {
 		w.WriteHeader(statusCode)
 	}
 
-	if resp.Body != nil {
+	// RFC 9110 §15.6: HEAD responses must not include a body.
+	if r.Method != http.MethodHead && resp.Body != nil {
 		_, _ = w.Write(resp.Body)
 	}
 }
@@ -156,6 +156,16 @@ func (s *swappableHandler) Validator() validator.Validator {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.validator
+}
+
+// MatchPath resolves a concrete request path and method to the spec path
+// pattern that handles it. The validation middleware uses this to detect
+// routes whose spec keys use the `#`-discriminator convention so it can
+// skip validation for them; see [middleware.CreateValidationMiddleware].
+func (s *swappableHandler) MatchPath(reqPath, method string) (string, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.handler.factory.MatchPath(reqPath, method)
 }
 
 func (s *swappableHandler) Routes() api.RouteDescriptions {
@@ -186,5 +196,14 @@ func (s *swappableHandler) swap(h *handler, v validator.Validator) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.handler = h
+	s.validator = v
+}
+
+// setValidator swaps just the validator in place. Callers race with
+// concurrent reads from Validator() in the middleware, so the swap
+// happens under the same mutex.
+func (s *swappableHandler) setValidator(v validator.Validator) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.validator = v
 }

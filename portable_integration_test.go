@@ -21,14 +21,11 @@ import (
 
 	"github.com/mockzilla/mockzilla/v2/internal/integrationtest"
 	"github.com/mockzilla/mockzilla/v2/internal/portable"
+	"github.com/mockzilla/mockzilla/v2/internal/portableintegration"
+	"github.com/mockzilla/mockzilla/v2/pkg/lint"
 )
 
 const (
-	// maxRoutesPerSpec caps how many endpoints each spec exercises.
-	// Large specs (clarifai, stripe) have 400+ routes; testing all of
-	// them dominates the suite without proportional coverage gain.
-	maxRoutesPerSpec = 20
-
 	// requestTimeout bounds any single HTTP roundtrip against the
 	// in-process portable server. Without it a hung handler would
 	// freeze the whole suite (default client has no timeout).
@@ -61,6 +58,19 @@ func TestPortableIntegration(t *testing.T) {
 		t.Skip("Skipping portable integration test in short mode")
 	}
 
+	// Orchestrator mode: when invoked at the top level (no PORTABLE_BATCH
+	// guard set), hand off to the orchestrator which re-execs this test
+	// once per size-bounded batch with PORTABLE_BATCH=1.
+	if os.Getenv("PORTABLE_BATCH") != "1" {
+		portableintegration.Run(t, portableintegration.Config{
+			SpecsBaseDir:   specsBaseDir,
+			CacheFileName:  portableCacheFileName,
+			TestRunPattern: "^TestPortableIntegration$",
+			BatchEnvVar:    "PORTABLE_BATCH",
+		})
+		return
+	}
+
 	// Silence portable runtime's INFO logs - one line per HTTP request,
 	// per registered service, etc. Errors still surface.
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
@@ -73,12 +83,21 @@ func TestPortableIntegration(t *testing.T) {
 	if s := os.Getenv("SPEC"); s != "" {
 		specPaths = append(specPaths, s)
 	}
-	if s := os.Getenv("SPECS"); s != "" {
-		specPaths = append(specPaths, strings.Fields(s)...)
-	}
+	specPaths = append(specPaths, integrationtest.ParseSpecsEnv(os.Getenv("SPECS"))...)
 
 	specs := integrationtest.CollectSpecs(t, specPaths)
 	specs = excludeMarkedSpecs(specs)
+
+	// Skip oversized specs (default 10MB via MAX_SPEC_SIZE_MB). Matches
+	// the codegen integration suite — both pipelines hit libopenapi
+	// memory pressure on the multi-megabyte specs (stripe, clarifai,
+	// AWS), and the marginal coverage isn't worth the run-time cost.
+	runtimeOpts := integrationtest.NewRuntimeOptionsFromEnv()
+	if filtered, excluded := integrationtest.FilterSpecsBySize(specs, runtimeOpts.MaxSpecSizeBytes); excluded > 0 {
+		t.Logf("Excluded %d spec(s) larger than %dMB", excluded, runtimeOpts.MaxSpecSizeMB)
+		specs = filtered
+	}
+
 	if len(specs) == 0 {
 		t.Skip("No specs to process")
 	}
@@ -91,7 +110,13 @@ func TestPortableIntegration(t *testing.T) {
 	}
 
 	cache := loadPortableCache(t)
-	if cache != nil && cache.Size() > 0 && os.Getenv("CLEAR_CACHE") == "" {
+	// When the operator names specific specs (SPEC or SPECS), bypass the
+	// pass-cache. They asked for those specs explicitly; silently
+	// short-circuiting on "already passed last time" is surprising and
+	// makes targeted re-runs require CLEAR_CACHE=1 every time. The cache
+	// still records the result; it just doesn't skip the run.
+	explicitTargets := len(specPaths) > 0
+	if cache != nil && cache.Size() > 0 && !explicitTargets && os.Getenv("CLEAR_CACHE") == "" {
 		before := len(specs)
 		specs = cache.FilterUncached(specs)
 		if skipped := before - len(specs); skipped > 0 {
@@ -138,6 +163,22 @@ func TestPortableIntegration(t *testing.T) {
 				return
 			}
 
+			// Announce before any expensive work so a SIGKILL'd batch
+			// leaves a "start" line without a matching completion,
+			// pointing at the spec that was in flight.
+			fmt.Fprintf(os.Stderr, "  start %s\n", spec)
+
+			// Pre-flight lint. Specs that hit a known unsatisfiable
+			// pattern (see pkg/lint) can never pass response validation
+			// regardless of generator quality, so booting them is
+			// wasted work. Record as skipped and surface in summary.
+			if defects, err := lint.Spec(spec); err == nil && len(defects) > 0 {
+				result := specResult{lintDefects: defects}
+				stats.record(spec, result, cache)
+				stats.printSpecLine(spec, result, totalSpecs)
+				return
+			}
+
 			result := runOneSpec(ctx, spec, client)
 			stats.record(spec, result, cache)
 			stats.printSpecLine(spec, result, totalSpecs)
@@ -164,6 +205,10 @@ type specResult struct {
 	routesTested int
 	failures     []routeFailure
 	bootErr      error
+	// lintDefects, when populated, indicates the spec was skipped by the
+	// pre-flight lint pass and never booted. Reported as a separate
+	// outcome from pass/fail so flaky-defect specs surface clearly.
+	lintDefects []lint.Defect
 }
 
 type routeFailure struct {
@@ -177,9 +222,14 @@ func (r specResult) failed() bool {
 	return r.bootErr != nil || len(r.failures) > 0
 }
 
+func (r specResult) lintSkipped() bool {
+	return len(r.lintDefects) > 0
+}
+
 type portableStats struct {
 	passedSpecs        atomic.Int64
 	failedSpecs        atomic.Int64
+	lintSkippedSpecs   atomic.Int64
 	totalRoutesTested  atomic.Int64
 	totalRouteFailures atomic.Int64
 	totalBootNs        atomic.Int64
@@ -205,12 +255,18 @@ func (s *portableStats) record(spec string, r specResult, cache *integrationtest
 	s.results = append(s.results, specRow{spec: spec, result: r})
 	s.mu.Unlock()
 
-	if r.failed() {
+	switch {
+	case r.lintSkipped():
+		s.lintSkippedSpecs.Add(1)
+		if cache != nil {
+			cache.MarkPassed(spec)
+		}
+	case r.failed():
 		s.failedSpecs.Add(1)
 		if cache != nil {
 			cache.MarkFailed(spec)
 		}
-	} else {
+	default:
 		s.passedSpecs.Add(1)
 		if cache != nil {
 			cache.MarkPassed(spec)
@@ -222,6 +278,11 @@ func (s *portableStats) printSpecLine(spec string, r specResult, total int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	i := s.completedSpecs.Add(1)
+	if r.lintSkipped() {
+		fmt.Fprintf(os.Stderr, "  [%d/%d] LINT %s (%d defects, %s)\n",
+			i, total, spec, len(r.lintDefects), lintRuleSummary(r.lintDefects))
+		return
+	}
 	status := "ok"
 	if r.failed() {
 		status = "FAIL"
@@ -236,10 +297,28 @@ func (s *portableStats) printSpecLine(spec string, r specResult, total int) {
 		r.routesTested, len(r.failures))
 }
 
+func lintRuleSummary(defects []lint.Defect) string {
+	counts := map[string]int{}
+	for _, d := range defects {
+		counts[d.Rule]++
+	}
+	keys := make([]string, 0, len(counts))
+	for k := range counts {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%d", k, counts[k]))
+	}
+	return strings.Join(parts, " ")
+}
+
 func (s *portableStats) printSummary(totalSpecs int) {
 	p := s.passedSpecs.Load()
 	f := s.failedSpecs.Load()
-	if p+f == 0 {
+	l := s.lintSkippedSpecs.Load()
+	if p+f+l == 0 {
 		return
 	}
 
@@ -264,6 +343,11 @@ func (s *portableStats) printSummary(totalSpecs int) {
 	sort.Slice(rows, func(i, j int) bool { return rows[i].spec < rows[j].spec })
 
 	for _, row := range rows {
+		if row.result.lintSkipped() {
+			fmt.Fprintf(os.Stderr, "  LINT %-60s defects=%-3d (%s)\n",
+				row.spec, len(row.result.lintDefects), lintRuleSummary(row.result.lintDefects))
+			continue
+		}
 		status := "OK  "
 		if row.result.failed() {
 			status = "FAIL"
@@ -275,25 +359,46 @@ func (s *portableStats) printSummary(totalSpecs int) {
 			formatShortDuration(row.result.testDuration))
 	}
 
-	skipped := int64(totalSpecs) - (p + f)
+	skipped := int64(totalSpecs) - (p + f + l)
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  Total: %d specs (passed: %d, failed: %d, skipped: %d), %d operations tested\n",
-		totalSpecs, p, f, skipped, totalOps)
+	fmt.Fprintf(os.Stderr, "  Total: %d specs (passed: %d, failed: %d, lint-skipped: %d, runtime-skipped: %d), %d operations tested\n",
+		totalSpecs, p, f, l, skipped, totalOps)
 	fmt.Fprintf(os.Stderr, "         OK: %d   Failures: %d\n", totalOK, totalFails)
 	fmt.Fprintf(os.Stderr, "         Boot: %s   Test: %s   Total: %s\n",
 		formatDuration(bootTotal), formatDuration(testTotal), formatDuration(bootTotal+testTotal))
+
+	if l > 0 {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Lint-skipped specs (spec contains constructs that strict validators reject):")
+		for _, row := range rows {
+			if !row.result.lintSkipped() {
+				continue
+			}
+			first := row.result.lintDefects[0]
+			fmt.Fprintf(os.Stderr, "  %s\n    %s at %s: %s\n",
+				row.spec, first.Rule, first.Path, first.Detail)
+		}
+	}
 
 	if f > 0 {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintln(os.Stderr, "Failing specs (first failure per spec):")
 		for _, row := range rows {
-			if !row.result.failed() || len(row.result.failures) == 0 {
+			if !row.result.failed() {
+				continue
+			}
+			if row.result.bootErr != nil {
+				fmt.Fprintf(os.Stderr, "  %s\n    boot: %s\n",
+					row.spec, truncate([]byte(row.result.bootErr.Error()), 200))
+				continue
+			}
+			if len(row.result.failures) == 0 {
 				continue
 			}
 			first := row.result.failures[0]
 			fmt.Fprintf(os.Stderr, "  %s\n    %s %s [%s]: %s\n",
 				row.spec, first.method, first.path, first.phase,
-				truncate([]byte(first.detail), 200))
+				truncate([]byte(first.detail), 8000))
 		}
 	}
 	fmt.Fprintln(os.Stderr, "========================================")
@@ -361,6 +466,16 @@ func runOneSpec(ctx context.Context, specPath string, client *http.Client) specR
 		return res
 	}
 
+	// Any resolved-but-not-registered service is a spec or validator
+	// failure the integration suite must surface. The server keeps
+	// running in production, but for tests "service silently dropped"
+	// is the kind of regression this suite exists to catch.
+	if len(setup.Failed) > 0 {
+		first := setup.Failed[0]
+		res.bootErr = fmt.Errorf("service %q failed to register: %w", first.Name, first.Err)
+		return res
+	}
+
 	ts := httptest.NewServer(setup.Router)
 	defer ts.Close()
 
@@ -396,20 +511,12 @@ func materializeSpec(specPath string, specBytes []byte) (root string, cleanup fu
 		_ = os.RemoveAll(root)
 		return "", nil, err
 	}
-	// Validation: the runtime defaults to request: true, response: false
-	// (response is opt-in). This suite is a generator smoke test —
-	// "does each route serve without 5xx?" — and benefits from strict
-	// validation when explicitly requested. Two modes:
-	//
-	//   VALIDATE unset → write both: false. Pure smoke test, matches the
-	//                    pre-validation behaviour the cache was built
-	//                    against.
-	//   VALIDATE=1     → write both: true. Surfaces every generator/spec
-	//                    divergence as a failure.
-	cfgBody := "validation:\n  request: false\n  response: false\n"
-	if os.Getenv("VALIDATE") != "" {
-		cfgBody = "validation:\n  request: true\n  response: true\n"
-	}
+
+	// Eager parsing: the suite exercises every endpoint of every spec,
+	// so on-demand parsing would just defer the same work behind first
+	// requests. Eager surfaces spec-parse failures at boot — easier to
+	// attribute to a spec, and faster overall.
+	cfgBody := "spec:\n  lazyLoad: false\nvalidate:\n  request: true\n  response: true\n"
 	if err := os.WriteFile(filepath.Join(svcDir, "config.yml"), []byte(cfgBody), 0o644); err != nil {
 		_ = os.RemoveAll(root)
 		return "", nil, err
@@ -426,10 +533,6 @@ func testService(ctx context.Context, client *http.Client, baseURL, serviceName 
 	routes, err := listRoutes(ctx, client, baseURL, urlName)
 	if err != nil {
 		return []routeFailure{{phase: "list", detail: err.Error()}}, 0
-	}
-
-	if len(routes) > maxRoutesPerSpec {
-		routes = routes[:maxRoutesPerSpec]
 	}
 
 	mountPrefix := "/" + serviceName
@@ -557,7 +660,7 @@ func callEndpoint(ctx context.Context, client *http.Client, url, method string, 
 
 	if resp.StatusCode >= 500 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("status %d: %s", resp.StatusCode, truncate(respBody, 200))
+		return fmt.Errorf("status %d: %s", resp.StatusCode, truncate(respBody, 8000))
 	}
 	return nil
 }

@@ -89,30 +89,38 @@ func TestCreateValidationMiddleware(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		cfg        *config.ValidationConfig
+		cfg        *config.ValidateConfig
 		handler    http.Handler
 		reqBody    string
 		wantStatus int
 		wantBody   string // substring match
 	}{
 		{
-			name:       "valid request passes through (default: req on, resp off)",
+			name:       "nil config: both validations off, invalid request passes through",
 			cfg:        nil,
+			handler:    validHandler,
+			reqBody:    `{}`, // would fail request validation if it ran
+			wantStatus: http.StatusOK,
+			wantBody:   `"id":1`,
+		},
+		{
+			name:       "request:true catches invalid request with 400",
+			cfg:        &config.ValidateConfig{Request: boolPtr(true)},
+			handler:    validHandler,
+			reqBody:    `{}`,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   `request validation failed`,
+		},
+		{
+			name:       "request:true on valid request passes through",
+			cfg:        &config.ValidateConfig{Request: boolPtr(true)},
 			handler:    validHandler,
 			reqBody:    `{"name":"rex"}`,
 			wantStatus: http.StatusOK,
 			wantBody:   `"id":1`,
 		},
 		{
-			name:       "invalid request body returns 400 by default",
-			cfg:        nil,
-			handler:    validHandler,
-			reqBody:    `{}`, // missing required name
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `request validation failed`,
-		},
-		{
-			name:       "invalid response body passes through by default (response opt-in)",
+			name:       "nil config: invalid response body passes through (response off by default)",
 			cfg:        nil,
 			handler:    invalidHandler,
 			reqBody:    `{"name":"rex"}`,
@@ -121,31 +129,23 @@ func TestCreateValidationMiddleware(t *testing.T) {
 		},
 		{
 			name:       "response:true catches invalid response body with 500",
-			cfg:        &config.ValidationConfig{Response: boolPtr(true)},
+			cfg:        &config.ValidateConfig{Response: boolPtr(true)},
 			handler:    invalidHandler,
 			reqBody:    `{"name":"rex"}`,
 			wantStatus: http.StatusInternalServerError,
 			wantBody:   `response validation failed`,
 		},
 		{
-			name:       "request:false skips request validation",
-			cfg:        &config.ValidationConfig{Request: boolPtr(false)},
-			handler:    validHandler,
-			reqBody:    `{}`, // would normally fail
-			wantStatus: http.StatusOK,
-			wantBody:   `"id":1`,
-		},
-		{
 			name:       "response:false explicit (matches default) — invalid body still passes",
-			cfg:        &config.ValidationConfig{Response: boolPtr(false)},
+			cfg:        &config.ValidateConfig{Response: boolPtr(false)},
 			handler:    invalidHandler,
 			reqBody:    `{"name":"rex"}`,
 			wantStatus: http.StatusOK,
 			wantBody:   `"name":"rex"`,
 		},
 		{
-			name:       "both disabled skips everything",
-			cfg:        &config.ValidationConfig{Request: boolPtr(false), Response: boolPtr(false)},
+			name:       "both explicit false skips everything",
+			cfg:        &config.ValidateConfig{Request: boolPtr(false), Response: boolPtr(false)},
 			handler:    invalidHandler,
 			reqBody:    `{}`,
 			wantStatus: http.StatusOK,
@@ -155,9 +155,9 @@ func TestCreateValidationMiddleware(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := &config.ServiceConfig{Name: "test", Validation: tc.cfg}
+			cfg := &config.ServiceConfig{Name: "test", Validate: tc.cfg}
 			params := newTestParams(cfg)
-			mw := CreateValidationMiddleware(params, func() validator.Validator { return v })
+			mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
 
 			req := httptest.NewRequest(http.MethodPost, "/pets", strings.NewReader(tc.reqBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -175,7 +175,7 @@ func TestCreateValidationMiddleware_NilValidator(t *testing.T) {
 	// Source returning nil means validation is silently skipped: a bad
 	// spec at startup shouldn't make every request fail.
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return nil })
+	mw := CreateValidationMiddleware(params, func() validator.Validator { return nil }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTeapot)
@@ -195,7 +195,7 @@ func TestCreateValidationMiddleware_RequestBodyForwarded(t *testing.T) {
 	// still see the original bytes intact.
 	v := newValidatorFromSpec(t, validateTestSpec)
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v })
+	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
 
 	var got []byte
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +223,7 @@ func TestCreateValidationMiddleware_NonSuccessResponseSkipsValidation(t *testing
 	// than wrap them in another 500.
 	v := newValidatorFromSpec(t, validateTestSpec)
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v })
+	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -245,8 +245,12 @@ func TestValidationErrorPayload_Encoding(t *testing.T) {
 	// the detail list, with libopenapi-validator's ValidationError
 	// fields preserved.
 	v := newValidatorFromSpec(t, validateTestSpec)
-	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v })
+	boolTrue := true
+	params := newTestParams(&config.ServiceConfig{
+		Name:     "test",
+		Validate: &config.ValidateConfig{Request: &boolTrue},
+	})
+	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be reached on request failure")
@@ -324,6 +328,10 @@ func TestAllSchemaRenderFailure(t *testing.T) {
 		Message: "200 response body for '/x' failed schema rendering",
 		Reason:  "schema render failure, circular reference: `#/components/schemas/Foo`",
 	}
+	compile := &errors.ValidationError{
+		Message: "200 response body for '/x' failed schema compilation",
+		Reason:  "The response schema for status code '200' failed to compile: JSON schema compile failed: ...",
+	}
 	normal := &errors.ValidationError{
 		Message: "200 response body for '/x' failed to validate schema",
 		Reason:  "minProperties: got 0, want 1",
@@ -335,7 +343,248 @@ func TestAllSchemaRenderFailure(t *testing.T) {
 	t.Run("all render failures", func(t *testing.T) {
 		assert.True(t, allSchemaRenderFailure([]*errors.ValidationError{render}))
 	})
-	t.Run("mixed", func(t *testing.T) {
+	t.Run("schema compile failure counts", func(t *testing.T) {
+		assert.True(t, allSchemaRenderFailure([]*errors.ValidationError{compile}))
+	})
+	t.Run("mixed render and compile", func(t *testing.T) {
+		assert.True(t, allSchemaRenderFailure([]*errors.ValidationError{render, compile}))
+	})
+	t.Run("real failure not classified", func(t *testing.T) {
 		assert.False(t, allSchemaRenderFailure([]*errors.ValidationError{render, normal}))
+	})
+}
+
+func TestAllUnsatisfiableSchema(t *testing.T) {
+	const stream = `properties:
+  syncCatalog:
+    properties:
+      streams:
+        items:
+          properties:
+            stream:
+              additionalProperties: false
+              required:
+                - json_schema
+              properties:
+                jsonSchema:
+                  type: string
+`
+	missingRequired := &errors.ValidationError{
+		Message: "200 response body failed",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{{
+			Reason:          "missing property 'json_schema'",
+			KeywordLocation: "/properties/syncCatalog/properties/streams/items/properties/stream/required",
+			ReferenceSchema: stream,
+		}},
+	}
+	additionalProperty := &errors.ValidationError{
+		Message: "200 response body failed",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{{
+			Reason:          "additional properties 'json_schema' not allowed",
+			KeywordLocation: "/properties/syncCatalog/properties/streams/items/properties/stream/additionalProperties",
+			ReferenceSchema: stream,
+		}},
+	}
+	otherError := &errors.ValidationError{
+		Message: "200 response body failed",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{{
+			Reason:          "minProperties: got 0, want 1",
+			KeywordLocation: "/properties/syncCatalog/minProperties",
+			ReferenceSchema: stream,
+		}},
+	}
+
+	t.Run("empty slice is not unsatisfiable", func(t *testing.T) {
+		assert.False(t, allUnsatisfiableSchema(nil))
+	})
+	t.Run("missing required key absent from properties", func(t *testing.T) {
+		assert.True(t, allUnsatisfiableSchema([]*errors.ValidationError{missingRequired}))
+	})
+	t.Run("additional property that is also required", func(t *testing.T) {
+		assert.True(t, allUnsatisfiableSchema([]*errors.ValidationError{additionalProperty}))
+	})
+	t.Run("unrelated failure not classified", func(t *testing.T) {
+		assert.False(t, allUnsatisfiableSchema([]*errors.ValidationError{otherError}))
+	})
+	t.Run("mixed unsatisfiable + other fails", func(t *testing.T) {
+		assert.False(t, allUnsatisfiableSchema([]*errors.ValidationError{missingRequired, otherError}))
+	})
+}
+
+func TestExtractPropertyName(t *testing.T) {
+	assert.Equal(t, "foo", extractPropertyName("missing property 'foo'"))
+	assert.Equal(t, "foo", extractPropertyName("additional properties 'foo' not allowed"))
+	assert.Equal(t, "", extractPropertyName("minProperties: got 0, want 1"))
+}
+
+func TestResolveJSONPointer(t *testing.T) {
+	root := map[string]any{
+		"properties": map[string]any{
+			"foo": map[string]any{
+				"type": "string",
+				"enum": []any{"a", "b"},
+			},
+		},
+	}
+	t.Run("walks into nested map", func(t *testing.T) {
+		got := resolveJSONPointer(root, "/properties/foo/type")
+		assert.Equal(t, "string", got)
+	})
+	t.Run("walks into array by index", func(t *testing.T) {
+		got := resolveJSONPointer(root, "/properties/foo/enum/1")
+		assert.Equal(t, "b", got)
+	})
+	t.Run("empty pointer returns root", func(t *testing.T) {
+		assert.Equal(t, root, resolveJSONPointer(root, ""))
+	})
+	t.Run("missing key returns nil", func(t *testing.T) {
+		assert.Nil(t, resolveJSONPointer(root, "/properties/bar"))
+	})
+}
+
+func TestAllContentTypeParamsOnly(t *testing.T) {
+	paramsOnly := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "contentType",
+		Message:           "operation response content type 'application/json' does not exist",
+		HowToFix:          "Use one of the 1 supported types for this operation: application/json; charset=utf-8",
+	}
+	differentMediaType := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "contentType",
+		Message:           "operation response content type 'application/json' does not exist",
+		HowToFix:          "Use one of the 1 supported types for this operation: text/html",
+	}
+	wildcard := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "contentType",
+		Message:           "operation response content type 'application/json' does not exist",
+		HowToFix:          "Use one of the 1 supported types for this operation: */*",
+	}
+	other := &errors.ValidationError{ValidationType: "response", ValidationSubType: "schema"}
+
+	t.Run("empty slice", func(t *testing.T) {
+		assert.False(t, allContentTypeParamsOnly(nil))
+	})
+	t.Run("only differs by parameters", func(t *testing.T) {
+		assert.True(t, allContentTypeParamsOnly([]*errors.ValidationError{paramsOnly}))
+	})
+	t.Run("different media type not classified", func(t *testing.T) {
+		assert.False(t, allContentTypeParamsOnly([]*errors.ValidationError{differentMediaType}))
+	})
+	t.Run("wildcard not classified (separate path)", func(t *testing.T) {
+		assert.False(t, allContentTypeParamsOnly([]*errors.ValidationError{wildcard}))
+	})
+	t.Run("non-contentType error", func(t *testing.T) {
+		assert.False(t, allContentTypeParamsOnly([]*errors.ValidationError{other}))
+	})
+}
+
+func TestAllWildcardContentType(t *testing.T) {
+	wildcard := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "contentType",
+		Message:           "operation response content type 'application/json' does not exist",
+		HowToFix:          "Use one of the 1 supported types for this operation: */*",
+	}
+	concrete := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "contentType",
+		Message:           "operation response content type 'application/xml' does not exist",
+		HowToFix:          "Use one of the 1 supported types for this operation: application/json",
+	}
+	other := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "schema",
+	}
+
+	t.Run("empty slice", func(t *testing.T) {
+		assert.False(t, allWildcardContentType(nil))
+	})
+	t.Run("wildcard mismatch", func(t *testing.T) {
+		assert.True(t, allWildcardContentType([]*errors.ValidationError{wildcard}))
+	})
+	t.Run("concrete content type mismatch is not classified", func(t *testing.T) {
+		assert.False(t, allWildcardContentType([]*errors.ValidationError{concrete}))
+	})
+	t.Run("non-contentType error", func(t *testing.T) {
+		assert.False(t, allWildcardContentType([]*errors.ValidationError{other}))
+	})
+}
+
+func TestValidatorCannotLookup(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{"plain path", "/users/{id}", false},
+		{"root path", "/", false},
+		{"empty path", "", false},
+		{"discriminator suffix", "/foo/{id}#qparam", true},
+		{"space in literal segment", "/Your Pull DOC Request API Path", true},
+		{"reserved char in segment", "/foo/bar baz", true},
+		{"compound placeholder segment", "/media/{id}.{extension}", true},
+		{"placeholder with literal suffix", "/files/{name}-{ext}", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, validatorCannotLookup(tc.path))
+		})
+	}
+}
+
+func TestIsAmbiguousOneOfReason(t *testing.T) {
+	t.Run("subschemas matched is ambiguous", func(t *testing.T) {
+		assert.True(t, isAmbiguousOneOfReason("'oneOf' failed, subschemas 0, 1 matched"))
+	})
+	t.Run("none matched is a real failure", func(t *testing.T) {
+		assert.False(t, isAmbiguousOneOfReason("'oneOf' failed, none matched"))
+	})
+	t.Run("unrelated failure", func(t *testing.T) {
+		assert.False(t, isAmbiguousOneOfReason("minProperties: got 0, want 1"))
+	})
+}
+
+func TestAllAmbiguousOneOf(t *testing.T) {
+	ambiguous := &errors.ValidationError{
+		Message: "200 response body failed to validate schema",
+		Reason:  "The response body for status code '200' is defined as an object. However, it does not meet the schema requirements of the specification",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
+		},
+	}
+	noneMatched := &errors.ValidationError{
+		Message: "200 response body failed to validate schema",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{
+			{Reason: "'oneOf' failed, none matched"},
+		},
+	}
+	mixed := &errors.ValidationError{
+		Message: "200 response body failed to validate schema",
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
+			{Reason: "minProperties: got 0, want 1"},
+		},
+	}
+	noNested := &errors.ValidationError{
+		Message: "request validation failed",
+		Reason:  "minProperties: got 0, want 1",
+	}
+
+	t.Run("empty slice is not all-ambiguous", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOf(nil))
+	})
+	t.Run("all ambiguous oneOf", func(t *testing.T) {
+		assert.True(t, allAmbiguousOneOf([]*errors.ValidationError{ambiguous}))
+	})
+	t.Run("none-matched is not ambiguous", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{noneMatched}))
+	})
+	t.Run("mixed reasons inside one error fail", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{mixed}))
+	})
+	t.Run("error without nested schema failures is not ambiguous", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{noNested}))
 	})
 }

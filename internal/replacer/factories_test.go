@@ -219,6 +219,72 @@ func TestGetContextFunctions(t *testing.T) {
 	})
 }
 
+func TestEnumAllowsEmptyString(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("non-schema-input", func(t *testing.T) {
+		assert.False(enumAllowsEmptyString("not-a-schema"))
+		assert.False(enumAllowsEmptyString(nil))
+	})
+
+	t.Run("nil-schema", func(t *testing.T) {
+		var s *schema.Schema
+		assert.False(enumAllowsEmptyString(s))
+	})
+
+	t.Run("schema-without-enum", func(t *testing.T) {
+		assert.False(enumAllowsEmptyString(&schema.Schema{Type: types.TypeString}))
+	})
+
+	t.Run("enum-without-empty-string", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Enum: []any{"a", "b"}}
+		assert.False(enumAllowsEmptyString(s))
+	})
+
+	t.Run("enum-with-empty-string", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Enum: []any{"", "a"}}
+		assert.True(enumAllowsEmptyString(s))
+	})
+
+	t.Run("enum-with-non-string-values", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeInteger, Enum: []any{0, 1}}
+		assert.False(enumAllowsEmptyString(s))
+	})
+}
+
+func TestSchemaPatternAllowsEmptyString(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("non-schema-input", func(t *testing.T) {
+		assert.False(schemaPatternAllowsEmptyString("not-a-schema"))
+		assert.False(schemaPatternAllowsEmptyString(nil))
+	})
+
+	t.Run("nil-schema", func(t *testing.T) {
+		var s *schema.Schema
+		assert.False(schemaPatternAllowsEmptyString(s))
+	})
+
+	t.Run("empty-pattern", func(t *testing.T) {
+		assert.False(schemaPatternAllowsEmptyString(&schema.Schema{Type: types.TypeString}))
+	})
+
+	t.Run("pattern-requires-content", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Pattern: "^[A-Z]+$"}
+		assert.False(schemaPatternAllowsEmptyString(s))
+	})
+
+	t.Run("pattern-allows-empty-via-optional-group", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Pattern: "^(A[A-Z0-9]+)?$"}
+		assert.True(schemaPatternAllowsEmptyString(s))
+	})
+
+	t.Run("pattern-allows-empty-via-star", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Pattern: "^[A-Z]*$"}
+		assert.True(schemaPatternAllowsEmptyString(s))
+	})
+}
+
 func TestReplaceContext_function(t *testing.T) {
 	assert := assert2.New(t)
 

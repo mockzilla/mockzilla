@@ -35,6 +35,10 @@ func generateContentFromSchema(schema *schema.Schema, valueReplacer replacer.Val
 		return json.RawMessage(schema.StaticContent)
 	}
 
+	if schema.IsNull {
+		return json.RawMessage("null")
+	}
+
 	// Runtime circular reference detection as safety net
 	// SchemaStack tracks schemas by pointer to detect same schema being processed
 	if schema.Type == types.TypeObject || schema.Type == types.TypeArray {
@@ -118,7 +122,6 @@ func generateContentFromSchema(schema *schema.Schema, valueReplacer replacer.Val
 	return nil
 }
 
-// generateContentObject generates content from the given schema with type `object`.
 func generateContentObject(schema *schema.Schema, valueReplacer replacer.ValueReplacer, state *replacer.ReplaceState) any {
 	if state == nil {
 		state = replacer.NewReplaceState()
@@ -141,10 +144,32 @@ func generateContentObject(schema *schema.Schema, valueReplacer replacer.ValueRe
 
 		value := generateContentFromSchema(schemaRef, valueReplacer, childState)
 
+		if value == nil && requiredSet[name] && schemaRef != nil &&
+			schemaRef.WriteOnly && state != nil && state.IsContentReadOnly {
+			// Spec contradiction: writeOnly property marked `required`. In a
+			// response (readonly) state the read/write filter would drop it,
+			// but the validator still expects the key. Re-generate with the
+			// write mode so the field appears. Note: the reverse case
+			// (readOnly required in a write request) is intentionally not
+			// patched here; clients should not send server-filled fields.
+			altState := state.NewFrom(state).WithOptions(replacer.WithName(name))
+			altState.RecursionHit = false
+			altState.IsContentReadOnly = false
+			altState.IsContentWriteOnly = true
+			value = generateContentFromSchema(schemaRef, valueReplacer, altState)
+		}
+
 		// TODO(cubahno): decide whether config value needed to include null values
 		if value == nil {
 			isRequiredRecursion := childState.RecursionHit && requiredSet[name]
 			if !isRequiredRecursion {
+				// A required + nullable property that collapsed to nil
+				// (e.g. nested `type: object, nullable: true` with no
+				// properties) must still be present so the required-key
+				// check passes. Emit JSON null.
+				if requiredSet[name] && schemaRef != nil && schemaRef.Nullable {
+					res[name] = json.RawMessage("null")
+				}
 				continue
 			}
 			// Required property hit recursion - for arrays use empty array, otherwise fail
@@ -162,30 +187,48 @@ func generateContentObject(schema *schema.Schema, valueReplacer replacer.ValueRe
 		}
 	}
 
-	// Fill required fields the spec lists without a matching `properties`
-	// entry. JSON Schema permits this — `required: [foo]` without a `foo`
-	// in `properties` still demands the key be present, but constrains
-	// the value to "anything". A placeholder string keeps the consumer
-	// happy without inventing structure the spec didn't promise.
-	for _, name := range schema.Required {
-		if _, ok := res[name]; ok {
-			continue
+	// Skip placeholder fill when additionalProperties: false. Otherwise
+	// we'd produce a body the validator rejects for the additional-key
+	// violation instead of the original missing-required-key one.
+	if !schema.AdditionalPropertiesForbidden {
+		for _, name := range schema.Required {
+			if _, ok := res[name]; ok {
+				continue
+			}
+			if propSchema, declared := schema.Properties[name]; declared {
+				// Skip placeholder for fields filtered out by the
+				// read/write mode (e.g. readOnly field in a write body).
+				// Inserting a placeholder defeats the filter's purpose and
+				// breaks "omit objects whose required fields all collapse"
+				// semantics that downstream callers rely on.
+				if propSchema != nil && state != nil {
+					if propSchema.ReadOnly && state.IsContentWriteOnly {
+						continue
+					}
+					if propSchema.WriteOnly && state.IsContentReadOnly {
+						continue
+					}
+				}
+				// Declared required property whose generation collapsed to
+				// nil (e.g. unsatisfiable JS-regex pattern handed the
+				// replacer chain a NULL sentinel). A missing key fails
+				// "required" outright; a placeholder may still fail
+				// pattern, but it keeps the field present so downstream
+				// invariants (related-field checks, type-of) hold.
+				res[name] = placeholderForSchema(propSchema, name)
+				continue
+			}
+			res[name] = name
 		}
-		if _, declared := schema.Properties[name]; declared {
-			continue
-		}
-		res[name] = name
 	}
 
-	// Generate additional properties to honour AdditionalProperties and/or
-	// MinProperties. Three reasons to enter this block:
-	//   1. The spec declares AdditionalProperties (a map type) - generate
-	//      a few entries using that schema as the value.
-	//   2. The spec declares MinProperties higher than what Properties
-	//      filled in - top up to meet the minimum.
-	//   3. The spec is a free-form object (no Properties, no
-	//      AdditionalProperties) with MinProperties > 0 - the spec author
-	//      requires at least N keys but didn't constrain values.
+	if schema.Discriminator != nil {
+		name := schema.Discriminator.PropertyName
+		if _, ok := res[name]; !ok && name != "" {
+			res[name] = name
+		}
+	}
+
 	minNeeded := 0
 	if schema.MinProperties != nil && *schema.MinProperties > 0 {
 		need := int(*schema.MinProperties) - len(res)
@@ -195,9 +238,6 @@ func generateContentObject(schema *schema.Schema, valueReplacer replacer.ValueRe
 	}
 
 	if schema.AdditionalProperties != nil || minNeeded > 0 {
-		// Default fill is 3 entries; when MinProperties demands more, raise
-		// the target. For free-form objects (AdditionalProperties == nil),
-		// don't overshoot the minimum — there's nothing meaningful to add.
 		numAdditional := 3
 		if minNeeded > numAdditional {
 			numAdditional = minNeeded
@@ -215,8 +255,6 @@ func generateContentObject(schema *schema.Schema, valueReplacer replacer.ValueRe
 
 		f := faker.New()
 		startLen := len(res)
-		// Extra retries beyond numAdditional cover name collisions from the
-		// faker — without headroom we can fall short of MinProperties.
 		maxAttempts := numAdditional*3 + 5
 		for attempts := 0; len(res)-startLen < numAdditional && attempts < maxAttempts; attempts++ {
 			name := f.Music().Genre()
@@ -230,9 +268,13 @@ func generateContentObject(schema *schema.Schema, valueReplacer replacer.ValueRe
 				s := state.NewFrom(state).WithOptions(replacer.WithName(name))
 				value = generateContentFromSchema(schema.AdditionalProperties, valueReplacer, s)
 			} else {
-				// Free-form object: the spec accepts any value for additional
-				// keys. A bare string is the most innocuous choice.
-				value = name
+				// Codegen falls back to `map[string]any` (no
+				// AdditionalProperties set) when it can't model the value
+				// schema. Many specs declare the value as an object or
+				// omit type; an empty object satisfies both cases and
+				// never produces a string-where-object-was-expected
+				// validation error.
+				value = map[string]any{}
 			}
 			if value != nil {
 				res[name] = value
@@ -288,4 +330,30 @@ func generateContentArray(schema *schema.Schema, valueReplacer replacer.ValueRep
 	}
 
 	return res
+}
+
+// generateContentObject generates content from the given schema with type `object`.
+func placeholderForSchema(s *schema.Schema, name string) any {
+	if s == nil {
+		return name
+	}
+	switch s.Type {
+	case types.TypeInteger, types.TypeNumber:
+		return 0
+	case types.TypeBoolean:
+		return false
+	case types.TypeArray:
+		return []any{}
+	case types.TypeObject:
+		return map[string]any{}
+	default:
+		if len(s.Enum) > 0 {
+			for _, v := range s.Enum {
+				if v != nil && v != "null" {
+					return v
+				}
+			}
+		}
+		return ""
+	}
 }

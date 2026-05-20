@@ -1614,42 +1614,42 @@ func TestWithDefaults_History(t *testing.T) {
 	})
 }
 
-func TestValidationConfig_Defaults(t *testing.T) {
+func TestValidateConfig_Defaults(t *testing.T) {
 	boolPtr := func(b bool) *bool { return &b }
 
-	t.Run("nil config: request on, response off", func(t *testing.T) {
-		var v *ValidationConfig
-		assert.True(t, v.RequestEnabled())
+	t.Run("nil config: both off", func(t *testing.T) {
+		var v *ValidateConfig
+		assert.False(t, v.RequestEnabled())
 		assert.False(t, v.ResponseEnabled())
 	})
 
 	t.Run("empty config: same as nil", func(t *testing.T) {
-		v := &ValidationConfig{}
-		assert.True(t, v.RequestEnabled())
-		assert.False(t, v.ResponseEnabled())
-	})
-
-	t.Run("explicit request=false disables request", func(t *testing.T) {
-		v := &ValidationConfig{Request: boolPtr(false)}
+		v := &ValidateConfig{}
 		assert.False(t, v.RequestEnabled())
 		assert.False(t, v.ResponseEnabled())
 	})
 
-	t.Run("explicit response=true enables response", func(t *testing.T) {
-		v := &ValidationConfig{Response: boolPtr(true)}
+	t.Run("explicit request=true enables request", func(t *testing.T) {
+		v := &ValidateConfig{Request: boolPtr(true)}
 		assert.True(t, v.RequestEnabled())
+		assert.False(t, v.ResponseEnabled())
+	})
+
+	t.Run("explicit response=true enables response, request stays off", func(t *testing.T) {
+		v := &ValidateConfig{Response: boolPtr(true)}
+		assert.False(t, v.RequestEnabled())
 		assert.True(t, v.ResponseEnabled())
 	})
 
 	t.Run("both explicit", func(t *testing.T) {
-		v := &ValidationConfig{Request: boolPtr(false), Response: boolPtr(true)}
-		assert.False(t, v.RequestEnabled())
+		v := &ValidateConfig{Request: boolPtr(true), Response: boolPtr(true)}
+		assert.True(t, v.RequestEnabled())
 		assert.True(t, v.ResponseEnabled())
 	})
 }
 
-func TestServiceConfig_OverwriteWith_Validation(t *testing.T) {
-	// OverwriteWith should adopt a non-nil Validation from `other`.
+func TestServiceConfig_OverwriteWith_Validate(t *testing.T) {
+	// OverwriteWith should adopt a non-nil Validate from `other`.
 	// Per-folder configs need this to opt response validation on (or
 	// request validation off) over the runtime defaults.
 	boolPtr := func(b bool) *bool { return &b }
@@ -1657,18 +1657,18 @@ func TestServiceConfig_OverwriteWith_Validation(t *testing.T) {
 	t.Run("adopts non-nil validation from other", func(t *testing.T) {
 		base := NewServiceConfig()
 		other := &ServiceConfig{
-			Validation: &ValidationConfig{Response: boolPtr(true)},
+			Validate: &ValidateConfig{Response: boolPtr(true)},
 		}
 		base.OverwriteWith(other)
-		assert.NotNil(t, base.Validation)
-		assert.True(t, base.Validation.ResponseEnabled())
+		assert.NotNil(t, base.Validate)
+		assert.True(t, base.Validate.ResponseEnabled())
 	})
 
 	t.Run("preserves base validation when other has nil", func(t *testing.T) {
 		base := NewServiceConfig()
-		base.Validation = &ValidationConfig{Request: boolPtr(false)}
+		base.Validate = &ValidateConfig{Request: boolPtr(false)}
 		base.OverwriteWith(&ServiceConfig{})
-		assert.NotNil(t, base.Validation)
-		assert.False(t, base.Validation.RequestEnabled())
+		assert.NotNil(t, base.Validate)
+		assert.False(t, base.Validate.RequestEnabled())
 	})
 }

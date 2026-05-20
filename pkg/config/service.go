@@ -39,35 +39,33 @@ type ServiceConfig struct {
 	History     *HistoryConfig                        `yaml:"history,omitempty"`
 	Mount       string                                `yaml:"mount,omitempty"`
 	SpecOptions *SpecOptions                          `yaml:"spec,omitempty"`
-	Validation  *ValidationConfig                     `yaml:"validation,omitempty"`
+	Validate    *ValidateConfig                       `yaml:"validate,omitempty"`
 	Extra       map[string]any                        `yaml:"extra,omitempty"`
 
 	latencies []*KeyValue[int, time.Duration]
 	errors    []*KeyValue[int, int]
 }
 
-// ValidationConfig toggles request and response validation against the
-// OpenAPI schema. Request validation defaults to true; response
-// validation defaults to false (opt-in) since the spec-vs-mock body
-// shape is the spec author's responsibility, not the consumer's, and
-// strict response checks tend to surface generator gaps that should be
-// addressed in the spec or via service config rather than failing
-// every request. In codegen mode validation is already wired into the
-// generated code, so this struct is ignored.
-type ValidationConfig struct {
+// ValidateConfig toggles request and response validation against the
+// OpenAPI schema. Both default to false (opt-in): building the validator
+// is the dominant cold-start cost (hundreds of MB of heap and seconds of
+// CPU on spec-heavy services like fordefi), and a mock that quietly
+// responds to a malformed client request is rarely worse than one that
+// 400s. Users who want strict validation set request and/or response to
+// true explicitly. In codegen mode validation is wired into the
+// generated code, so this struct is ignored there.
+type ValidateConfig struct {
 	Request  *bool `yaml:"request,omitempty"`
 	Response *bool `yaml:"response,omitempty"`
 }
 
-// RequestEnabled reports whether request validation is enabled.
-// Defaults to true when unset.
-func (v *ValidationConfig) RequestEnabled() bool {
-	return v == nil || v.Request == nil || *v.Request
+// RequestEnabled reports whether request validation is enabled. Defaults to false.
+func (v *ValidateConfig) RequestEnabled() bool {
+	return v != nil && v.Request != nil && *v.Request
 }
 
-// ResponseEnabled reports whether response validation is enabled.
-// Defaults to false when unset — opt-in via `response: true`.
-func (v *ValidationConfig) ResponseEnabled() bool {
+// ResponseEnabled reports whether response validation is enabled. Defaults to false.
+func (v *ValidateConfig) ResponseEnabled() bool {
 	return v != nil && v.Response != nil && *v.Response
 }
 
@@ -219,8 +217,8 @@ func (s *ServiceConfig) OverwriteWith(other *ServiceConfig) *ServiceConfig {
 		s.SpecOptions = other.SpecOptions
 	}
 
-	if other.Validation != nil {
-		s.Validation = other.Validation
+	if other.Validate != nil {
+		s.Validate = other.Validate
 	}
 
 	if other.Endpoints != nil {

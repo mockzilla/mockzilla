@@ -1667,6 +1667,16 @@ func TestApplySchemaStringConstraints(t *testing.T) {
 		assert.NotNil(res)
 	})
 
+	t.Run("js-regex-literal-pattern-signals-null", func(t *testing.T) {
+		s := &schema.Schema{
+			Type:    types.TypeString,
+			Pattern: "/^[0-9]{5}$/i",
+		}
+
+		res := applySchemaStringConstraints(s, "anything-from-faker")
+		assert.Equal(NULL, res)
+	})
+
 	t.Run("enum-ok", func(t *testing.T) {
 		s := &schema.Schema{
 			Type: types.TypeString,
@@ -1736,17 +1746,33 @@ func TestApplySchemaStringConstraints(t *testing.T) {
 		assert.Equal("hallo", res)
 	})
 
-	t.Run("pattern-is-ignored", func(t *testing.T) {
-		// Pattern validation/generation is intentionally skipped because
-		// oapi-codegen doesn't generate validation for regex patterns
+	t.Run("simple-pattern-is-honored", func(t *testing.T) {
+		// Simple character-class patterns (e.g. `[0-9]+`) are honored so
+		// response validation accepts the generated body. The original
+		// value is replaced with one drawn from the pattern's char class
+		// at the same length.
 		s := &schema.Schema{
 			Type:    types.TypeString,
 			Pattern: "[0-9]+",
 		}
 
 		res := applySchemaStringConstraints(s, "hallo welt!")
-		// Value is returned as-is since pattern is ignored
-		assert.Equal("hallo welt!", res)
+		str, ok := res.(string)
+		assert.True(ok)
+		assert.Len(str, len("hallo welt!"))
+		assert.Regexp(`^[0-9]+$`, str)
+	})
+
+	t.Run("complex-pattern-generated", func(t *testing.T) {
+		s := &schema.Schema{
+			Type:    types.TypeString,
+			Pattern: `^foo-bar-[a-z]+\.\d{2}$`,
+		}
+
+		res := applySchemaStringConstraints(s, "hallo welt!")
+		str, ok := res.(string)
+		assert.True(ok)
+		assert.Regexp(s.Pattern, str)
 	})
 
 	t.Run("date-time-ignores-minLength", func(t *testing.T) {
@@ -2544,4 +2570,173 @@ func TestIsIntegerSchema(t *testing.T) {
 			assert.Equal(tt.expected, result)
 		})
 	}
+}
+
+func TestPickEnumMatchingConstraints(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("returns-empty-when-no-key-qualifies", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, MinLength: ptr(int64(10))}
+		got := pickEnumMatchingConstraints(s, map[string]bool{"short": true})
+		assert.Equal("", got)
+	})
+
+	t.Run("filters-by-minLength", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, MinLength: ptr(int64(4))}
+		got := pickEnumMatchingConstraints(s, map[string]bool{"ab": true, "abcd": true})
+		assert.Equal("abcd", got)
+	})
+
+	t.Run("filters-by-maxLength", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, MaxLength: ptr(int64(3))}
+		got := pickEnumMatchingConstraints(s, map[string]bool{"abcd": true, "ab": true})
+		assert.Equal("ab", got)
+	})
+
+	t.Run("filters-by-pattern", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Pattern: "^[0-9]+$"}
+		got := pickEnumMatchingConstraints(s, map[string]bool{"abc": true, "123": true})
+		assert.Equal("123", got)
+	})
+
+	t.Run("invalid-pattern-skips-all", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Pattern: "(["}
+		got := pickEnumMatchingConstraints(s, map[string]bool{"abc": true})
+		assert.Equal("", got)
+	})
+
+	t.Run("no-constraints-returns-some-key", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString}
+		got := pickEnumMatchingConstraints(s, map[string]bool{"only": true})
+		assert.Equal("only", got)
+	})
+}
+
+func TestEnumValuesMatchingConstraints(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("non-string-schema-returns-input-unchanged", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeInteger}
+		in := []any{1, 2, 3}
+		got := enumValuesMatchingConstraints(s, in)
+		assert.Equal(in, got)
+	})
+
+	t.Run("nil-schema-returns-input-unchanged", func(t *testing.T) {
+		in := []any{"a", "b"}
+		got := enumValuesMatchingConstraints(nil, in)
+		assert.Equal(in, got)
+	})
+
+	t.Run("filters-by-minLength", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, MinLength: ptr(int64(3))}
+		got := enumValuesMatchingConstraints(s, []any{"ab", "abc", "abcd"})
+		assert.Equal([]any{"abc", "abcd"}, got)
+	})
+
+	t.Run("filters-by-maxLength", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, MaxLength: ptr(int64(3))}
+		got := enumValuesMatchingConstraints(s, []any{"ab", "abc", "abcd"})
+		assert.Equal([]any{"ab", "abc"}, got)
+	})
+
+	t.Run("filters-by-pattern", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Pattern: "^[a-z]+$"}
+		got := enumValuesMatchingConstraints(s, []any{"abc", "AB", "12"})
+		assert.Equal([]any{"abc"}, got)
+	})
+
+	t.Run("invalid-pattern-skips-all", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Pattern: "(["}
+		got := enumValuesMatchingConstraints(s, []any{"abc"})
+		assert.Nil(got)
+	})
+
+	t.Run("non-string-enum-values-stringified", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, MaxLength: ptr(int64(2))}
+		got := enumValuesMatchingConstraints(s, []any{1, 12, 123})
+		assert.Equal([]any{1, 12}, got)
+	})
+
+	t.Run("returns-nil-when-no-value-matches", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, MinLength: ptr(int64(10))}
+		got := enumValuesMatchingConstraints(s, []any{"a", "b"})
+		assert.Nil(got)
+	})
+}
+
+func TestExampleSatisfiesEnum(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("nil-example", func(t *testing.T) {
+		assert.False(exampleSatisfiesEnum(nil, []any{"a"}))
+	})
+
+	t.Run("matching-string-example", func(t *testing.T) {
+		assert.True(exampleSatisfiesEnum("a", []any{"a", "b"}))
+	})
+
+	t.Run("non-matching-string-example", func(t *testing.T) {
+		assert.False(exampleSatisfiesEnum("c", []any{"a", "b"}))
+	})
+
+	t.Run("matches-across-types-via-stringification", func(t *testing.T) {
+		// `1` and `int64(1)` both stringify to "1"
+		assert.True(exampleSatisfiesEnum(1, []any{int64(1), int64(2)}))
+	})
+
+	t.Run("skips-nil-enum-entries", func(t *testing.T) {
+		assert.True(exampleSatisfiesEnum("a", []any{nil, "a"}))
+		assert.False(exampleSatisfiesEnum("a", []any{nil, "b"}))
+	})
+
+	t.Run("empty-enum", func(t *testing.T) {
+		assert.False(exampleSatisfiesEnum("a", nil))
+	})
+}
+
+func TestSnapToMultipleOf(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("nil-schema-passthrough", func(t *testing.T) {
+		assert.Equal(7.0, snapToMultipleOf(7.0, nil, 0, 0, false, false))
+	})
+
+	t.Run("no-multipleOf-passthrough", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeNumber}
+		assert.Equal(7.5, snapToMultipleOf(7.5, s, 0, 0, false, false))
+	})
+
+	t.Run("zero-multipleOf-passthrough", func(t *testing.T) {
+		zero := float64(0)
+		s := &schema.Schema{Type: types.TypeNumber, MultipleOf: &zero}
+		assert.Equal(7.5, snapToMultipleOf(7.5, s, 0, 0, false, false))
+	})
+
+	t.Run("snaps-down-to-multiple", func(t *testing.T) {
+		step := float64(5)
+		s := &schema.Schema{Type: types.TypeNumber, MultipleOf: &step}
+		assert.Equal(10.0, snapToMultipleOf(13.0, s, 0, 100, true, true))
+	})
+
+	t.Run("snaps-up-when-below-min", func(t *testing.T) {
+		step := float64(5)
+		s := &schema.Schema{Type: types.TypeNumber, MultipleOf: &step}
+		// value=12 -> snapped=10, but min=11 -> bumped to 15
+		assert.Equal(15.0, snapToMultipleOf(12.0, s, 11, 100, true, true))
+	})
+
+	t.Run("snaps-down-when-above-max", func(t *testing.T) {
+		step := float64(5)
+		s := &schema.Schema{Type: types.TypeNumber, MultipleOf: &step}
+		// value=97 -> snapped=95, max=94 -> bumped down to 90
+		assert.Equal(90.0, snapToMultipleOf(97.0, s, 0, 94, true, true))
+	})
+
+	t.Run("ignores-bounds-when-flags-false", func(t *testing.T) {
+		step := float64(5)
+		s := &schema.Schema{Type: types.TypeNumber, MultipleOf: &step}
+		// snapped=10 is below 11, but hasMin=false so no bump
+		assert.Equal(10.0, snapToMultipleOf(12.0, s, 11, 100, false, true))
+	})
 }
