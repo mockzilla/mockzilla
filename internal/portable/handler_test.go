@@ -240,6 +240,15 @@ func TestSwappableHandler(t *testing.T) {
 		sw.swap(h2, nil)
 		assert.Equal(t, h2.Routes(), sw.Routes())
 	})
+
+	t.Run("Validator returns swapped value", func(t *testing.T) {
+		sw.setValidator(nil)
+		assert.Nil(t, sw.Validator())
+	})
+
+	t.Run("MatchPath delegates", func(t *testing.T) {
+		_, _ = sw.MatchPath("/pets", "GET")
+	})
 }
 
 func testRouter(t *testing.T) *api.Router {

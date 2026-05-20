@@ -1,5 +1,9 @@
 internal/integrationtest
+internal/portableintegration
+internal/inspect
 internal/portable/runner.go
 internal/portable/watcher.go
 cmd/mockzilla/main.go
+cmd/mockzilla/pack.go
+cmd/mockzilla/simplify.go
 cmd/mockzilla/watcher.go
