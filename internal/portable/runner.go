@@ -31,42 +31,30 @@ const (
 	exitCodeError    = 1
 )
 
-// Setup is a fully-configured portable mode ready to be served:
-// router with all routes registered (including resolved services),
-// the resolved AppConfig, and the underlying service list. Run uses
-// this for the normal CLI flow (then binds a listener and serves);
-// in-process tests use the same function and wrap Router with
-// httptest.NewServer so the test exercises the real production path.
+// Setup is a fully-configured portable mode ready to be served. Run uses it for
+// the normal CLI flow; in-process tests wrap Router with httptest.NewServer.
 type Setup struct {
 	Router   *api.Router
 	AppCfg   *config.AppConfig
 	Services []Service
 
-	// Failed lists services that were resolved but could not be
-	// registered (spec parse failure, validator construction failure,
-	// etc). Run logs and continues so the server still boots; callers
-	// that need strict behaviour (integration tests) inspect this to
-	// fail loudly. Order matches the resolution order.
+	// Failed lists services that resolved but couldn't be registered (parse or
+	// validator failure). Run logs and continues so the server still boots;
+	// strict callers (integration tests) inspect this to fail loudly.
 	Failed []FailedService
 
-	// Internals needed by Run for serving + hot-reload. Tests don't
-	// need to touch these.
 	handlers map[string]*swappableHandler
 	flags    flags
 }
 
-// FailedService records a service that resolved but never registered.
 type FailedService struct {
 	Name string
 	Err  error
 }
 
-// BuildSetup runs the portable startup pipeline up to (but not
-// including) port binding. Same code path Run uses.
-//
-// Does NOT call configureLogger - that's a CLI-process concern (takes
-// over slog's default). Run sets it; in-process callers (tests) keep
-// their own slog config.
+// BuildSetup runs the portable startup pipeline up to port binding. Does NOT
+// call configureLogger; Run does that, but in-process callers keep their own
+// slog config.
 func BuildSetup(args []string) (*Setup, error) {
 	fl, positional := parseFlags(args)
 
@@ -100,11 +88,9 @@ func BuildSetup(args []string) (*Setup, error) {
 		appCfg.Port = 2200
 	}
 
-	// If any service wants the root mount (empty Name, no explicit
-	// Mount, or `mount: /`), move the UI off `/` so chi can host the
-	// service there. The dotted `/.ui` aligns with the other internal
-	// routes (`/.services`, `/.history`). Skip the relocation when
-	// the UI is disabled — nothing is mounted at `/` to conflict with.
+	// If any service wants the root mount, move the UI off `/` so chi can host
+	// the service there. The dotted `/.ui` aligns with `/.services`, `/.history`.
+	// Skip when the UI is disabled (nothing mounted at `/` to conflict with).
 	if !appCfg.DisableUI && (appCfg.HomeURL == "" || appCfg.HomeURL == "/") {
 		if anyServiceClaimsRoot(services, fl) {
 			slog.Info("Service requested root mount; relocating UI from / to /.ui")
@@ -307,7 +293,7 @@ func bindListener(appCfg *config.AppConfig) (net.Listener, error) {
 	return listener, nil
 }
 
-// flagName strips the leading dashes from a flag arg ("--port" → "port").
+// flagName strips the leading dashes from a flag arg ("--port" -> "port").
 func flagName(arg string) string {
 	return strings.TrimLeft(arg, "-")
 }
@@ -411,16 +397,9 @@ func buildOverrides(fl flags) (*cliOverrides, error) {
 	return o, nil
 }
 
-// anyServiceClaimsRoot reports whether any discovered service will end
-// up mounted at "/" once flag overrides and per-folder configs are
-// applied. We can't fully resolve mounts here without re-reading every
-// config.yml, so we approximate with the signals available at this
-// point: an empty Name (no inside-the-folder identity signal) means
-// the service will mount at "/" by default. A CLI --mount is only
-// valid for single-service runs and overrides whatever the service
-// would otherwise pick, so when it's set it decides for the whole
-// batch — including the static-fallback case where Name is empty but
-// the flag relocates the mount somewhere else.
+// anyServiceClaimsRoot approximates whether any service will end up mounted at "/".
+// Without re-reading every config.yml here, we use the signals at hand: an empty
+// Name defaults to "/", and a CLI --mount (single-service only) overrides everything.
 func anyServiceClaimsRoot(services []Service, fl flags) bool {
 	if fl.mount != "" {
 		return fl.mount == "/"
@@ -489,20 +468,7 @@ func registerService(
 	var regOpts []api.HandlerOption
 	validationOn := svcCfg.Validate.RequestEnabled() || svcCfg.Validate.ResponseEnabled()
 
-	var v validator.Validator
-	if validationOn {
-		built, err := buildValidator(h)
-		if err != nil {
-			// Spec opted into validation but the validator can't be
-			// built. Drop the service entirely (don't silently register
-			// it with validation off — that would contradict the
-			// config). Server keeps running and registers other services.
-			return fmt.Errorf("building validator: %w", err)
-		}
-		v = built
-	}
-
-	sw := &swappableHandler{handler: h, validator: v}
+	sw := &swappableHandler{handler: h}
 	handlers[svc.Name] = sw
 
 	if validationOn {
@@ -512,6 +478,19 @@ func registerService(
 		regOpts = append(regOpts, api.WithMiddleware(
 			[]func(*middleware.Params) func(http.Handler) http.Handler{mw},
 		))
+
+		// Build the validator in the background.
+		go func() {
+			built, err := buildValidator(h)
+			if err != nil {
+				slog.Warn("validator construction failed; service will run without validation",
+					"service", svc.Name,
+					"error", err)
+				return
+			}
+			sw.setValidator(built)
+			slog.Info("Validator ready", "service", svc.Name)
+		}()
 	}
 
 	router.RegisterService(svcCfg, sw, regOpts...)

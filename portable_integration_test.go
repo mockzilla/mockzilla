@@ -21,6 +21,8 @@ import (
 
 	"github.com/mockzilla/mockzilla/v2/internal/integrationtest"
 	"github.com/mockzilla/mockzilla/v2/internal/portable"
+	"github.com/mockzilla/mockzilla/v2/internal/portableintegration"
+	"github.com/mockzilla/mockzilla/v2/pkg/lint"
 )
 
 const (
@@ -54,6 +56,19 @@ const (
 func TestPortableIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping portable integration test in short mode")
+	}
+
+	// Orchestrator mode: when invoked at the top level (no PORTABLE_BATCH
+	// guard set), hand off to the orchestrator which re-execs this test
+	// once per size-bounded batch with PORTABLE_BATCH=1.
+	if os.Getenv("PORTABLE_BATCH") != "1" {
+		portableintegration.Run(t, portableintegration.Config{
+			SpecsBaseDir:   specsBaseDir,
+			CacheFileName:  portableCacheFileName,
+			TestRunPattern: "^TestPortableIntegration$",
+			BatchEnvVar:    "PORTABLE_BATCH",
+		})
+		return
 	}
 
 	// Silence portable runtime's INFO logs - one line per HTTP request,
@@ -148,6 +163,22 @@ func TestPortableIntegration(t *testing.T) {
 				return
 			}
 
+			// Announce before any expensive work so a SIGKILL'd batch
+			// leaves a "start" line without a matching completion,
+			// pointing at the spec that was in flight.
+			fmt.Fprintf(os.Stderr, "  start %s\n", spec)
+
+			// Pre-flight lint. Specs that hit a known unsatisfiable
+			// pattern (see pkg/lint) can never pass response validation
+			// regardless of generator quality, so booting them is
+			// wasted work. Record as skipped and surface in summary.
+			if defects, err := lint.Spec(spec); err == nil && len(defects) > 0 {
+				result := specResult{lintDefects: defects}
+				stats.record(spec, result, cache)
+				stats.printSpecLine(spec, result, totalSpecs)
+				return
+			}
+
 			result := runOneSpec(ctx, spec, client)
 			stats.record(spec, result, cache)
 			stats.printSpecLine(spec, result, totalSpecs)
@@ -174,6 +205,10 @@ type specResult struct {
 	routesTested int
 	failures     []routeFailure
 	bootErr      error
+	// lintDefects, when populated, indicates the spec was skipped by the
+	// pre-flight lint pass and never booted. Reported as a separate
+	// outcome from pass/fail so flaky-defect specs surface clearly.
+	lintDefects []lint.Defect
 }
 
 type routeFailure struct {
@@ -187,9 +222,14 @@ func (r specResult) failed() bool {
 	return r.bootErr != nil || len(r.failures) > 0
 }
 
+func (r specResult) lintSkipped() bool {
+	return len(r.lintDefects) > 0
+}
+
 type portableStats struct {
 	passedSpecs        atomic.Int64
 	failedSpecs        atomic.Int64
+	lintSkippedSpecs   atomic.Int64
 	totalRoutesTested  atomic.Int64
 	totalRouteFailures atomic.Int64
 	totalBootNs        atomic.Int64
@@ -215,12 +255,18 @@ func (s *portableStats) record(spec string, r specResult, cache *integrationtest
 	s.results = append(s.results, specRow{spec: spec, result: r})
 	s.mu.Unlock()
 
-	if r.failed() {
+	switch {
+	case r.lintSkipped():
+		s.lintSkippedSpecs.Add(1)
+		if cache != nil {
+			cache.MarkPassed(spec)
+		}
+	case r.failed():
 		s.failedSpecs.Add(1)
 		if cache != nil {
 			cache.MarkFailed(spec)
 		}
-	} else {
+	default:
 		s.passedSpecs.Add(1)
 		if cache != nil {
 			cache.MarkPassed(spec)
@@ -232,6 +278,11 @@ func (s *portableStats) printSpecLine(spec string, r specResult, total int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	i := s.completedSpecs.Add(1)
+	if r.lintSkipped() {
+		fmt.Fprintf(os.Stderr, "  [%d/%d] LINT %s (%d defects, %s)\n",
+			i, total, spec, len(r.lintDefects), lintRuleSummary(r.lintDefects))
+		return
+	}
 	status := "ok"
 	if r.failed() {
 		status = "FAIL"
@@ -246,10 +297,28 @@ func (s *portableStats) printSpecLine(spec string, r specResult, total int) {
 		r.routesTested, len(r.failures))
 }
 
+func lintRuleSummary(defects []lint.Defect) string {
+	counts := map[string]int{}
+	for _, d := range defects {
+		counts[d.Rule]++
+	}
+	keys := make([]string, 0, len(counts))
+	for k := range counts {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	parts := make([]string, 0, len(keys))
+	for _, k := range keys {
+		parts = append(parts, fmt.Sprintf("%s=%d", k, counts[k]))
+	}
+	return strings.Join(parts, " ")
+}
+
 func (s *portableStats) printSummary(totalSpecs int) {
 	p := s.passedSpecs.Load()
 	f := s.failedSpecs.Load()
-	if p+f == 0 {
+	l := s.lintSkippedSpecs.Load()
+	if p+f+l == 0 {
 		return
 	}
 
@@ -274,6 +343,11 @@ func (s *portableStats) printSummary(totalSpecs int) {
 	sort.Slice(rows, func(i, j int) bool { return rows[i].spec < rows[j].spec })
 
 	for _, row := range rows {
+		if row.result.lintSkipped() {
+			fmt.Fprintf(os.Stderr, "  LINT %-60s defects=%-3d (%s)\n",
+				row.spec, len(row.result.lintDefects), lintRuleSummary(row.result.lintDefects))
+			continue
+		}
 		status := "OK  "
 		if row.result.failed() {
 			status = "FAIL"
@@ -285,13 +359,26 @@ func (s *portableStats) printSummary(totalSpecs int) {
 			formatShortDuration(row.result.testDuration))
 	}
 
-	skipped := int64(totalSpecs) - (p + f)
+	skipped := int64(totalSpecs) - (p + f + l)
 	fmt.Fprintln(os.Stderr)
-	fmt.Fprintf(os.Stderr, "  Total: %d specs (passed: %d, failed: %d, skipped: %d), %d operations tested\n",
-		totalSpecs, p, f, skipped, totalOps)
+	fmt.Fprintf(os.Stderr, "  Total: %d specs (passed: %d, failed: %d, lint-skipped: %d, runtime-skipped: %d), %d operations tested\n",
+		totalSpecs, p, f, l, skipped, totalOps)
 	fmt.Fprintf(os.Stderr, "         OK: %d   Failures: %d\n", totalOK, totalFails)
 	fmt.Fprintf(os.Stderr, "         Boot: %s   Test: %s   Total: %s\n",
 		formatDuration(bootTotal), formatDuration(testTotal), formatDuration(bootTotal+testTotal))
+
+	if l > 0 {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintln(os.Stderr, "Lint-skipped specs (spec contains constructs that strict validators reject):")
+		for _, row := range rows {
+			if !row.result.lintSkipped() {
+				continue
+			}
+			first := row.result.lintDefects[0]
+			fmt.Fprintf(os.Stderr, "  %s\n    %s at %s: %s\n",
+				row.spec, first.Rule, first.Path, first.Detail)
+		}
+	}
 
 	if f > 0 {
 		fmt.Fprintln(os.Stderr)
@@ -311,7 +398,7 @@ func (s *portableStats) printSummary(totalSpecs int) {
 			first := row.result.failures[0]
 			fmt.Fprintf(os.Stderr, "  %s\n    %s %s [%s]: %s\n",
 				row.spec, first.method, first.path, first.phase,
-				truncate([]byte(first.detail), 2000))
+				truncate([]byte(first.detail), 8000))
 		}
 	}
 	fmt.Fprintln(os.Stderr, "========================================")
@@ -573,7 +660,7 @@ func callEndpoint(ctx context.Context, client *http.Client, url, method string, 
 
 	if resp.StatusCode >= 500 {
 		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("status %d: %s", resp.StatusCode, truncate(respBody, 2000))
+		return fmt.Errorf("status %d: %s", resp.StatusCode, truncate(respBody, 8000))
 	}
 	return nil
 }

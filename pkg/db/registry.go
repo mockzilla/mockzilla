@@ -18,13 +18,8 @@ var (
 )
 
 // Register makes a storage backend available by the provided name.
-// If Register is called twice with the same name or if factory is nil, it panics.
-//
-// Built-in drivers register themselves via init().
-// External drivers can register in their own init() — users activate them
-// with a blank import:
-//
-//	import _ "github.com/someone/mockzilla-db-dynamodb"
+// Panics on duplicate name or nil factory. External drivers register via init()
+// and are activated by blank import: `import _ "github.com/x/mockzilla-db-y"`.
 func Register(name string, factory StorageFactory) {
 	driversMu.Lock()
 	defer driversMu.Unlock()

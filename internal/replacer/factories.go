@@ -6,6 +6,7 @@ import (
 	"github.com/jaswdr/faker/v2"
 	"github.com/mockzilla/mockzilla/v2/internal/contexts"
 	"github.com/mockzilla/mockzilla/v2/internal/types"
+	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 )
 
 // ValueReplacer is a function that replaces value in schema or content.
@@ -113,8 +114,10 @@ func CreateValueReplacer(replacers []Replacer, contexts []map[string]any) ValueR
 					return nil
 				}
 
-				// Ensure we never return empty strings to avoid validation errors for required fields
-				if str == "" {
+				// Skip empty strings unless the schema's enum permits one
+				// (some specs use `enum: [""]` to signal a deliberate empty value)
+				// or the pattern allows empty (e.g. `^(A[A-Z0-9]+)?$`).
+				if str == "" && !enumAllowsEmptyString(ctx.schema) && !schemaPatternAllowsEmptyString(ctx.schema) {
 					continue
 				}
 			}
@@ -162,4 +165,25 @@ func getContextFunctions(data []map[string]any) map[string]contexts.FakeFunc {
 		}
 	}
 	return res
+}
+
+func enumAllowsEmptyString(s any) bool {
+	sch, ok := s.(*schema.Schema)
+	if !ok || sch == nil || len(sch.Enum) == 0 {
+		return false
+	}
+	for _, v := range sch.Enum {
+		if str, ok := v.(string); ok && str == "" {
+			return true
+		}
+	}
+	return false
+}
+
+func schemaPatternAllowsEmptyString(s any) bool {
+	sch, ok := s.(*schema.Schema)
+	if !ok || sch == nil {
+		return false
+	}
+	return patternAllowsEmptyString(sch.Pattern)
 }

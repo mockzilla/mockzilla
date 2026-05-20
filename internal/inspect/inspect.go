@@ -39,14 +39,8 @@ type Endpoint struct {
 	OperationID string `json:"operation_id,omitempty"`
 }
 
-// Run parses the args and prints the summary. Returns a process exit
-// code so the caller (cmd/mockzilla/main.go) can `return inspect.Run(...)`.
-//
-// Two input shapes are recognised:
-//
-//   - OpenAPI spec (file or URL) → emits Summary describing the spec.
-//   - `.mockz` / `.tar.gz` package on disk → reads the manifest and
-//     emits PackageSummary describing the package.
+// Run parses args, prints a summary, and returns a process exit code.
+// Accepts an OpenAPI spec (file or URL) or a `.mockz`/`.tar.gz` package on disk.
 func Run(args []string) int {
 	if len(args) != 1 {
 		fmt.Fprintln(os.Stderr, "usage: mockzilla info <url-or-file>")

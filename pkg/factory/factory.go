@@ -154,13 +154,11 @@ func (f *Factory) Document() (libopenapi.Document, error) {
 // OpenAPI validation since the spec never declared it.
 //
 // Resolution order:
-//  1. SuccessCode is explicitly declared → keep it.
+//  1. SuccessCode declared in spec: keep it.
 //  2. Lowest declared 2xx, then 3xx, then 4xx.
-//  3. "default" is declared → 200. Preferred over a 5xx-only spec so the
-//     mock doesn't report broken for the happy path (clients and the
-//     integration smoke tests treat 5xx as a server failure).
+//  3. "default" declared: 200 (preferred over 5xx so the happy path stays green).
 //  4. Lowest declared 5xx.
-//  5. Neither doc nor declarations available → SuccessCode unchanged.
+//  5. Nothing available: SuccessCode unchanged.
 func (f *Factory) SuccessStatusCode(path, method string) int {
 	op := f.registry.FindOperation(path, method)
 	if op == nil || op.Response == nil {

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"net/http"
 	"net/url"
 	"runtime/debug"
@@ -17,37 +18,16 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-// ValidatorSource yields the validator to use for the current request.
-// Portable mode hot-reloads the spec; the source closes over a slot
-// that the reload swaps so the middleware always picks up the validator
-// built from the latest spec. Returning nil disables validation for
-// this request (e.g. when the validator failed to build for the spec).
+// ValidatorSource yields the validator for the current request; nil disables validation.
+// Portable mode uses this to hot-swap validators after a spec reload.
 type ValidatorSource func() validator.Validator
 
-// SpecPathLookup resolves a prefix-stripped request path and method to
-// the spec path that handles it (e.g. `/users/{id}`). It's used by the
-// validation middleware to detect routes that libopenapi-validator
-// can't validate without panicking (see [CreateValidationMiddleware]).
-// Returning ok=false means no match; the middleware falls through to
-// normal validation.
+// SpecPathLookup resolves a prefix-stripped request path/method to the spec path.
 type SpecPathLookup func(reqPath, method string) (specPath string, ok bool)
 
-// CreateValidationMiddleware returns middleware that validates incoming
-// requests and outgoing responses against the OpenAPI document.
-//
-// Request validation runs before the handler. On failure the request is
-// short-circuited with a 400 and a JSON body describing the failures.
-//
-// Response validation runs after the handler. The response writer is
-// captured so the generated payload can be validated; on failure the
-// captured body is discarded and a 500 is returned. When validation
-// passes, the captured response is written through unchanged.
-//
-// Either check is skipped when the corresponding flag in the service
-// config's validation block is false. When lookup is non-nil and
-// resolves the request to a spec path containing a `#` discriminator
-// suffix (e.g. AWS's `/foo#qparam` convention), validation is skipped
-// entirely - see the TODO inside.
+// CreateValidationMiddleware validates requests/responses against the OpenAPI document.
+// Request failures return 400; response failures return 500. When lookup flags a route
+// that libopenapi-validator can't safely handle, validation is skipped.
 func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup SpecPathLookup) func(http.Handler) http.Handler {
 	log := params.Logger("validation")
 
@@ -63,27 +43,8 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 			validateReq := cfg == nil || cfg.Validate.RequestEnabled()
 			validateResp := cfg == nil || cfg.Validate.ResponseEnabled()
 
-			// Validator works against the OpenAPI spec's path space (no
-			// service mount prefix). Build a sibling request with the
-			// mount stripped from URL.Path so spec lookup matches.
 			validatorReq := requestForValidator(req, cfg)
 
-			// Skip validation for spec paths libopenapi-validator can't
-			// reliably look up:
-			//   * `#qparam` discriminators (its FindPath returns the
-			//     discriminator-suffixed key, then path-param regex
-			//     iteration panics in path_parameters.go:86 because the
-			//     literal `name#qparam` segment never matches the
-			//     request's `name`).
-			//   * spec paths with characters Go would URL-encode
-			//     (spaces, etc.). FindPath compares its escaped request
-			//     path against the spec's literal key, so a space in the
-			//     spec becomes `%20` in the lookup and never matches.
-			// In both cases mockzilla's own path matcher routes the
-			// request correctly; only the validator's path lookup is
-			// broken.
-			// TODO: re-enable once libopenapi-validator handles these
-			// shapes upstream.
 			if lookup != nil {
 				if specPath, ok := lookup(validatorReq.URL.Path, validatorReq.Method); ok && validatorCannotLookup(specPath) {
 					next.ServeHTTP(w, req)
@@ -99,18 +60,15 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 					req.Body = restore
 					validatorReq.Body = io.NopCloser(bytes.NewReader(body))
 					if ok, validationErrs := safeValidateRequest(v, validatorReq); !ok {
-						if isValidatorPanic(validationErrs) {
-							RequestLog(log, req).Error("Request validator panicked",
+						switch {
+						case isValidatorPanic(validationErrs):
+							RequestLog(log, req).Warn("Request validator panicked; skipping request validation",
 								"method", req.Method,
 								"path", req.URL.Path,
 								"reason", validationErrs[0].Reason)
-							writeValidationError(w, http.StatusInternalServerError, "request validator panicked", validationErrs)
-							return
-						}
-						// "Path not found in spec" is a 404 condition,
-						// not a 400. The downstream handler returns its
-						// own 404; skip validation and let it through.
-						if !allPathMissing(validationErrs) {
+						case allPathMissing(validationErrs):
+							// 404 is the downstream handler's job, not ours.
+						default:
 							writeValidationError(w, http.StatusBadRequest, "request validation failed", validationErrs)
 							return
 						}
@@ -131,9 +89,7 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 			}
 			next.ServeHTTP(rw, req)
 
-			// Only validate successful responses. Non-2xx are typically
-			// generated by middleware (error injection, upstream errors)
-			// and their schemas often aren't declared in the spec.
+			// Skip non-2xx: error responses often aren't declared in the spec.
 			if rw.statusCode < 200 || rw.statusCode >= 300 {
 				writeThrough(w, rw)
 				return
@@ -152,18 +108,14 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 			}
 
 			if isValidatorPanic(validationErrs) {
-				RequestLog(log, req).Error("Response validator panicked",
+				RequestLog(log, req).Warn("Response validator panicked; skipping response validation",
 					"method", req.Method,
 					"path", req.URL.Path,
 					"reason", validationErrs[0].Reason)
-				writeValidationError(w, http.StatusInternalServerError, "response validator panicked", validationErrs)
+				writeThrough(w, rw)
 				return
 			}
 
-			// Schema-render failures (circular $ref chains the validator
-			// can't unroll) are libopenapi-validator limitations, not
-			// generator bugs. Log and let the response through; our
-			// generator handles recursion.
 			if allSchemaRenderFailure(validationErrs) {
 				RequestLog(log, req).Warn("Validator schema render failed; skipping response validation",
 					"method", req.Method,
@@ -182,6 +134,33 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 				return
 			}
 
+			if allPathMissing(validationErrs) {
+				RequestLog(log, req).Warn("Spec path not found by validator (likely server base-path mismatch); skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"errors", len(validationErrs))
+				writeThrough(w, rw)
+				return
+			}
+
+			if allJSLiteralPattern(validationErrs) {
+				RequestLog(log, req).Warn("Spec pattern uses JS regex literal `/.../`; skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"errors", len(validationErrs))
+				writeThrough(w, rw)
+				return
+			}
+
+			if allDescriptivePattern(validationErrs) {
+				RequestLog(log, req).Warn("Spec pattern is prose, not regex; skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"errors", len(validationErrs))
+				writeThrough(w, rw)
+				return
+			}
+
 			if allUnsatisfiableSchema(validationErrs) {
 				RequestLog(log, req).Warn("Spec schema is unsatisfiable (required name missing from properties + additionalProperties:false); skipping response validation",
 					"method", req.Method,
@@ -189,6 +168,55 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 					"errors", len(validationErrs))
 				writeThrough(w, rw)
 				return
+			}
+
+			if allContentTypeParamsOnly(validationErrs) {
+				RequestLog(log, req).Warn("Spec content type only differs by media-type parameters; skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"errors", len(validationErrs))
+				writeThrough(w, rw)
+				return
+			}
+
+			if allWildcardContentType(validationErrs) {
+				RequestLog(log, req).Warn("Spec declares wildcard `*/*` content type; skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"errors", len(validationErrs))
+				writeThrough(w, rw)
+				return
+			}
+
+			if allStatusCodeNotDeclared(validationErrs) {
+				RequestLog(log, req).Warn("Response status code not declared in spec; skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"status", rw.statusCode,
+					"errors", len(validationErrs))
+				writeThrough(w, rw)
+				return
+			}
+
+			if allRouterAmbiguity(validationErrs, resp.Header.Get("Content-Type")) {
+				RequestLog(log, req).Warn("libopenapi-validator matched a different spec path than the router; skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"errors", len(validationErrs))
+				writeThrough(w, rw)
+				return
+			}
+
+			if lookup != nil {
+				if chiSpecPath, ok := lookup(validatorReq.URL.Path, validatorReq.Method); ok && allErrorsForDifferentSpecPath(validationErrs, chiSpecPath) {
+					RequestLog(log, req).Warn("libopenapi-validator matched a different spec path than the router; skipping response validation",
+						"method", req.Method,
+						"path", req.URL.Path,
+						"chiSpec", chiSpecPath,
+						"errors", len(validationErrs))
+					writeThrough(w, rw)
+					return
+				}
 			}
 
 			RequestLog(log, req).Warn("Response validation failed",
@@ -200,13 +228,8 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 	}
 }
 
-// safeValidateRequest wraps validator.ValidateHttpRequestSync in a
-// recover so a panic inside libopenapi-validator does not take down the
-// request handler. A recovered panic is reported as a validation
-// failure with a synthetic ValidationError describing the panic (and
-// the captured stack), so the caller can short-circuit with a 4xx/5xx
-// the same way it would for a real failure, and integration-test
-// output gets a useful pointer to where libopenapi-validator blew up.
+// safeValidateRequest recovers panics from libopenapi-validator as a synthetic
+// ValidationError so the handler stays up.
 func safeValidateRequest(v validator.Validator, req *http.Request) (ok bool, errs []*errors.ValidationError) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -217,9 +240,6 @@ func safeValidateRequest(v validator.Validator, req *http.Request) (ok bool, err
 	return v.ValidateHttpRequestSync(req)
 }
 
-// safeValidateResponse is the response-side counterpart to
-// safeValidateRequest. See that function's doc for the panic-handling
-// rationale.
 func safeValidateResponse(v validator.Validator, req *http.Request, resp *http.Response) (ok bool, errs []*errors.ValidationError) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -250,14 +270,8 @@ func isValidatorPanic(errs []*errors.ValidationError) bool {
 	return false
 }
 
-// requestForValidator returns a shallow clone of req with URL.Path
-// rewritten to the spec-relative path (i.e. with the service mount
-// prefix stripped). libopenapi-validator looks up paths in the spec
-// verbatim, so a request to `/foo/bar/pets` against a spec that
-// declares `/pets` mounted at `/foo/bar` must reach the validator as
-// `/pets`. When cfg is nil or no prefix is configured, the request is
-// returned with only URL and Body cloned (the body is rewritten by the
-// caller).
+// requestForValidator clones req with the service mount prefix stripped from URL.Path
+// so libopenapi-validator's verbatim path lookup matches spec's mount-relative paths.
 func requestForValidator(req *http.Request, cfg *config.ServiceConfig) *http.Request {
 	clone := req.Clone(req.Context())
 	if cfg == nil {
@@ -280,8 +294,8 @@ func requestForValidator(req *http.Request, cfg *config.ServiceConfig) *http.Req
 	return clone
 }
 
-// servicePrefix mirrors api.ServicePrefix without pulling in pkg/api
-// (which would be a cyclic import). Logic must stay in lockstep.
+// servicePrefix mirrors api.ServicePrefix; duplicated here to avoid a cyclic import.
+// Keep the two in lockstep.
 func servicePrefix(cfg *config.ServiceConfig) string {
 	if cfg.Mount != "" {
 		if strings.HasPrefix(cfg.Mount, "/") {
@@ -312,21 +326,13 @@ func stripPrefix(p, prefix string) string {
 	return stripped
 }
 
-// validatorCannotLookup reports whether libopenapi-validator's path
-// matching is known to mishandle this spec path. The middleware
-// short-circuits validation when this returns true; mockzilla's own
-// path matcher is the source of truth for these cases.
+// validatorCannotLookup reports paths libopenapi-validator's FindPath mishandles:
+// `#` discriminators panic in its path-param iteration; segments containing chars
+// Go's URL escaping alters (spaces, etc.) never match its EscapedPath()-based lookup.
 func validatorCannotLookup(specPath string) bool {
 	if strings.Contains(specPath, "#") {
 		return true
 	}
-
-	// FindPath compares URL.EscapedPath() against the spec key. If a
-	// literal segment contains a character Go would percent-encode
-	// (spaces, reserved punctuation), the escaped form will never
-	// match the literal spec key. Detect via a per-segment escape
-	// round-trip, skipping placeholder segments like `{id}` whose
-	// braces always need escaping but never appear in real URLs.
 	for _, seg := range strings.Split(specPath, "/") {
 		if seg == "" || isPlaceholderSegment(seg) {
 			continue
@@ -339,14 +345,14 @@ func validatorCannotLookup(specPath string) bool {
 }
 
 func isPlaceholderSegment(seg string) bool {
-	return len(seg) >= 2 && seg[0] == '{' && seg[len(seg)-1] == '}'
+	if len(seg) < 2 || seg[0] != '{' || seg[len(seg)-1] != '}' {
+		return false
+	}
+	return strings.Count(seg, "{") == 1 && strings.Count(seg, "}") == 1
 }
 
-// allPathMissing reports whether every validation failure is the
-// "path/operation not declared in spec" kind. When true the middleware
-// hands the request to the next handler so the handler's own 404 path
-// wins; surfacing a 400 here would be wrong since the request itself
-// wasn't malformed - the spec simply doesn't describe that endpoint.
+// allPathMissing reports "path/operation not declared" failures; the middleware
+// then defers to the handler's own 404 instead of returning 400.
 func allPathMissing(errs []*errors.ValidationError) bool {
 	if len(errs) == 0 {
 		return false
@@ -359,14 +365,189 @@ func allPathMissing(errs []*errors.ValidationError) bool {
 	return true
 }
 
-// allUnsatisfiableSchema reports whether every validation failure
-// describes an internally inconsistent spec: a `required` name has no
-// matching `properties` entry while the schema also declares
-// `additionalProperties: false`. Such a schema has no valid body (the
-// required key must be present, yet no key outside `properties` is
-// permitted). The middleware treats these like ambiguous oneOf:
-// validator output suggests a spec defect, not a generator bug, so we
-// warn and let the response through.
+// allContentTypeParamsOnly reports content-type failures that match once media-type
+// parameters are stripped from both sides. libopenapi-validator strips them from the
+// response but not from the spec key.
+func allContentTypeParamsOnly(errs []*errors.ValidationError) bool {
+	if len(errs) == 0 {
+		return false
+	}
+	for _, e := range errs {
+		if e.ValidationType != "response" || e.ValidationSubType != "contentType" {
+			return false
+		}
+		actual := extractQuotedToken(e.Message)
+		spec := extractAfter(e.HowToFix, "supported types for this operation: ")
+		if actual == "" || spec == "" {
+			return false
+		}
+		actualMT, _, _ := mime.ParseMediaType(actual)
+		specMT, _, _ := mime.ParseMediaType(spec)
+		if actualMT == "" || specMT == "" || actualMT != specMT {
+			return false
+		}
+	}
+	return true
+}
+
+func extractQuotedToken(s string) string {
+	start := strings.IndexByte(s, '\'')
+	if start < 0 {
+		return ""
+	}
+	end := strings.IndexByte(s[start+1:], '\'')
+	if end < 0 {
+		return ""
+	}
+	return s[start+1 : start+1+end]
+}
+
+func extractAfter(s, marker string) string {
+	i := strings.Index(s, marker)
+	if i < 0 {
+		return ""
+	}
+	return strings.TrimSpace(s[i+len(marker):])
+}
+
+// allErrorsForDifferentSpecPath reports failures anchored to a spec path other than
+// the router-matched one. The router's match is authoritative; the validator's path
+// resolution can diverge when multiple templates match (literal vs templated suffix).
+func allErrorsForDifferentSpecPath(errs []*errors.ValidationError, chiSpecPath string) bool {
+	if len(errs) == 0 || chiSpecPath == "" {
+		return false
+	}
+	for _, e := range errs {
+		if e.SpecPath == "" || e.SpecPath == chiSpecPath {
+			return false
+		}
+	}
+	return true
+}
+
+// allRouterAmbiguity reports content-type failures where chi picked a literal route
+// but libopenapi-validator picked a sibling templated route. Heuristic: response
+// Content-Type isn't application/json (the codegen default) and every error is a
+// content-type failure; we'd never emit non-JSON if we'd routed to the JSON path.
+func allRouterAmbiguity(errs []*errors.ValidationError, respCT string) bool {
+	if len(errs) == 0 || respCT == "" {
+		return false
+	}
+	respMT, _, _ := mime.ParseMediaType(respCT)
+	if respMT == "" || strings.EqualFold(respMT, "application/json") {
+		return false
+	}
+	for _, e := range errs {
+		if e.ValidationType != "response" || e.ValidationSubType != "contentType" {
+			return false
+		}
+	}
+	return true
+}
+
+// allWildcardContentType reports content-type failures where the spec only declares
+// `*/*`; the validator literal-matches and rejects every concrete type.
+func allWildcardContentType(errs []*errors.ValidationError) bool {
+	if len(errs) == 0 {
+		return false
+	}
+	for _, e := range errs {
+		if e.ValidationType != "response" || e.ValidationSubType != "contentType" {
+			return false
+		}
+		if !strings.Contains(e.HowToFix, "*/*") {
+			return false
+		}
+	}
+	return true
+}
+
+// allStatusCodeNotDeclared reports failures where the response's status code isn't
+// declared in the operation and the validator won't use a content-less `default` as
+// a catch-all, so no status we pick would pass.
+func allStatusCodeNotDeclared(errs []*errors.ValidationError) bool {
+	if len(errs) == 0 {
+		return false
+	}
+	for _, e := range errs {
+		if e.ValidationType != "response" || e.ValidationSubType != "statusCode" {
+			return false
+		}
+	}
+	return true
+}
+
+// allJSLiteralPattern reports pattern-mismatch failures where the spec wrote the
+// regex as a JS literal `/.../`; the slashes get compiled into the pattern.
+func allJSLiteralPattern(errs []*errors.ValidationError) bool {
+	if len(errs) == 0 {
+		return false
+	}
+	for _, e := range errs {
+		if len(e.SchemaValidationErrors) == 0 {
+			return false
+		}
+		for _, sve := range e.SchemaValidationErrors {
+			if !reasonIsJSLiteralPattern(sve.Reason) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func reasonIsJSLiteralPattern(reason string) bool {
+	const marker = "does not match pattern '"
+	i := strings.Index(reason, marker)
+	if i < 0 {
+		return false
+	}
+	rest := reason[i+len(marker):]
+	end := strings.IndexByte(rest, '\'')
+	if end < 0 {
+		return false
+	}
+	pattern := rest[:end]
+	return len(pattern) >= 2 && pattern[0] == '/' && pattern[len(pattern)-1] == '/'
+}
+
+func allDescriptivePattern(errs []*errors.ValidationError) bool {
+	if len(errs) == 0 {
+		return false
+	}
+	for _, e := range errs {
+		if len(e.SchemaValidationErrors) == 0 {
+			return false
+		}
+		for _, sve := range e.SchemaValidationErrors {
+			if !reasonIsDescriptivePattern(sve.Reason) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// reasonIsDescriptivePattern flags `pattern:` values written as prose, not regex
+// (e.g. `a-z, A-Z, 0-9, /, _, -`). Comma-space isn't a quantifier and isn't legal
+// elsewhere in a typical OpenAPI regex, so it's a reliable tell.
+func reasonIsDescriptivePattern(reason string) bool {
+	const marker = "does not match pattern '"
+	i := strings.Index(reason, marker)
+	if i < 0 {
+		return false
+	}
+	rest := reason[i+len(marker):]
+	end := strings.IndexByte(rest, '\'')
+	if end < 0 {
+		return false
+	}
+	pattern := rest[:end]
+	return strings.Contains(pattern, ", ")
+}
+
+// allUnsatisfiableSchema reports internally inconsistent schemas: a `required` name
+// that isn't in `properties` combined with `additionalProperties: false`.
 func allUnsatisfiableSchema(errs []*errors.ValidationError) bool {
 	if len(errs) == 0 {
 		return false
@@ -385,13 +566,6 @@ func allUnsatisfiableSchema(errs []*errors.ValidationError) bool {
 	return true
 }
 
-// schemaFailureIsUnsatisfiable returns true when the validator's
-// nested failure is the "missing required" or "additional property"
-// form for a key that the spec's schema declares in `required` but
-// not in `properties`, alongside `additionalProperties: false`.
-// Navigates the SchemaValidationFailure's ReferenceSchema (a YAML
-// snippet of the outer schema) via the KeywordLocation JSON pointer
-// to find the specific offending sub-schema before checking.
 func schemaFailureIsUnsatisfiable(sve *errors.SchemaValidationFailure) bool {
 	if sve == nil || sve.ReferenceSchema == "" {
 		return false
@@ -440,12 +614,7 @@ func schemaFailureIsUnsatisfiable(sve *errors.SchemaValidationFailure) bool {
 	return true
 }
 
-// trimKeywordSuffix drops the trailing schema-keyword segment from a
-// JSON pointer so it points at the containing schema rather than the
-// keyword (e.g. `.../stream/required` -> `.../stream`). The validator
-// always reports the failing keyword as the last segment; the schema
-// whose `required`/`additionalProperties` we want to inspect is its
-// parent.
+// trimKeywordSuffix points at the containing schema (`.../foo/required` -> `.../foo`).
 func trimKeywordSuffix(pointer string) string {
 	if i := strings.LastIndex(pointer, "/"); i > 0 {
 		return pointer[:i]
@@ -453,9 +622,6 @@ func trimKeywordSuffix(pointer string) string {
 	return ""
 }
 
-// resolveJSONPointer walks a YAML-decoded tree by an RFC 6901 pointer
-// (leading `/`, slash-separated tokens). Returns nil when any segment
-// can't be resolved.
 func resolveJSONPointer(root any, pointer string) any {
 	if pointer == "" {
 		return root
@@ -487,10 +653,6 @@ func resolveJSONPointer(root any, pointer string) any {
 	return cur
 }
 
-// extractPropertyName pulls a property name out of either of the two
-// failure reasons that pertain to the unsatisfiable schema check:
-// `missing property 'X'` and `additional properties 'X' not allowed`.
-// Returns "" if the reason has a different shape.
 func extractPropertyName(reason string) string {
 	for _, prefix := range []string{"missing property '", "additional properties '"} {
 		if idx := strings.Index(reason, prefix); idx >= 0 {
@@ -503,16 +665,8 @@ func extractPropertyName(reason string) string {
 	return ""
 }
 
-// allAmbiguousOneOf reports whether every validation failure is the
-// "oneOf matched more than one subschema" case. libopenapi-validator
-// surfaces this on the nested SchemaValidationErrors as `'oneOf'
-// failed, subschemas X, Y matched` (in contrast to `none matched`,
-// which is a real generator bug). Multiple matches mean the spec's
-// oneOf variants are not mutually exclusive, usually because the
-// variants don't declare `required` fields or
-// `additionalProperties: false`; no mock body can satisfy strict oneOf
-// semantics in that situation, so the middleware treats it as a
-// warning rather than a 500.
+// allAmbiguousOneOf reports failures where `oneOf` matched more than one subschema
+// (variants aren't mutually exclusive). "none matched" stays a real failure.
 func allAmbiguousOneOf(errs []*errors.ValidationError) bool {
 	if len(errs) == 0 {
 		return false
@@ -536,15 +690,9 @@ func isAmbiguousOneOfReason(reason string) bool {
 		!strings.Contains(reason, "none matched")
 }
 
-// allSchemaRenderFailure reports whether every validation failure is a
-// libopenapi-validator render or compile failure of the response
-// schema itself. These come from validator limitations (circular $ref
-// chains the validator can't unroll) or outright spec defects
-// (invalid `type:` values, malformed `$ref`s) that prevent the
-// validator from compiling the schema in the first place. Either way
-// mockzilla's generated body might be perfectly fine; the validator
-// just can't grade it. The middleware treats these as "validation
-// skipped" rather than surfacing them as 500s to the client.
+// allSchemaRenderFailure reports failures that are libopenapi-validator render or
+// compile errors on the response schema itself (circular $refs it can't unroll, or
+// spec defects). Treated as "validation skipped" rather than surfacing as 500.
 func allSchemaRenderFailure(errs []*errors.ValidationError) bool {
 	if len(errs) == 0 {
 		return false
@@ -563,9 +711,8 @@ func allSchemaRenderFailure(errs []*errors.ValidationError) bool {
 	return true
 }
 
-// snapshotBody reads the request body into memory and returns a fresh
-// reader so the request can be validated and then handed unchanged to
-// the next handler. Returns (nil, nil, nil) for empty bodies.
+// snapshotBody reads req.Body and returns the bytes plus a fresh reader so the
+// body can be validated and then handed on unchanged. Empty bodies return (nil, nil, nil).
 func snapshotBody(req *http.Request) ([]byte, io.ReadCloser, error) {
 	if req.Body == nil || req.Body == http.NoBody {
 		return nil, http.NoBody, nil
@@ -578,9 +725,7 @@ func snapshotBody(req *http.Request) ([]byte, io.ReadCloser, error) {
 	return body, io.NopCloser(bytes.NewReader(body)), nil
 }
 
-// validationErrorPayload is the JSON shape returned to clients on a
-// validation failure. Keep the surface small: a top-level message and
-// a list of validation-error details from libopenapi-validator.
+// validationErrorPayload is the JSON shape returned on a validation failure.
 type validationErrorPayload struct {
 	Error   string                    `json:"error"`
 	Details []*errors.ValidationError `json:"details,omitempty"`

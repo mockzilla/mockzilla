@@ -19,12 +19,8 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
-// Service is one discovered unit of work for portable mode. The folder
-// (or file) the user pointed at maps to exactly one Service per spec.
-//
-// The folder name is the service identity: no derivation, no
-// snake-casing, no map keys. That's the whole point of the layout:
-// what the user types is what they see on the mounted URL.
+// Service is one discovered unit of work for portable mode. The folder name is
+// the service identity verbatim; what the user types is what they see on the URL.
 type Service struct {
 	Name      string // folder name (or single-spec basename), preserved as-is
 	SpecPath  string // openapi.{yml,yaml,json}, possibly synthesized from static endpoint files
@@ -164,20 +160,11 @@ func resolveOne(arg string) ([]Service, error) {
 }
 
 // resolveDir handles the recognised directory shapes, in order:
-//
-//  0. A `.mockzilla.json` manifest at the root → trust it, build the
-//     service list directly from the declared entries.
-//
-//  1. `services/<name>/` subdir → multi-service from that subtree.
-//
-//  2. The dir has a `config.yml`, has static endpoints, or has exactly
-//     one top-level spec file: single-service folder, named after the
-//     dir basename. See resolveServiceDir for the spec / static /
-//     merge mode pick inside that one folder.
-//
-//  3. The dir has multiple top-level spec files (and none of the
-//     single-service signals above): "flat root" mode. Each spec
-//     becomes its own service named after its filename basename.
+//  0. `.mockzilla.json` manifest at the root: build services from declared entries.
+//  1. `services/<name>/` subdir: multi-service from that subtree.
+//  2. dir with `config.yml`, static endpoints, or exactly one top-level spec:
+//     single-service folder named after the dir basename.
+//  3. multiple top-level spec files: flat-root mode, one service per spec basename.
 //     An optional `context.yml` at the root applies to every service.
 func resolveDir(dir string) ([]Service, error) {
 	if services, err := resolveFromManifest(dir); err != nil {
@@ -247,19 +234,11 @@ func resolveServicesRoot(root string) ([]Service, error) {
 	return out, nil
 }
 
-// resolveServiceDir resolves a single service folder into a Service.
-//
-// Three modes, all handled uniformly:
-//
-//   - Spec only (folder has a *.{yml,yaml,json} but no `<…>/<method>/
-//     index.<ext>` files): the file is used as-is.
-//   - Static only (no spec file): a spec is synthesized from the
-//     static files.
-//   - Both (spec + at least one static file): the spec is parsed,
-//     static routes are overlaid on top: matching `(path, method)`
-//     entries override the spec's response, others are added. The spec
-//     file itself is also exposed at `GET /<filename>` as a literal
-//     asset, so it stays fetchable for documentation.
+// resolveServiceDir resolves a single service folder into a Service. Three modes:
+//   - spec only: the file is used as-is.
+//   - static only: a spec is synthesized from the static files.
+//   - both: the spec is parsed and static routes overlaid (matching `(path, method)`
+//     overrides the spec response; the spec file stays fetchable at `GET /<filename>`).
 func resolveServiceDir(dir, name string) (Service, error) {
 	svc := Service{Name: name, ConfigDir: dir}
 
@@ -383,29 +362,17 @@ func writeTempSpec(name string, body []byte) (string, error) {
 	return path, nil
 }
 
-// findAllSpecsInDir returns every top-level non-reserved spec file in
-// the directory, sorted alphabetically. Used by flat-root mode where
-// each spec becomes its own service, and by findSpecInDir to pick the
-// canonical spec in a single-service folder.
-//
-// Reserved names are excluded: config.yml, context.yml, app.yml, and
-// anything named `index.<ext>` (those are static endpoint files, not
-// OpenAPI specs).
-// inferServiceName picks a name for a single-folder invocation by
-// looking inside the folder, never at the folder's own basename.
-//
-// In priority order:
-//
+// findAllSpecsInDir returns every top-level non-reserved spec file in the dir,
+// sorted alphabetically. Reserved names (config.yml, context.yml, app.yml,
+// `index.<ext>`) are excluded.
+
+// inferServiceName picks a name for a single-folder invocation by looking inside
+// the folder (never the folder's own basename). In order:
 //  1. The `name:` field of a top-level config.yml.
-//  2. The basename of a single non-generic spec file (any *.{yml,yaml,
-//     json} other than `openapi.*`, which is too generic to convey
-//     identity).
+//  2. The basename of a single non-generic spec file (anything but `openapi.*`).
 //
-// If neither signal is present, we return an empty string. Empty Name
-// is a first-class state across the runtime: the service mounts at
-// `/`, and the UI surfaces it as `.root` (api.RootServiceName). This
-// matches the user intent of "I just want to serve this folder, don't
-// care about a prefix" without leaking the cwd's basename into URLs.
+// Empty string is a first-class state: the service mounts at `/` and the UI
+// surfaces it as `.root` (api.RootServiceName).
 func inferServiceName(dir string, hasConfigFile bool) string {
 	if hasConfigFile {
 		if name := readConfigName(dir); name != "" {
@@ -533,10 +500,9 @@ var genericSpecBases = map[string]bool{
 	"schema":  true,
 }
 
-// serviceNameFromURL picks a service name for a remote spec. Prefer the
-// filename basename when it's something specific (e.g. `petstore.yml`),
-// otherwise fall back to the URL host (e.g. `https://api.example.com/openapi.json`
-// → "api.example.com" → "api_example_com").
+// serviceNameFromURL picks a service name for a remote spec. Prefer the filename
+// basename when specific (e.g. `petstore.yml`); otherwise fall back to the URL
+// host with dots replaced by underscores.
 func serviceNameFromURL(rawURL, downloadedPath string) string {
 	base := serviceNameFromFile(downloadedPath)
 	if !genericSpecBases[strings.ToLower(base)] {

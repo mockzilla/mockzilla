@@ -5,7 +5,7 @@ go 1.25.3
 require (
 	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/caarlos0/env/v11 v11.4.0
-	github.com/doordash-oss/oapi-codegen-dd/v3 v3.75.4
+	github.com/doordash-oss/oapi-codegen-dd/v3 v3.75.5
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/go-playground/validator/v10 v10.30.1
@@ -51,5 +51,3 @@ require (
 	golang.org/x/tools v0.42.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/doordash-oss/oapi-codegen-dd/v3 => /Users/ig/Projects/oapi-codegen-oss

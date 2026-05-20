@@ -1617,33 +1617,33 @@ func TestWithDefaults_History(t *testing.T) {
 func TestValidateConfig_Defaults(t *testing.T) {
 	boolPtr := func(b bool) *bool { return &b }
 
-	t.Run("nil config: request on, response off", func(t *testing.T) {
+	t.Run("nil config: both off", func(t *testing.T) {
 		var v *ValidateConfig
-		assert.True(t, v.RequestEnabled())
+		assert.False(t, v.RequestEnabled())
 		assert.False(t, v.ResponseEnabled())
 	})
 
 	t.Run("empty config: same as nil", func(t *testing.T) {
 		v := &ValidateConfig{}
-		assert.True(t, v.RequestEnabled())
-		assert.False(t, v.ResponseEnabled())
-	})
-
-	t.Run("explicit request=false disables request", func(t *testing.T) {
-		v := &ValidateConfig{Request: boolPtr(false)}
 		assert.False(t, v.RequestEnabled())
 		assert.False(t, v.ResponseEnabled())
 	})
 
-	t.Run("explicit response=true enables response", func(t *testing.T) {
-		v := &ValidateConfig{Response: boolPtr(true)}
+	t.Run("explicit request=true enables request", func(t *testing.T) {
+		v := &ValidateConfig{Request: boolPtr(true)}
 		assert.True(t, v.RequestEnabled())
+		assert.False(t, v.ResponseEnabled())
+	})
+
+	t.Run("explicit response=true enables response, request stays off", func(t *testing.T) {
+		v := &ValidateConfig{Response: boolPtr(true)}
+		assert.False(t, v.RequestEnabled())
 		assert.True(t, v.ResponseEnabled())
 	})
 
 	t.Run("both explicit", func(t *testing.T) {
-		v := &ValidateConfig{Request: boolPtr(false), Response: boolPtr(true)}
-		assert.False(t, v.RequestEnabled())
+		v := &ValidateConfig{Request: boolPtr(true), Response: boolPtr(true)}
+		assert.True(t, v.RequestEnabled())
 		assert.True(t, v.ResponseEnabled())
 	})
 }

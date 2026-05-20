@@ -72,4 +72,9 @@ type Schema struct {
 	// When set, the generator should return this content directly instead of generating.
 	// This is used for static services where responses are pre-defined files.
 	StaticContent string `yaml:"-" json:"-"`
+
+	// IsNull is true when the spec declares `type: "null"`. The
+	// generator emits a JSON null instead of falling back to a
+	// placeholder string.
+	IsNull bool `yaml:"-" json:"-"`
 }

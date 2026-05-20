@@ -96,23 +96,31 @@ func TestCreateValidationMiddleware(t *testing.T) {
 		wantBody   string // substring match
 	}{
 		{
-			name:       "valid request passes through (default: req on, resp off)",
+			name:       "nil config: both validations off, invalid request passes through",
 			cfg:        nil,
+			handler:    validHandler,
+			reqBody:    `{}`, // would fail request validation if it ran
+			wantStatus: http.StatusOK,
+			wantBody:   `"id":1`,
+		},
+		{
+			name:       "request:true catches invalid request with 400",
+			cfg:        &config.ValidateConfig{Request: boolPtr(true)},
+			handler:    validHandler,
+			reqBody:    `{}`,
+			wantStatus: http.StatusBadRequest,
+			wantBody:   `request validation failed`,
+		},
+		{
+			name:       "request:true on valid request passes through",
+			cfg:        &config.ValidateConfig{Request: boolPtr(true)},
 			handler:    validHandler,
 			reqBody:    `{"name":"rex"}`,
 			wantStatus: http.StatusOK,
 			wantBody:   `"id":1`,
 		},
 		{
-			name:       "invalid request body returns 400 by default",
-			cfg:        nil,
-			handler:    validHandler,
-			reqBody:    `{}`, // missing required name
-			wantStatus: http.StatusBadRequest,
-			wantBody:   `request validation failed`,
-		},
-		{
-			name:       "invalid response body passes through by default (response opt-in)",
+			name:       "nil config: invalid response body passes through (response off by default)",
 			cfg:        nil,
 			handler:    invalidHandler,
 			reqBody:    `{"name":"rex"}`,
@@ -128,14 +136,6 @@ func TestCreateValidationMiddleware(t *testing.T) {
 			wantBody:   `response validation failed`,
 		},
 		{
-			name:       "request:false skips request validation",
-			cfg:        &config.ValidateConfig{Request: boolPtr(false)},
-			handler:    validHandler,
-			reqBody:    `{}`, // would normally fail
-			wantStatus: http.StatusOK,
-			wantBody:   `"id":1`,
-		},
-		{
 			name:       "response:false explicit (matches default) — invalid body still passes",
 			cfg:        &config.ValidateConfig{Response: boolPtr(false)},
 			handler:    invalidHandler,
@@ -144,7 +144,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 			wantBody:   `"name":"rex"`,
 		},
 		{
-			name:       "both disabled skips everything",
+			name:       "both explicit false skips everything",
 			cfg:        &config.ValidateConfig{Request: boolPtr(false), Response: boolPtr(false)},
 			handler:    invalidHandler,
 			reqBody:    `{}`,
@@ -245,7 +245,11 @@ func TestValidationErrorPayload_Encoding(t *testing.T) {
 	// the detail list, with libopenapi-validator's ValidationError
 	// fields preserved.
 	v := newValidatorFromSpec(t, validateTestSpec)
-	params := newTestParams(nil)
+	boolTrue := true
+	params := newTestParams(&config.ServiceConfig{
+		Name:     "test",
+		Validate: &config.ValidateConfig{Request: &boolTrue},
+	})
 	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -438,6 +442,76 @@ func TestResolveJSONPointer(t *testing.T) {
 	})
 }
 
+func TestAllContentTypeParamsOnly(t *testing.T) {
+	paramsOnly := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "contentType",
+		Message:           "operation response content type 'application/json' does not exist",
+		HowToFix:          "Use one of the 1 supported types for this operation: application/json; charset=utf-8",
+	}
+	differentMediaType := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "contentType",
+		Message:           "operation response content type 'application/json' does not exist",
+		HowToFix:          "Use one of the 1 supported types for this operation: text/html",
+	}
+	wildcard := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "contentType",
+		Message:           "operation response content type 'application/json' does not exist",
+		HowToFix:          "Use one of the 1 supported types for this operation: */*",
+	}
+	other := &errors.ValidationError{ValidationType: "response", ValidationSubType: "schema"}
+
+	t.Run("empty slice", func(t *testing.T) {
+		assert.False(t, allContentTypeParamsOnly(nil))
+	})
+	t.Run("only differs by parameters", func(t *testing.T) {
+		assert.True(t, allContentTypeParamsOnly([]*errors.ValidationError{paramsOnly}))
+	})
+	t.Run("different media type not classified", func(t *testing.T) {
+		assert.False(t, allContentTypeParamsOnly([]*errors.ValidationError{differentMediaType}))
+	})
+	t.Run("wildcard not classified (separate path)", func(t *testing.T) {
+		assert.False(t, allContentTypeParamsOnly([]*errors.ValidationError{wildcard}))
+	})
+	t.Run("non-contentType error", func(t *testing.T) {
+		assert.False(t, allContentTypeParamsOnly([]*errors.ValidationError{other}))
+	})
+}
+
+func TestAllWildcardContentType(t *testing.T) {
+	wildcard := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "contentType",
+		Message:           "operation response content type 'application/json' does not exist",
+		HowToFix:          "Use one of the 1 supported types for this operation: */*",
+	}
+	concrete := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "contentType",
+		Message:           "operation response content type 'application/xml' does not exist",
+		HowToFix:          "Use one of the 1 supported types for this operation: application/json",
+	}
+	other := &errors.ValidationError{
+		ValidationType:    "response",
+		ValidationSubType: "schema",
+	}
+
+	t.Run("empty slice", func(t *testing.T) {
+		assert.False(t, allWildcardContentType(nil))
+	})
+	t.Run("wildcard mismatch", func(t *testing.T) {
+		assert.True(t, allWildcardContentType([]*errors.ValidationError{wildcard}))
+	})
+	t.Run("concrete content type mismatch is not classified", func(t *testing.T) {
+		assert.False(t, allWildcardContentType([]*errors.ValidationError{concrete}))
+	})
+	t.Run("non-contentType error", func(t *testing.T) {
+		assert.False(t, allWildcardContentType([]*errors.ValidationError{other}))
+	})
+}
+
 func TestValidatorCannotLookup(t *testing.T) {
 	cases := []struct {
 		name string
@@ -450,6 +524,8 @@ func TestValidatorCannotLookup(t *testing.T) {
 		{"discriminator suffix", "/foo/{id}#qparam", true},
 		{"space in literal segment", "/Your Pull DOC Request API Path", true},
 		{"reserved char in segment", "/foo/bar baz", true},
+		{"compound placeholder segment", "/media/{id}.{extension}", true},
+		{"placeholder with literal suffix", "/files/{name}-{ext}", true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

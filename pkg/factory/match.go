@@ -28,11 +28,8 @@ func newPathMatcher(routes []typedef.RouteInfo) *pathMatcher {
 	for _, r := range routes {
 		segs := splitPath(r.Path)
 
-		// Some specs (notably AWS) suffix path keys with `#qparam1&qparam2`
-		// to disambiguate operations that share a base path but differ in
-		// required query parameters. The suffix is a spec-key convention,
-		// never part of an actual URL; strip it from the segment so the
-		// pattern still matches real requests against the same base path.
+		// Strip the AWS-style `#qparam` discriminator suffix from spec
+		// path keys; it's never part of a real request URL.
 		for i, s := range segs {
 			if idx := strings.IndexByte(s, '#'); idx >= 0 {
 				segs[i] = s[:idx]
@@ -64,19 +61,10 @@ func newPathMatcher(routes []typedef.RouteInfo) *pathMatcher {
 	return &pathMatcher{patterns: patterns}
 }
 
-// Match finds the spec path pattern that matches the given concrete
-// path and method. Returns the spec path and true if found, or empty
-// string and false otherwise.
-//
-// When several patterns match, the one with the fewest wildcards wins
-// (most specific). Within the same wildcard count, the last pattern in
-// iteration order wins. The last-wins tie-break aligns mockzilla's
-// runtime routing with libopenapi-validator's radix tree, which stores
-// only the most recently inserted leaf at any given parameter slot:
-// without alignment, specs that declare two operations on identical
-// URL shapes (e.g. pubsub's `/v1/{project}/snapshots` and
-// `/v1/{topic}/snapshots`) would have mockzilla generate the response
-// for one and the validator check it against the other.
+// Match returns the spec path that matches the concrete request. Fewer
+// wildcards win; ties go to the last-inserted pattern so routing aligns
+// with libopenapi-validator's radix tree, which keeps only the most
+// recent leaf at any parameter slot.
 func (m *pathMatcher) Match(path, method string) (string, bool) {
 	method = strings.ToUpper(method)
 	segs := splitPath(path)

@@ -68,7 +68,15 @@ test-integration:
 
 .PHONY: test-portable
 test-portable:
-	@SPECS="$(or $(SPECS),$(filter-out $@,$(MAKECMDGOALS)))" scripts/test-portable.sh
+	@bash -c 'set -o pipefail && SPEC="$(SPEC)" SPECS="$(or $(SPECS),$(filter-out $@,$(MAKECMDGOALS)))" go test -v -run="^TestPortableIntegration$$" -timeout=0 -count=1 . 2>&1 | grep -v "^=== RUN"'
+# Usage: SPECS=3.0/google make test-portable
+# Usage: SPECS="spec1.yml spec2.yml" make test-portable
+# Usage: MAX_CONCURRENCY=8 make test-portable
+# Usage: BATCH_SIZE_MB=4 make test-portable          # smaller batches if OOM persists
+# Usage: BATCH_TIMEOUT=3m make test-portable         # tighten per-batch kill (default 5m)
+# Usage: CLEAR_CACHE=1 make test-portable
+# Outer test has no timeout; each batch is bounded by BATCH_TIMEOUT so a
+# pathological spec kills its batch and the rest of the run continues.
 
 .PHONY: test-with-check-coverage
 test-with-check-coverage: test

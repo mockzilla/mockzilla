@@ -106,12 +106,9 @@ func run() int {
 		return portable.Run(args)
 	}
 
-	// At this point args[0] (if any) is neither a known subcommand
-	// nor a portable input (spec / URL / package / portable dir).
-	// App mode only accepts no positional arg (serve CWD) or a
-	// directory. A bare unrecognised word — typically a subcommand
-	// from a newer CLI that this binary doesn't know — must error
-	// rather than silently boot the HTTP server.
+	// args[0] is neither a known subcommand nor a portable input. App mode
+	// accepts only no positional arg or a directory; an unrecognised word
+	// (likely a newer-CLI subcommand) must error, not silently boot the server.
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		if info, err := os.Stat(args[0]); err != nil || !info.IsDir() {
 			fmt.Fprintf(os.Stderr, "Error: unknown command or invalid path: %q\n\n", args[0])

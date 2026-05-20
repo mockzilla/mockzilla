@@ -61,23 +61,14 @@ func shouldSkipDir(name string) bool {
 }
 
 // scanStaticFiles scans a service folder for static-mode endpoint files.
-// Three contributions, in order of specificity:
+// Routes are derived from path shape:
+//   - `<path>/<method>/index.<ext>` becomes `<METHOD> /<path>` (non-GET).
+//   - `<path>/index.<ext>` becomes `GET /<path>`.
+//   - top-level `index.<ext>` becomes `GET /`; other top-level files become
+//     `GET /<filename>` returning literal content.
 //
-//  1. `<path>/<method>/index.<ext>` (parent of the index file is a
-//     lowercase HTTP method) → `<METHOD> /<path>`. Use this form when
-//     you need non-GET endpoints.
-//
-//  2. `<path>/index.<ext>` (parent isn't a method) → `GET /<path>`.
-//     Default for the common "drop a fixture at a URL" case.
-//
-//  3. A top-level `index.<ext>` at the service folder root →
-//     `GET /` (the service's root endpoint). Any other top-level
-//     non-reserved file with a supported extension → `GET /<filename>`
-//     returning the literal content (lets the spec file be fetchable
-//     at its own path when present alongside static endpoints).
-//
-// Files with non-supported extensions are ignored. Hidden and
-// well-known noise directories (.git, node_modules, …) are skipped.
+// Files with unsupported extensions are ignored. Hidden and well-known noise
+// directories (.git, node_modules, ...) are skipped.
 func scanStaticFiles(staticDir string) ([]Route, error) {
 	var routes []Route
 
@@ -154,9 +145,8 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 			urlPath = "/" + strings.Join(pathSegments, "/")
 		}
 
-		// Non-`index` filenames keep their name in the URL (e.g.
-		// `users/admin.json` → /users/admin.json). Useful for serving
-		// multiple fixtures under the same path.
+		// Non-`index` filenames keep their name in the URL
+		// (e.g. `users/admin.json` becomes `/users/admin.json`).
 		if stem != "index" {
 			if urlPath == "/" {
 				urlPath = "/" + info.Name()

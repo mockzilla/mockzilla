@@ -114,8 +114,17 @@ func hasCorrectSchemaValue(ctx *ReplaceContext, value any) bool {
 			_, ok = types.ToInt64(value)
 			return ok
 		}
-		v, err := time.Parse("2006-01-02T15:04:05.000Z", str)
-		return err == nil && !v.IsZero()
+		for _, layout := range []string{
+			"2006-01-02T15:04:05.000Z",
+			time.RFC3339Nano,
+			time.RFC3339,
+			"2006-01-02T15:04:05",
+		} {
+			if v, err := time.Parse(layout, str); err == nil && !v.IsZero() {
+				return true
+			}
+		}
+		return false
 	case "email":
 		str, ok := value.(string)
 		if !ok {
@@ -436,7 +445,14 @@ func replaceFromSchemaFormat(ctx *ReplaceContext) any {
 	case "date":
 		return ctx.faker.Time().Time(time.Now()).Format("2006-01-02")
 	case "date-time", "datetime":
-		return ctx.faker.Time().Time(time.Now()).Format("2006-01-02T15:04:05.000Z")
+		t := ctx.faker.Time().Time(time.Now())
+		// Some specs pin date-time length to 25 (the offset form
+		// `2006-01-02T15:04:05+00:00`) rather than the Z form (24 chars).
+		// When the schema demands at least 25, emit the offset form.
+		if s.MinLength != nil && *s.MinLength >= 25 {
+			return t.Format("2006-01-02T15:04:05-07:00")
+		}
+		return t.Format("2006-01-02T15:04:05.000Z")
 	case "email":
 		return ctx.faker.Internet().Email()
 	case "uuid":
@@ -501,7 +517,69 @@ func replaceFromSchemaFormat(ctx *ReplaceContext) any {
 	case "ipv6":
 		return ctx.faker.Internet().Ipv6()
 	}
+	// Custom `*_country_code_*` formats expect ISO 3166-1 alpha-2 but don't always
+	// set maxLength; respect the format hint.
+	if strings.Contains(strings.ToLower(s.Format), "country_code") {
+		return ctx.faker.Address().CountryCode()
+	}
 	return nil
+}
+
+// pickEnumMatchingConstraints returns an enum key that satisfies the schema's
+// pattern and length constraints. Returns "" when no enum key qualifies.
+func pickEnumMatchingConstraints(s *schema.Schema, enums map[string]bool) string {
+	var compat []string
+	for k := range enums {
+		if s.MinLength != nil && int64(len(k)) < *s.MinLength {
+			continue
+		}
+		if s.MaxLength != nil && int64(len(k)) > *s.MaxLength {
+			continue
+		}
+		if s.Pattern != "" {
+			if matched, err := regexp.MatchString(s.Pattern, k); err != nil || !matched {
+				continue
+			}
+		}
+		compat = append(compat, k)
+	}
+
+	if len(compat) == 0 {
+		return ""
+	}
+
+	return compat[rand.Intn(len(compat))]
+}
+
+// enumValuesMatchingConstraints filters string-typed enum values to those
+// that also satisfy the schema's pattern and length constraints. Returns
+// nil for non-string schemas so the caller can use the full enum set.
+func enumValuesMatchingConstraints(s *schema.Schema, enums []any) []any {
+	if s == nil || s.Type != types.TypeString {
+		return enums
+	}
+
+	var compat []any
+	for _, v := range enums {
+		str, ok := v.(string)
+		if !ok {
+			str = fmt.Sprintf("%v", v)
+		}
+		if s.MinLength != nil && int64(len(str)) < *s.MinLength {
+			continue
+		}
+		if s.MaxLength != nil && int64(len(str)) > *s.MaxLength {
+			continue
+		}
+		if s.Pattern != "" {
+			if matched, err := regexp.MatchString(s.Pattern, str); err != nil || !matched {
+				continue
+			}
+		}
+		compat = append(compat, v)
+	}
+
+	return compat
 }
 
 // replaceFromSchemaPrimitive is a replacer that replaces values from the schema primitive.
@@ -523,6 +601,9 @@ func replaceFromSchemaPrimitive(ctx *ReplaceContext) any {
 			}
 		}
 		if len(nonNilEnums) > 0 {
+			if compat := enumValuesMatchingConstraints(s, nonNilEnums); len(compat) > 0 {
+				return types.GetRandomSliceValue(compat)
+			}
 			return types.GetRandomSliceValue(nonNilEnums)
 		}
 	}
@@ -563,10 +644,33 @@ func replaceFromSchemaPrimitive(ctx *ReplaceContext) any {
 // replaceFromSchemaExample is a replacer that replaces values from the schema example.
 func replaceFromSchemaExample(ctx *ReplaceContext) any {
 	s, ok := ctx.schema.(*schema.Schema)
-	if !ok || s == nil {
+	if !ok || s == nil || s.Example == nil {
+		return nil
+	}
+	// allOf merges can leave an example from a non-canonical branch
+	// while the enum lives on the typed branch; returning a non-enum
+	// example would lose the constraint. Fall through so the primitive
+	// replacer picks a valid enum value.
+	if len(s.Enum) > 0 && !exampleSatisfiesEnum(s.Example, s.Enum) {
 		return nil
 	}
 	return s.Example
+}
+
+func exampleSatisfiesEnum(example any, enum []any) bool {
+	if example == nil {
+		return false
+	}
+	exStr := fmt.Sprintf("%v", example)
+	for _, v := range enum {
+		if v == nil {
+			continue
+		}
+		if fmt.Sprintf("%v", v) == exStr {
+			return true
+		}
+	}
+	return false
 }
 
 // applySchemaConstraints applies schema constraints to the value.
@@ -642,16 +746,19 @@ func applySchemaStringConstraints(schema *schema.Schema, value string) any {
 	}
 
 	if len(expectedEnums) > 0 && !expectedEnums[value] {
+		if pick := pickEnumMatchingConstraints(schema, expectedEnums); pick != "" {
+			return pick
+		}
 		return types.GetRandomKeyFromMap(expectedEnums)
 	}
 
-	// When the spec declares a regex pattern and the current value
-	// (fake word, context lookup, etc.) doesn't satisfy it, try to
-	// generate a fresh value the validator will accept. The cheap
-	// character-class generator handles fixed-length identifiers
-	// (commit SHAs, slugs, tag IDs); the known-pattern fallback
-	// catches structurally complex but well-known shapes (IPv4, CIDR,
-	// UUID). Anything else falls through to the original padding path.
+	// An in-enum value is canonical even if pattern/length disagree (e.g.
+	// `enum: [mentionedUsers]` paired with `pattern: ^[A-Za-z]{1,12}$`).
+	// The spec's enum is more specific than pattern; honour it.
+	if len(expectedEnums) > 0 && expectedEnums[value] {
+		return value
+	}
+
 	if schema.Pattern != "" {
 		if matched, err := regexp.MatchString(schema.Pattern, value); err == nil && !matched {
 			length := len(value)
@@ -670,6 +777,12 @@ func applySchemaStringConstraints(schema *schema.Schema, value string) any {
 			if v, ok := generateForKnownPattern(schema.Pattern); ok {
 				return v
 			}
+			if isJSRegexLiteralPattern(schema.Pattern) || patternHasInternalAnchors(schema.Pattern) {
+				return NULL
+			}
+			if patternAllowsEmptyString(schema.Pattern) {
+				return ""
+			}
 		}
 	}
 
@@ -684,6 +797,21 @@ func applySchemaStringConstraints(schema *schema.Schema, value string) any {
 	}
 
 	return value
+}
+
+func snapToMultipleOf(value float64, s *schema.Schema, minVal, maxVal float64, hasMin, hasMax bool) float64 {
+	if s == nil || s.MultipleOf == nil || *s.MultipleOf == 0 {
+		return value
+	}
+	step := *s.MultipleOf
+	snapped := float64(int64(value/step)) * step
+	if hasMin && snapped < minVal {
+		snapped += step
+	}
+	if hasMax && snapped > maxVal {
+		snapped -= step
+	}
+	return snapped
 }
 
 // isIntegerSchema returns true if the schema represents an integer value.
@@ -820,13 +948,13 @@ func applySchemaNumberConstraints(schema *schema.Schema, value float64) float64 
 				return float64(minInt)
 			}
 			randomValue := minInt + rand.Int63n(rangeSize)
-			return float64(randomValue)
+			return snapToMultipleOf(float64(randomValue), schema, minVal, maxVal, hasMin, hasMax)
 		}
 
 		// For floats, generate in [minVal, maxVal)
 		rangeSize := maxVal - minVal
 		randomValue := minVal + (rand.Float64() * rangeSize)
-		return randomValue
+		return snapToMultipleOf(randomValue, schema, minVal, maxVal, hasMin, hasMax)
 	}
 
 	// Avoid returning 0 - validators treat 0 as zero-value and fail required checks

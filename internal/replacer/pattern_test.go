@@ -77,6 +77,20 @@ func TestGenerateForPattern(t *testing.T) {
 			ok:      true,
 		},
 		{
+			name:    "shorthand \\d without brackets",
+			pattern: `^\d{6}$`,
+			length:  6,
+			want:    `^\d{6}$`,
+			ok:      true,
+		},
+		{
+			name:    "shorthand \\w with quantifier",
+			pattern: `^\w+$`,
+			length:  8,
+			want:    `^\w{8}$`,
+			ok:      true,
+		},
+		{
 			name:    "literal prefix before class",
 			pattern: "tagValues/[0-9]+",
 			length:  14,
@@ -208,6 +222,90 @@ func TestGenerateForKnownPattern(t *testing.T) {
 			ok:      true,
 		},
 		{
+			name:    "US-style slash date MM/DD/YYYY",
+			pattern: `(?:[0-9]{1,2})/([0-9]{1,2})/([0-9]{4})`,
+			want:    `^\d{1,2}/\d{1,2}/\d{4}$`,
+			ok:      true,
+		},
+		{
+			name:    "Salesforce-style 15/18 char ID",
+			pattern: `^[a-zA-Z0-9]{15}|[a-zA-Z0-9]{18}$`,
+			want:    `^[a-zA-Z0-9]+$`,
+			ok:      true,
+		},
+		{
+			name:    "E.164 phone number",
+			pattern: `^\+?[1-9]\d{1,14}$`,
+			want:    `^\+?[1-9]\d+$`,
+			ok:      true,
+		},
+		{
+			name:    "clock time HH:MM:SS",
+			pattern: `^([01]\d|2[0-3]):[0-5]\d:[0-5]\d$`,
+			want:    `^[0-2]\d:[0-5]\d:[0-5]\d$`,
+			ok:      true,
+		},
+		{
+			name:    "clock time with optional MM:SS / HH:MM:SS",
+			pattern: `^(?:(?:([01]?\d|2[0-3]):)?([0-5]?\d):)?([0-5]?\d)$`,
+			want:    `^\d{1,2}(?::\d{1,2})*$`,
+			ok:      true,
+		},
+		{
+			name:    "clock time HH:MM only",
+			pattern: `^([01]\d|2[0-3]):[0-5]\d$`,
+			want:    `^[0-2]\d:[0-5]\d$`,
+			ok:      true,
+		},
+		{
+			name:    "literal alternation used as enum",
+			pattern: `ECOMMERCE|MOTO|IN_STORE|TELESALES`,
+			want:    `^(?:ECOMMERCE|MOTO|IN_STORE|TELESALES)$`,
+			ok:      true,
+		},
+		{
+			name:    "anchored literal alternation",
+			pattern: `^(foo|bar|baz)$`,
+			want:    `^(?:foo|bar|baz)$`,
+			ok:      true,
+		},
+		{
+			name:    "single literal anchor (pattern-as-const)",
+			pattern: `^warning$`,
+			want:    `^warning$`,
+			ok:      true,
+		},
+		{
+			name:    "single literal anchor with slash",
+			pattern: `^/$`,
+			want:    `^/$`,
+			ok:      true,
+		},
+		{
+			name:    "SemVer with optional pre-release and build",
+			pattern: `^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$`,
+			want:    `^\d+\.\d+\.\d+$`,
+			ok:      true,
+		},
+		{
+			name:    "versioned URL with /v[0-1] suffix",
+			pattern: `.+/v[0-1](\.[0-9]+)*/?$`,
+			want:    `^https?://.+/v[0-1](\.\d+)?/?$`,
+			ok:      true,
+		},
+		{
+			name:    "bounded decimal string",
+			pattern: `^\d{0,13}(?:\.\d{0,2})?$`,
+			want:    `^\d+(\.\d+)?$`,
+			ok:      true,
+		},
+		{
+			name:    "alternation with metacharacter matches via fallback generator",
+			pattern: `^(foo|\d+)$`,
+			want:    `^(foo|\d+)$`,
+			ok:      true,
+		},
+		{
 			name:    "unrelated literal falls through",
 			pattern: `^foo-bar-[0-9]+$`,
 			ok:      false,
@@ -229,6 +327,119 @@ func TestGenerateForKnownPattern(t *testing.T) {
 			specMatch, err := regexp.MatchString(tc.pattern, got)
 			assert.NoError(t, err)
 			assert.True(t, specMatch, "result %q should satisfy spec pattern %q", got, tc.pattern)
+		})
+	}
+}
+
+func TestGenerateForPatternMultiAtom(t *testing.T) {
+	cases := []struct {
+		name    string
+		pattern string
+	}{
+		{"slack user id", `^[UW][A-Z0-9]{2,}$`},
+		{"slack timestamp", `^\d{10}\.\d{6}$`},
+		{"prefix and digits", `^foo-bar-[a-z]+\.\d{2}$`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := generateForPattern(tc.pattern, 10)
+			assert.True(t, ok, "should generate for %q", tc.pattern)
+			matched, err := regexp.MatchString(tc.pattern, got)
+			assert.NoError(t, err)
+			assert.True(t, matched, "%q should match %q", got, tc.pattern)
+		})
+	}
+}
+
+func TestGenerateForPatternRejectsLeakedSpecialChars(t *testing.T) {
+	// The single-class regex would accept `(A` as prefix and `)?` as suffix,
+	// producing `(AQ)?` which doesn't satisfy the actual pattern. The
+	// post-generation match check must reject any value that contains raw
+	// `(` or `)` even if a generator path emits them.
+	pattern := `^(A[A-Z0-9]{1,})?$`
+	for i := 0; i < 50; i++ {
+		got, ok := generateForPattern(pattern, 10)
+		if !ok {
+			continue
+		}
+		assert.NotContains(t, got, "(", "value %q must not contain raw `(`", got)
+		assert.NotContains(t, got, ")", "value %q must not contain raw `)`", got)
+	}
+}
+
+func TestGenerateForAlternationPattern(t *testing.T) {
+	patterns := []string{
+		`^((\d{3}\.\d{3}\.\d{3}\-\d{2})|(\d{11})|(\d{2}\.\d{3}\.\d{3}\/\d{4}\-\d{2})|(\d{14}))$`,
+		`^\d{1,20}$|^\d{1,19}-\d{1}$`,
+	}
+	for _, p := range patterns {
+		t.Run(p, func(t *testing.T) {
+			got, ok := generateForPattern(p, 10)
+			assert.True(t, ok, "should generate for %q", p)
+			matched, err := regexp.MatchString(p, got)
+			assert.NoError(t, err)
+			assert.True(t, matched, "%q should match %q", got, p)
+		})
+	}
+}
+
+func TestPatternHasInternalAnchors(t *testing.T) {
+	cases := []struct {
+		pattern string
+		want    bool
+	}{
+		{`ˆ^\d{1,8}$`, true},
+		{`ˆ^\d{4}(\-\d{1})?$`, true},
+		{`^[A-Z]+$`, false},
+		{`[^a-z]+`, false},
+		{`\$10`, false},
+		{`^foo$bar$`, true},
+		// alternation: at least one branch satisfiable means overall is.
+		{`ˆ^\d+$|^\d+$`, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.pattern, func(t *testing.T) {
+			assert.Equal(t, tc.want, patternHasInternalAnchors(tc.pattern))
+		})
+	}
+}
+
+func TestPatternAllowsEmptyString(t *testing.T) {
+	cases := []struct {
+		pattern string
+		want    bool
+	}{
+		{`^(A[A-Z0-9]{1,})?$`, true},
+		{`^[A-Z]*$`, true},
+		{``, false},
+		{`^[A-Z]+$`, false},
+		{`^\d{10}$`, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.pattern, func(t *testing.T) {
+			assert.Equal(t, tc.want, patternAllowsEmptyString(tc.pattern))
+		})
+	}
+}
+
+func TestIsJSRegexLiteralPattern(t *testing.T) {
+	cases := []struct {
+		pattern string
+		want    bool
+	}{
+		{"/^[0-9]{5}$/i", true},
+		{"/abc/i", true},
+		{"/abc/gi", true},
+		{"/.+$/m", true},
+		{"^[0-9]{5}$", false},
+		{"^/.+/$", false},
+		{"/abc", false},
+		{"/abc/", false},
+		{"", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.pattern, func(t *testing.T) {
+			assert.Equal(t, tc.want, isJSRegexLiteralPattern(tc.pattern))
 		})
 	}
 }

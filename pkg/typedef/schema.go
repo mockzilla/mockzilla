@@ -10,6 +10,7 @@ import (
 	"github.com/mockzilla/mockzilla/v2/internal/types"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
+	"go.yaml.in/yaml/v4"
 )
 
 type schemaContext struct {
@@ -17,18 +18,14 @@ type schemaContext struct {
 	depthTrack        map[string]int
 	maxRecursionDepth int
 
-	// expandingUnions tracks union types currently being expanded.
-	// This is used to detect circular references through allOf.
-	// For example: CounterPartyResponse -> VendorDetailsResponse -> (allOf) -> CounterPartyResponse
+	// Tracks union types mid-expansion so circular references through allOf can be detected.
 	expandingUnions map[string]bool
 
-	// schemaToTypeName is a reverse lookup from schema pointer to type name.
-	// This avoids O(n) lookup in tdLookUp for every schema.
+	// Reverse lookup from schema pointer to type name; avoids O(n) tdLookUp scans.
 	schemaToTypeName map[uintptr]string
 }
 
 func newSchemaFromGoSchema(goSchema *codegen.GoSchema, tdLookUp map[string]*codegen.TypeDefinition, maxRecursionDepth int) *schema.Schema {
-	// Build reverse lookup once
 	schemaToTypeName := make(map[uintptr]string, len(tdLookUp))
 	for name, td := range tdLookUp {
 		ptr := uintptr(unsafe.Pointer(&td.Schema))
@@ -48,34 +45,21 @@ func newSchemaFromGoSchema(goSchema *codegen.GoSchema, tdLookUp map[string]*code
 func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[string]*codegen.TypeDefinition, ctx *schemaContext) *schema.Schema {
 	key := schemaCacheKey(goSchema)
 
-	// Check recursion depth BEFORE cache to ensure we don't return incomplete
-	// placeholders when we've exceeded the recursion limit
-	//
-	// Only increment depth for schemas that have properties (actual type definitions).
-	// References (RefType without properties) will be expanded to their type definitions,
-	// and we don't want to double-count them.
-	// Also treat GoType references (e.g., "Node" without properties) as references
-	// since they will be expanded via tdLookUp.
+	// Check depth before cache so we don't hand out incomplete placeholders past the limit.
 	isReference := (goSchema.RefType != "" || goSchema.GoType != "") && len(goSchema.Properties) == 0 && len(goSchema.UnionElements) == 0
 	slog.Debug("schema processing",
 		"key", key, "isReference", isReference, "goType", goSchema.GoType, "refType", goSchema.RefType,
 		"numProps", len(goSchema.Properties))
 
-	// Check if this schema is a type definition (i.e., its pointer matches a type in tdLookUp)
-	// or if its GoType matches a type name in tdLookUp
-	// If so, skip pointer-based depth tracking because reference tracking handles it
 	isTypeDefinition := false
 	typeDefName := ""
 
-	// Use reverse lookup (O(1)) instead of iterating all type definitions (O(n))
 	ptr := uintptr(unsafe.Pointer(goSchema))
 	if name, ok := ctx.schemaToTypeName[ptr]; ok {
 		isTypeDefinition = true
 		typeDefName = name
 	}
 
-	// Also check if GoType matches a type name in tdLookUp
-	// This handles the case where we're processing a schema that's a copy of a type definition
 	if !isTypeDefinition && goSchema.GoType != "" && len(goSchema.Properties) > 0 {
 		if _, ok := tdLookUp[goSchema.GoType]; ok {
 			isTypeDefinition = true
@@ -83,17 +67,10 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		}
 	}
 
-	// For type definitions, we need to track that we're processing this type
-	// so that reference lookups can detect recursion.
-	// We use a special "processing:" prefix to distinguish from "ref:" depth tracking.
-	// The "ref:" depth is incremented in the reference lookup, not here.
+	// "processing:" prefix distinguishes type-definition tracking from "ref:" lookup depth.
 	if isTypeDefinition && typeDefName != "" {
 		processingKey := "processing:" + typeDefName
-		if ctx.depthTrack[processingKey] > 0 {
-			// We're already processing this type - this is a recursion
-			// But we don't block here - we let the reference lookup handle it
-			// This is just for tracking
-		} else {
+		if ctx.depthTrack[processingKey] == 0 {
 			ctx.depthTrack[processingKey]++
 			defer func() {
 				ctx.depthTrack[processingKey]--
@@ -106,30 +83,19 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		slog.Debug("depth check",
 			"key", key, "currentDepth", currentDepth, "maxDepth", ctx.maxRecursionDepth,
 			"threshold", ctx.maxRecursionDepth+1)
-		// currentDepth 0 = first occurrence (not a recursion)
-		// currentDepth 1 = first recursion
-		// currentDepth 2 = second recursion, etc.
 		if currentDepth >= ctx.maxRecursionDepth+1 {
-			// Max depth exceeded, return a placeholder schema marked as recursive
-			// This allows the content generator to detect and skip this property
-			// NOTE: We do NOT cache this placeholder because:
-			// 1. The original schema processing is still in progress and will update the cache
-			// 2. We want each recursive reference to get its own placeholder
+			// Don't cache: the original schema is still being built and would overwrite this placeholder.
 			slog.Debug("returning recursive placeholder", "key", key)
 			return &schema.Schema{Recursive: true}
 		}
 
-		// Increment depth for this type
 		ctx.depthTrack[key]++
 		defer func() {
 			ctx.depthTrack[key]--
 		}()
 	}
 
-	// Check cache - if we've already converted this schema, return it
-	// This must come AFTER the depth check to avoid returning incomplete placeholders
-	// Skip cache for references - they need to go through expansion to get proper depth tracking
-	// Also skip cache for type definitions - they're handled by reference tracking
+	// Cache check must follow the depth check so partial placeholders aren't returned.
 	if key != "" && !isReference && !isTypeDefinition {
 		if cached, exists := ctx.cache[key]; exists {
 			return cached
@@ -138,33 +104,19 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 
 	inner := goSchema.OpenAPISchema
 
-	// Handle oneOf/anyOf union types - pick the first element
-	// BUT: skip this for array types - the union applies to the items, not the array itself
-	// ALSO: skip if GoType is map[string]any - oapi-codegen simplifies type arrays like
-	// [string, object, null] to map[string]any, and we should generate an object, not pick from union
+	// For unions: pick the first element. Primitive unions become Either[A,B] in
+	// codegen, so generating any branch's value unmarshals. Skip for arrays (union
+	// applies to items) and map[string]any (codegen collapses `[string, object, null]`).
 	isArrayType := goSchema.ArrayType != nil || (goSchema.GoType != "" && strings.HasPrefix(goSchema.GoType, "[]"))
 	isMapStringAny := goSchema.GoType == "map[string]any" || goSchema.GoType == "map[string]interface{}"
 	if len(goSchema.UnionElements) > 0 && !isArrayType && !isMapStringAny {
-		// Pick the first element of the union.
-		// We always pick the first element because:
-		// 1. For primitive unions (e.g., oneOf: [integer, string]), the generated Go type
-		//    is Either[A, B] which can unmarshal either type. Generating a value of the
-		//    first type will work.
-		// 2. For object unions, we need to generate a valid object that matches one of
-		//    the union types.
-		// Previously we simplified primitive unions to 'any', but this caused issues
-		// because the generator would produce {} which can't be unmarshaled into Either[A, B].
 		firstElement := goSchema.UnionElements[0]
 		if firstElement.TypeName != "" {
 			if td, ok := tdLookUp[firstElement.TypeName]; ok {
-				// Check recursion depth for the first element (not current schema)
-				// Allow up to 3 levels of oneOf expansion to handle nested unions
-				firstElementKey := firstElement.TypeName
-				if ctx.depthTrack[firstElementKey] < 3 {
+				// Up to 3 nested levels to handle nested unions.
+				if ctx.depthTrack[firstElement.TypeName] < 3 {
 					expandedSchema := newSchemaFromGoSchemaWithContext(&td.Schema, tdLookUp, ctx)
 
-					// If there's a discriminator, set the discriminator property's enum
-					// to the value that maps to the first element
 					if goSchema.Discriminator != nil && expandedSchema != nil {
 						discriminatorValue := findDiscriminatorValue(goSchema.Discriminator, firstElement.TypeName)
 						if discriminatorValue != "" {
@@ -173,12 +125,12 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 								expandedSchema.Properties = make(map[string]*schema.Schema)
 							}
 							if propSchema, ok := expandedSchema.Properties[discProp]; ok && propSchema != nil {
-								// Property exists - set enum to only the valid discriminator value
-								propSchema.Enum = []any{discriminatorValue}
+								// If a property's existing enum already excludes the discriminator
+								// value, the spec is internally inconsistent; leave the enum alone.
+								if enumContains(propSchema.Enum, discriminatorValue) || len(propSchema.Enum) == 0 {
+									propSchema.Enum = []any{discriminatorValue}
+								}
 							} else {
-								// Property doesn't exist - add it with the discriminator value
-								// This handles cases where the discriminator property is not defined
-								// in the schema (e.g., Linode's x-linode-ref-name discriminator)
 								expandedSchema.Properties[discProp] = &schema.Schema{
 									Type: types.TypeString,
 									Enum: []any{discriminatorValue},
@@ -189,48 +141,32 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 
 					return expandedSchema
 				}
-				// If we've hit the limit, just use the schema directly without recursion
 				goSchema = &td.Schema
 			} else {
-				// firstElement is not in tdLookUp - could be a primitive, inline object,
-				// nested union, or any other schema. Recursively process it to handle
-				// all cases including constraints, nested unions, properties, etc.
 				expanded := newSchemaFromGoSchemaWithContext(&firstElement.Schema, tdLookUp, ctx)
 				if expanded != nil {
 					return expanded
 				}
-				// Fall through if expansion failed
 			}
 		}
 	}
 
-	// Check if this is a oneOf/anyOf wrapper (has a single embedded property)
-	// If so, unwrap it by looking up the actual union type
-	// BUT: skip this for array types - the wrapper belongs to the items, not the array itself
+	// Unwrap oneOf/anyOf wrappers (single embedded property pointing at the union type).
 	if len(goSchema.Properties) == 1 && len(goSchema.UnionElements) == 0 && !isArrayType {
 		prop := goSchema.Properties[0]
-		// Check if this is an embedded field (empty JsonFieldName) with a reference
 		if prop.JsonFieldName == "" && prop.Schema.RefType != "" {
 			refType := prop.Schema.RefType
 
-			// Check if we're already expanding this union type (circular reference through allOf)
-			// For example: CounterPartyResponse -> VendorDetailsResponse -> (allOf) -> CounterPartyResponse
-			// In this case, return an empty object schema to break the cycle.
-			// This happens when oapi-codegen generates an embedded type for allOf instead of
-			// merging properties. The embedded type creates a circular reference that we need to break.
+			// Circular reference through allOf: break the cycle with an empty object.
 			if ctx.expandingUnions[refType] {
 				slog.Debug("breaking circular union reference through allOf", "type", refType)
-				// Return an empty object schema - this allows the parent schema to be valid
-				// even though we can't expand the circular reference
 				return &schema.Schema{
 					Type:       types.TypeObject,
 					Properties: make(map[string]*schema.Schema),
 				}
 			}
 
-			// Follow the reference chain to find the ultimate union type
 			if unionSchema := findUnionSchema(refType, tdLookUp); unionSchema != nil {
-				// Track reference lookups to prevent infinite loops
 				refKey := "ref:" + refType
 				refDepth := ctx.depthTrack[refKey]
 				if refDepth > ctx.maxRecursionDepth {
@@ -239,12 +175,7 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 				}
 				ctx.depthTrack[refKey]++
 
-				// Mark both the union type AND the parent type as being expanded
-				// This handles circular references through allOf composition patterns like:
-				// OriginatingAccountResponse -> OriginatingAccountResponse_OneOf
-				//   -> BrexCashAccountDetailsResponse -> (allOf) -> OriginatingAccountResponse
-				// Without tracking the parent type, the circular reference back to
-				// OriginatingAccountResponse would not be detected.
+				// Track the parent type too; otherwise a cycle back to it goes undetected.
 				ctx.expandingUnions[refType] = true
 				if typeDefName != "" {
 					ctx.expandingUnions[typeDefName] = true
@@ -267,15 +198,12 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		}
 	}
 
-	// If GoType or RefType references a type definition (not a primitive), expand it
-	// The cache prevents infinite loops for circular references
 	typeToLookup := goSchema.RefType
 	if typeToLookup == "" {
 		typeToLookup = goSchema.GoType
 	}
 
 	if typeToLookup != "" && len(goSchema.UnionElements) == 0 && len(goSchema.Properties) == 0 {
-		// Check if this is a reference to a type definition (not a primitive or built-in type)
 		isPrimitive := false
 		switch typeToLookup {
 		case "string", "int", "int32", "int64", "float32", "float64", "bool", "any", "interface{}":
@@ -283,13 +211,7 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		}
 
 		if !isPrimitive {
-			// Not a primitive, check if it's in tdLookup
 			if td, ok := tdLookUp[typeToLookup]; ok {
-				// Check if we're already expanding this type as part of a union
-				// This handles circular references through allOf composition patterns like:
-				// OriginatingAccountResponse -> OriginatingAccountResponse_OneOf
-				//   -> BrexCashAccountDetailsResponse -> (allOf) -> OriginatingAccountResponse
-				// In this case, return an empty object schema to break the cycle.
 				if ctx.expandingUnions[typeToLookup] {
 					slog.Debug("breaking circular reference through allOf (type lookup)", "type", typeToLookup)
 					return &schema.Schema{
@@ -298,22 +220,15 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 					}
 				}
 
-				// Track reference lookups to prevent infinite loops for circular references
-				// This is critical because reference schemas (isReference=true) skip the
-				// normal depth tracking at line 45-67. Without this, A -> B -> A loops forever.
+				// Reference schemas skip the pointer-keyed depth tracking, so a
+				// dedicated "ref:" counter prevents A -> B -> A from looping forever.
 				refKey := "ref:" + typeToLookup
 				refDepth := ctx.depthTrack[refKey]
 
-				// Also check if we're already processing this type (started from a type definition)
-				// If so, this lookup is a recursion back to the same type
 				processingKey := "processing:" + typeToLookup
 				isRecursion := ctx.depthTrack[processingKey] > 0
 
-				// Calculate effective depth:
-				// - refDepth counts the number of reference lookups to this type
-				// - If we're recursing back to a type we're already processing (isRecursion),
-				//   and this is the first reference lookup (refDepth == 0), count it as depth 1
-				// - Otherwise, use refDepth as the depth
+				// First ref lookup back to a type already being processed counts as depth 1.
 				effectiveDepth := refDepth
 				if isRecursion && refDepth == 0 {
 					effectiveDepth = 1
@@ -327,10 +242,7 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 				expanded := newSchemaFromGoSchemaWithContext(&td.Schema, tdLookUp, ctx)
 				ctx.depthTrack[refKey]--
 
-				// Only cache if not a recursive placeholder
-				// Recursive placeholders should not be cached because:
-				// 1. The original schema processing is still in progress
-				// 2. Caching would overwrite the placeholder being built
+				// Skip caching recursive placeholders; the in-progress build will overwrite them.
 				if expanded != nil && key != "" && !expanded.Recursive {
 					ctx.cache[key] = expanded
 				}
@@ -339,9 +251,7 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		}
 	}
 
-	// Create placeholder in cache BEFORE processing to handle circular references
-	// This prevents infinite loops when A references B and B references A
-	// We only create the placeholder if we didn't return early above
+	// Cache a placeholder before processing so A <-> B cycles resolve to the in-progress entry.
 	placeholder := &schema.Schema{}
 	if key != "" {
 		ctx.cache[key] = placeholder
@@ -372,6 +282,7 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		deprecated    *bool
 	)
 
+	isNull := false
 	if inner != nil {
 		if len(inner.Type) > 0 {
 			for _, t := range inner.Type {
@@ -380,7 +291,24 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 					break
 				}
 			}
+			if typ == "" {
+				isNull = true
+			}
 		}
+
+		// Enum-only allOf overrides leave inner.Type empty; infer it from the YAML tags.
+		if typ == "" && len(inner.Enum) > 0 {
+			typ = inferTypeFromYAMLNodes(inner.Enum)
+		}
+
+		// Lower `const: value` to a single-valued enum.
+		if inner.Const != nil && len(inner.Enum) == 0 {
+			inner.Enum = []*yaml.Node{inner.Const}
+			if typ == "" {
+				typ = inferTypeFromYAMLNodes(inner.Enum)
+			}
+		}
+
 		multipleOf = inner.MultipleOf
 		minLength = inner.MinLength
 		maxLength = inner.MaxLength
@@ -391,21 +319,47 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		maxProperties = inner.MaxProperties
 		minProperties = inner.MinProperties
 		required = inner.Required
+
+		// Walk branches so `required: [X]` inside any allOf[i] is honored,
+		// including the malformed case where X isn't declared as a property.
+		required = mergeRequired(required, allOfRequired(inner))
 		nullable = inner.Nullable
 		readOnly = inner.ReadOnly
 		writeOnly = inner.WriteOnly
 		deprecated = inner.Deprecated
 		if inner.Enum != nil {
 			for _, e := range inner.Enum {
-				// Convert enum value based on schema type
-				enums = append(enums, convertEnumValue(e.Value, typ))
+				enums = append(enums, convertEnumNode(e, typ))
+			}
+		}
+
+		// oneOf/anyOf alongside a primitive type is the "constrain values" pattern;
+		// codegen drops the union, so recover enum values from a type-compatible branch.
+		// If the outer type disagrees with the branch types, adopt the branch's type to
+		// satisfy the validator's strict oneOf check.
+		if len(enums) == 0 && typ != "" {
+			if branchEnums, branchType := enumsFromUnionBranches(inner.OneOf, typ); branchEnums != nil {
+				enums = branchEnums
+				typ = branchType
+			} else if branchEnums, branchType := enumsFromUnionBranches(inner.AnyOf, typ); branchEnums != nil {
+				enums = branchEnums
+				typ = branchType
+			}
+		}
+
+		// anyOf/oneOf of sibling string patterns: codegen collapses them so the outer
+		// schema has no pattern. Pick the first branch's pattern so the generated value
+		// satisfies at least that branch (enough for the validator).
+		if pattern == "" && typ == types.TypeString {
+			if p := firstPatternFromBranches(inner.AnyOf); p != "" {
+				pattern = p
+			} else if p := firstPatternFromBranches(inner.OneOf); p != "" {
+				pattern = p
 			}
 		}
 	}
 
-	// Use constraints from goSchema.Constraints first, then fall back to OpenAPISchema
-	// This is needed because component references (e.g., $ref: "#/components/schemas/PlayerID")
-	// don't have Constraints populated, but the OpenAPISchema has the minimum/maximum values.
+	// Prefer goSchema.Constraints; component $refs leave them unset so fall back to inner.
 	minimum = goSchema.Constraints.Min
 	maximum = goSchema.Constraints.Max
 	if minimum == nil && inner != nil && inner.Minimum != nil {
@@ -413,6 +367,27 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 	}
 	if maximum == nil && inner != nil && inner.Maximum != nil {
 		maximum = inner.Maximum
+	}
+	if minLength == nil && goSchema.Constraints.MinLength != nil {
+		minLength = goSchema.Constraints.MinLength
+	}
+	if maxLength == nil && goSchema.Constraints.MaxLength != nil {
+		maxLength = goSchema.Constraints.MaxLength
+	}
+	if pattern == "" && goSchema.Constraints.Pattern != nil {
+		pattern = *goSchema.Constraints.Pattern
+	}
+	if minItems == nil && goSchema.Constraints.MinItems != nil {
+		minItems = goSchema.Constraints.MinItems
+	}
+	if maxItems == nil && goSchema.Constraints.MaxItems != nil {
+		maxItems = goSchema.Constraints.MaxItems
+	}
+	if minProperties == nil && goSchema.Constraints.MinProperties != nil {
+		minProperties = goSchema.Constraints.MinProperties
+	}
+	if maxProperties == nil && goSchema.Constraints.MaxProperties != nil {
+		maxProperties = goSchema.Constraints.MaxProperties
 	}
 
 	properties := make(map[string]*schema.Schema)
@@ -494,20 +469,21 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 	var additionalProperties *schema.Schema
 
 	if goSchema.AdditionalPropertiesType != nil {
-		// AdditionalPropertiesType is set by codegen for both:
-		// 1. Objects with properties AND additionalProperties (HasAdditionalProperties=true)
-		// 2. Objects with ONLY additionalProperties, rendered as map[string]T (HasAdditionalProperties=false)
-
 		additionalProperties = newSchemaFromGoSchemaWithContext(goSchema.AdditionalPropertiesType, tdLookUp, ctx)
+		// Codegen emits an empty string-typed placeholder when the spec's value schema
+		// has an unresolvable proxy (e.g. a $ref whose dotted component name libopenapi
+		// can't dereference). Clear it so the generator falls back to an empty object.
+		if additionalProperties != nil && additionalPropertiesIsPlaceholder(additionalProperties) &&
+			inner != nil && inner.AdditionalProperties != nil && inner.AdditionalProperties.IsA() &&
+			(inner.AdditionalProperties.A == nil || inner.AdditionalProperties.A.Schema() == nil) {
+			additionalProperties = nil
+		}
 	}
 
-	// Track required fields from embedded schemas (allOf composition)
 	var embeddedRequired []string
 
 	if len(goSchema.Properties) > 0 {
-		// Determine the target for properties
-		// If this schema represents an array (not an object with an array property),
-		// then properties should go to the items schema
+		// For array-typed schemas, properties belong on the items, not the outer wrapper.
 		targetProperties := properties
 		if items != nil && strings.HasPrefix(goSchema.GoType, "[]") {
 			if items.Properties == nil {
@@ -521,13 +497,30 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 			if propSchema == nil {
 				continue
 			}
-			// Skip array properties with nil items (indicates recursion limit hit for items)
+			// Nil items here means the recursion limit was hit while building them.
 			if propSchema.Type == types.TypeArray && propSchema.Items == nil {
 				continue
 			}
 
-			// Apply property-level constraints (ReadOnly/WriteOnly) which take precedence
-			// over the referenced schema's values.
+			// Codegen flattens an object property with an explicit additionalProperties
+			// schema to `map[string]any` when the value schema can't be dereferenced.
+			// Recover the value schema from inner, falling back to tdLookUp.
+			if propSchema.Type == types.TypeObject && p.JsonFieldName != "" && inner != nil &&
+				(propSchema.AdditionalProperties == nil || additionalPropertiesIsPlaceholder(propSchema.AdditionalProperties)) {
+				apSchema, apRef := findPropertyAdditionalPropertiesWithRef(inner, p.JsonFieldName)
+				if apSchema != nil {
+					propSchema.AdditionalProperties = newSchemaFromGoSchemaWithContext(
+						&codegen.GoSchema{OpenAPISchema: apSchema}, tdLookUp, ctx)
+				} else if apRef != "" {
+					if typeName := componentNameFromRef(apRef); typeName != "" {
+						if td, ok := tdLookUp[typeName]; ok {
+							propSchema.AdditionalProperties = newSchemaFromGoSchemaWithContext(&td.Schema, tdLookUp, ctx)
+						}
+					}
+				}
+			}
+
+			// Property-level ReadOnly/WriteOnly override the referenced schema's values.
 			if p.Constraints.ReadOnly != nil && *p.Constraints.ReadOnly {
 				propSchema.ReadOnly = true
 				propSchema.WriteOnly = false
@@ -537,10 +530,20 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 				propSchema.ReadOnly = false
 			}
 
+			if p.JsonFieldName != "" && p.JsonFieldName != "-" {
+				// For array-typed parents, the allOf lives on the items' schema, not the array's.
+				allOfSource := inner
+				if items != nil && strings.HasPrefix(goSchema.GoType, "[]") &&
+					goSchema.ArrayType != nil && goSchema.ArrayType.OpenAPISchema != nil {
+					allOfSource = goSchema.ArrayType.OpenAPISchema
+				}
+				if allOfSource != nil {
+					applyAllOfEnumIntersection(propSchema, p.JsonFieldName, allOfSource.AllOf)
+				}
+			}
+
 			if p.JsonFieldName == "" || p.JsonFieldName == "-" {
 				promoteProperties(propSchema, targetProperties)
-				// Collect required fields from embedded schemas (allOf composition)
-				// This ensures that required fields from $ref schemas in allOf are propagated
 				embeddedRequired = append(embeddedRequired, propSchema.Required...)
 			} else {
 				targetProperties[p.JsonFieldName] = propSchema
@@ -548,9 +551,48 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		}
 	}
 
-	// Merge embedded required fields with the parent's required fields
 	if len(embeddedRequired) > 0 {
 		required = mergeRequired(required, embeddedRequired)
+	}
+
+	// Recover null-only properties: codegen drops them (no Go type), but the spec still
+	// requires them in the JSON body, so emit a null at runtime.
+	if inner != nil && inner.Properties != nil {
+		for k, proxy := range inner.Properties.FromOldest() {
+			if _, ok := properties[k]; ok {
+				continue
+			}
+			sub := proxy.Schema()
+			if sub == nil || len(sub.Type) == 0 {
+				continue
+			}
+			allNull := true
+			for _, t := range sub.Type {
+				if strings.ToLower(t) != "null" {
+					allNull = false
+					break
+				}
+			}
+			if allNull {
+				properties[k] = &schema.Schema{IsNull: true}
+			}
+		}
+	}
+
+	// Surface properties and required from a discriminator union nested in allOf.
+	// Codegen doesn't merge across the union boundary, so picking the first oneOf
+	// branch (matching top-level union expansion) restores the branch-specific fields.
+	if inner != nil && len(inner.AllOf) > 0 {
+		merged, mergedReq := mergeAllOfUnionProperties(inner, tdLookUp, ctx)
+		for k, v := range merged {
+			if _, ok := properties[k]; ok {
+				continue
+			}
+			properties[k] = v
+		}
+		if len(mergedReq) > 0 {
+			required = mergeRequired(required, mergedReq)
+		}
 	}
 
 	if inner != nil && len(inner.Type) > 0 {
@@ -562,32 +604,41 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		}
 	}
 
-	// Handle struct{} - oapi-codegen generates this for empty schemas {}
-	// Convert to "any" so the generator creates empty objects {} that can be unmarshaled
-	if goSchema.GoType == "struct{}" {
+	// oapi-codegen-dd emits struct{} for empty schemas; "any" lets the generator
+	// produce {} which can be unmarshaled. Skip when a type was already inferred.
+	if goSchema.GoType == "struct{}" && typ == "" {
 		typ = "any"
 	}
 
-	// Handle map[string]any - oapi-codegen generates this for type arrays like [string, object, null]
-	// or for objects with additionalProperties but no explicit properties.
-	// We should generate an object, not pick from the type array.
+	// oapi-codegen-dd emits map[string]any for multi-typed schemas and for objects
+	// with additionalProperties but no explicit properties; treat as object unless
+	// `items` indicates the spec meant an array. Explicit `type: object` wins.
 	if goSchema.GoType == "map[string]any" || goSchema.GoType == "map[string]interface{}" {
-		typ = types.TypeObject
+		explicitObject := inner != nil && len(inner.Type) > 0 && strings.EqualFold(inner.Type[0], types.TypeObject)
+		itemsSchema, hasItems := findItemsInSchema(goSchema.OpenAPISchema)
+		if items != nil {
+			hasItems = true
+		}
+		if hasItems && !explicitObject {
+			typ = types.TypeArray
+			if items == nil && itemsSchema != nil {
+				items = newSchemaFromGoSchemaWithContext(&codegen.GoSchema{OpenAPISchema: itemsSchema}, tdLookUp, ctx)
+			}
+		} else {
+			typ = types.TypeObject
+			items = nil
+		}
 	}
 
-	// Infer type from GoType if not set from OpenAPI schema
-	// This handles primitive union elements (e.g., type: [integer, boolean]) where
-	// the GoSchema has GoType="int64" but no OpenAPISchema.
+	// Infer type from GoType when OpenAPISchema is missing (primitive union elements).
 	if typ == "" && goSchema.GoType != "" {
 		inferredType := types.GoTypeToOpenAPIType(goSchema.GoType)
-		// Only use inferred type for primitives, not for objects (which would be custom types)
 		if inferredType != types.TypeObject {
 			typ = inferredType
 		}
 	}
 
-	// Infer if missing or fix incorrect type
-	// Sometimes codegen sets type=array for schemas that are actually objects with properties
+	// Infer or correct type; oapi-codegen-dd sometimes sets type=array for object schemas.
 	if typ == "" || (typ == types.TypeArray && items == nil && len(properties) > 0) {
 		switch {
 		case items != nil:
@@ -595,15 +646,33 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		case len(properties) > 0:
 			typ = types.TypeObject
 		case additionalProperties != nil:
-			// Schema with additionalProperties but no explicit properties is a map (object type)
 			typ = types.TypeObject
 		default:
-			// Only default to string if typ is truly empty
-			// Don't override if typ was already set from OpenAPI schema (e.g., "array")
 			if typ == "" {
 				typ = types.TypeString
 			}
 		}
+	}
+
+	// allOf branch with `items` and no outer type: the validator treats it as array.
+	if typ != types.TypeArray && items == nil && inner != nil {
+		if itemsSchema := findItemsInAllOf(inner); itemsSchema != nil && !innerHasObjectShape(inner) {
+			items = newSchemaFromGoSchemaWithContext(&codegen.GoSchema{OpenAPISchema: itemsSchema}, tdLookUp, ctx)
+			typ = types.TypeArray
+		}
+	}
+
+	// Conflicting `type: array` + object-only allOf branches: escape via null when nullable.
+	if typ == types.TypeArray && inner != nil && itemsKeywordIsEmpty(inner.Items) &&
+		len(inner.AllOf) > 0 && allOfDeclaresOnlyObjects(inner) && deref(nullable) {
+		isNull = true
+	}
+
+	// `type: array` + `enum: [primitives]` + `items: {}` is unsatisfiable: arrays can
+	// never equal scalar enum values. Drop items so the field is omitted.
+	if typ == types.TypeArray && len(enums) > 0 && items != nil {
+		items = nil
+		enums = nil
 	}
 
 	res := &schema.Schema{
@@ -632,70 +701,27 @@ func newSchemaFromGoSchemaWithContext(goSchema *codegen.GoSchema, tdLookUp map[s
 		Deprecated:           deref(deprecated),
 		AdditionalProperties: additionalProperties,
 
-		// `additionalProperties: false` doesn't flow through oapi-codegen's
-		// HasAdditionalProperties (it's lumped in with "not specified"), so
-		// detect it from the underlying libopenapi DynamicValue.
+		// oapi-codegen-dd conflates `additionalProperties: false` with "not specified";
+		// read the libopenapi DynamicValue so the generator can refuse stray properties.
 		AdditionalPropertiesForbidden: hasExplicitAdditionalPropertiesFalse(inner),
 
-		// Discriminator on a plain object schema (not just oneOf/anyOf
-		// wrappers): some specs attach `discriminator: {propertyName: X}`
-		// to a regular object without listing X in `properties`. The
-		// generator uses this to synthesise X so the validator's
-		// "discriminator property missing" check passes.
+		// oapi-codegen-dd only fills Discriminator inside the union pipeline; this
+		// fallback covers plain-object schemas with a discriminator and no wrapper.
 		Discriminator: discriminatorFromInner(goSchema.Discriminator, inner),
+
+		IsNull: isNull,
 	}
 
-	// Update the placeholder in cache with the actual result
-	// This handles circular references: if something referenced this schema
-	// while we were building it, it got the placeholder, which we now update
+	// In-place update of the placeholder so anything that grabbed it mid-build sees the real data.
 	if key != "" {
 		if placeholder, exists := ctx.cache[key]; exists {
-			// Update the placeholder in-place so any references to it get the real data
 			*placeholder = *res
 		} else {
-			// Shouldn't happen, but just in case
 			ctx.cache[key] = res
 		}
 	}
 
 	return res
-}
-
-// discriminatorFromInner translates the discriminator declaration
-// into mockzilla's schema-level representation. It prefers the
-// oapi-codegen-derived one (which carries the type mapping resolved
-// against generated Go types) and falls back to the raw libopenapi
-// declaration so plain-object schemas with a discriminator still flow
-// through, even though oapi-codegen only populates its own
-// Discriminator inside the union pipeline.
-func discriminatorFromInner(d *codegen.Discriminator, inner *base.Schema) *schema.Discriminator {
-	if d != nil && d.Property != "" {
-		out := &schema.Discriminator{PropertyName: d.Property}
-		if len(d.Mapping) > 0 {
-			out.Mapping = make(map[string]string, len(d.Mapping))
-			for k, v := range d.Mapping {
-				out.Mapping[k] = v
-			}
-		}
-		return out
-	}
-	if inner == nil || inner.Discriminator == nil || inner.Discriminator.PropertyName == "" {
-		return nil
-	}
-	return &schema.Discriminator{PropertyName: inner.Discriminator.PropertyName}
-}
-
-// hasExplicitAdditionalPropertiesFalse reports whether the libopenapi
-// schema explicitly declares `additionalProperties: false` (the bool
-// form, not a schema). oapi-codegen treats this the same as "not
-// specified" for codegen purposes, so we read the underlying
-// DynamicValue here and surface the distinction to mockzilla's
-// generator, which needs to refuse synthesising stray properties.
-func hasExplicitAdditionalPropertiesFalse(inner *base.Schema) bool {
-	if inner == nil || inner.AdditionalProperties == nil {
-		return false
-	}
-	return inner.AdditionalProperties.IsB() && !inner.AdditionalProperties.B
 }
 
 func promoteProperties(schema *schema.Schema, properties map[string]*schema.Schema) {
@@ -708,36 +734,48 @@ func promoteProperties(schema *schema.Schema, properties map[string]*schema.Sche
 	}
 }
 
-// mergeRequired merges two slices of required field names, removing duplicates.
-func mergeRequired(base, additional []string) []string {
-	if len(additional) == 0 {
-		return base
+func itemsKeywordIsEmpty(items *base.DynamicValue[*base.SchemaProxy, bool]) bool {
+	if items == nil {
+		return true
 	}
-	if len(base) == 0 {
-		return additional
+	if items.A == nil {
+		return true
 	}
-
-	// Use a map to track unique values
-	seen := make(map[string]bool, len(base)+len(additional))
-	result := make([]string, 0, len(base)+len(additional))
-
-	for _, r := range base {
-		if !seen[r] {
-			seen[r] = true
-			result = append(result, r)
-		}
+	sub := items.A.Schema()
+	if sub == nil {
+		return true
 	}
-	for _, r := range additional {
-		if !seen[r] {
-			seen[r] = true
-			result = append(result, r)
-		}
-	}
-
-	return result
+	propsEmpty := sub.Properties == nil || sub.Properties.Len() == 0
+	return len(sub.Type) == 0 && propsEmpty &&
+		sub.Items == nil && len(sub.AllOf) == 0 && len(sub.OneOf) == 0 && len(sub.AnyOf) == 0
 }
 
-// deref removes pointer from value.
+// componentNameFromRef extracts the type name from `#/components/schemas/<Name>`,
+// stripping dots to match oapi-codegen-dd's tdLookUp keys.
+func componentNameFromRef(ref string) string {
+	const prefix = "#/components/schemas/"
+	if !strings.HasPrefix(ref, prefix) {
+		return ""
+	}
+	name := ref[len(prefix):]
+	return strings.ReplaceAll(name, ".", "")
+}
+
+func innerHasObjectShape(s *base.Schema) bool {
+	if s == nil {
+		return false
+	}
+	for _, t := range s.Type {
+		if strings.EqualFold(t, types.TypeObject) {
+			return true
+		}
+	}
+	if s.Properties != nil && s.Properties.Len() > 0 {
+		return true
+	}
+	return false
+}
+
 func deref[T any](v *T) T {
 	var zero T
 	if v == nil {
@@ -747,81 +785,12 @@ func deref[T any](v *T) T {
 	return *v
 }
 
-// convertEnumValue converts an enum value string to the appropriate type based on the schema type.
-// For integer/number types, it parses the string as a number.
-// For string types, it ensures the value is returned as a string (even if YAML parsed it as a number).
-// For other types, it returns the value as-is.
-func convertEnumValue(value string, schemaType string) any {
-	switch schemaType {
-	case types.TypeInteger:
-		// Try to parse as int64
-		if i, err := strconv.ParseInt(value, 10, 64); err == nil {
-			return i
-		}
-		// Handle enum values like "0 (User)" or "101 (EastAsia)" - extract the integer prefix
-		if numStr := extractLeadingNumber(value); numStr != "" {
-			if i, err := strconv.ParseInt(numStr, 10, 64); err == nil {
-				return i
-			}
-		}
-		// If parsing fails, return the string (might be a reference or invalid)
-		return value
-	case types.TypeNumber:
-		// Try to parse as float64
-		if f, err := strconv.ParseFloat(value, 64); err == nil {
-			return f
-		}
-		// Handle enum values like "0 (User)" - extract the number prefix
-		if numStr := extractLeadingNumber(value); numStr != "" {
-			if f, err := strconv.ParseFloat(numStr, 64); err == nil {
-				return f
-			}
-		}
-		// If parsing fails, return the string
-		return value
-	case types.TypeBoolean:
-		// Try to parse as bool
-		if b, err := strconv.ParseBool(value); err == nil {
-			return b
-		}
-		// If parsing fails, return the string
-		return value
-	case types.TypeString:
-		// For string types, always return as string
-		// This ensures that enum values like '0', '1' are kept as strings
-		// even if the YAML parser converted them to integers
-		return value
-	default:
-		// For other types, return as-is
-		return value
-	}
-}
-
-// extractLeadingNumber extracts the leading number from a string like "101 (EastAsia)" -> "101"
-func extractLeadingNumber(s string) string {
-	var numStr string
-	for _, r := range s {
-		if r >= '0' && r <= '9' || r == '-' || r == '.' {
-			numStr += string(r)
-		} else {
-			break
-		}
-	}
-	return numStr
-}
-
 func schemaCacheKey(s *codegen.GoSchema) string {
-	// If this is a reference without properties, use RefType as the key
-	// This allows caching of simple references like "Sitegroup"
-	// But if the schema has properties (i.e., it's the actual type definition),
-	// we should use a different key to avoid conflicts with references
 	if s.RefType != "" && len(s.Properties) == 0 {
 		return s.RefType
 	}
 
-	// Skip primitives - don't cache
-	// Primitives should not be cached because they may have different constraints
-	// (e.g., two int32 fields with different min/max values)
+	// Don't cache primitives: distinct fields can carry distinct constraints.
 	switch s.GoType {
 	case "string", "int", "int8", "int16", "int32", "int64",
 		"uint", "uint8", "uint16", "uint32", "uint64",
@@ -829,16 +798,12 @@ func schemaCacheKey(s *codegen.GoSchema) string {
 		return ""
 	}
 
-	// Skip external refs (e.g., uuid.UUID, time.Time) - don't cache
-	// External refs may have different readOnly/writeOnly constraints in different contexts
-	// Check both RefType and GoType for external package references (contains ".")
+	// Don't cache external refs (uuid.UUID, time.Time, etc.); they can vary by call site.
 	if s.IsExternalRef() || strings.Contains(s.GoType, ".") {
 		return ""
 	}
 
-	// For inline types (type:, struct, []), use the pointer address as cache key
-	// This enables recursion tracking for inline schemas to prevent stack overflow
-	// Each unique inline schema gets its own cache entry based on its memory address
+	// Pointer key for inline types so each unique inline schema tracks recursion on its own.
 	if strings.HasPrefix(s.GoType, "type:") || strings.HasPrefix(s.GoType, "struct ") || strings.HasPrefix(s.GoType, "[]") {
 		return strconv.FormatUint(uint64(uintptr(unsafe.Pointer(s))), 10)
 	}
@@ -854,55 +819,32 @@ func inferType(goSchema *codegen.GoSchema) string {
 			}
 		}
 	}
+
+	// Specs that omit `type` next to `items` mean array; recover the intent.
+	if goSchema.OpenAPISchema != nil && goSchema.OpenAPISchema.Items != nil {
+		return types.TypeArray
+	}
 	return types.TypeObject
 }
 
-// findDiscriminatorValue finds the discriminator value that maps to the given type name.
-// Returns empty string if not found.
-func findDiscriminatorValue(discriminator *codegen.Discriminator, typeName string) string {
-	if discriminator == nil || discriminator.Mapping == nil {
-		return ""
+// findItemsInSchema returns the items schema, descending into allOf branches when
+// the parent omits items (OpenAPI 3.0 `allOf: [{ items: ... }]` without `type: array`).
+func findItemsInSchema(s *base.Schema) (*base.Schema, bool) {
+	if s == nil {
+		return nil, false
 	}
-	for value, goType := range discriminator.Mapping {
-		if goType == typeName {
-			return value
+	if s.Items != nil && s.Items.A != nil {
+		if sub := s.Items.A.Schema(); sub != nil {
+			return sub, true
 		}
 	}
-	return ""
-}
-
-// findUnionSchema follows a reference chain to find the ultimate union schema.
-// It handles cases like: allOf wrapper -> OpponentID -> OpponentID_AnyOf
-// where the actual union (with UnionElements) is nested inside wrapper types.
-// Returns nil if no union is found in the chain.
-func findUnionSchema(refType string, tdLookUp map[string]*codegen.TypeDefinition) *codegen.GoSchema {
-	visited := make(map[string]bool)
-	return findUnionSchemaRecursive(refType, tdLookUp, visited)
-}
-
-func findUnionSchemaRecursive(refType string, tdLookUp map[string]*codegen.TypeDefinition, visited map[string]bool) *codegen.GoSchema {
-	if refType == "" || visited[refType] {
-		return nil
-	}
-	visited[refType] = true
-
-	refTd, ok := tdLookUp[refType]
-	if !ok {
-		return nil
-	}
-
-	// If this type has union elements, we found it
-	if len(refTd.Schema.UnionElements) > 0 || refTd.Schema.IsUnionWrapper {
-		return &refTd.Schema
-	}
-
-	// If this type has a single embedded property with a reference, follow it
-	if len(refTd.Schema.Properties) == 1 && len(refTd.Schema.UnionElements) == 0 {
-		prop := refTd.Schema.Properties[0]
-		if prop.JsonFieldName == "" && prop.Schema.RefType != "" {
-			return findUnionSchemaRecursive(prop.Schema.RefType, tdLookUp, visited)
+	for _, branch := range s.AllOf {
+		if branch == nil {
+			continue
+		}
+		if found, ok := findItemsInSchema(branch.Schema()); ok {
+			return found, true
 		}
 	}
-
-	return nil
+	return nil, false
 }

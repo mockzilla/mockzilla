@@ -28,24 +28,17 @@ func watchServices(
 	}
 	defer func() { _ = watcher.Close() }()
 
-	// Map: filesystem path → service names. A single dir can host
-	// several services (flat-root mode: each top-level spec is its own
-	// service sharing the parent dir), so the value is a slice. We
-	// register watchers on directories (fsnotify can't watch nonexistent
-	// files), then route events back via the directory the event
-	// happened in, narrowed by filename when multiple services share it.
-	// Resolve to absolute paths: fsnotify echoes back event paths in the
-	// same form they were registered, and matchServices walks parents
-	// stopping at "/" or ".". Relative dirs like "." (from a bare spec
-	// in the cwd) would then never match anything.
+	// Map of directory to its service names; a single dir can host several
+	// services (flat-root mode). fsnotify can't watch nonexistent files, so
+	// we watch the dir and route events by directory, narrowed by filename
+	// when multiple services share it. Paths are absolute so matchServices
+	// can walk parents until "/" instead of stalling on a relative ".".
 	dirToServices := make(map[string][]string)
 	watched := make(map[string]bool)
 
-	// bareSpecs: service-name → spec basename, for services where the
-	// user pointed at a single file (no ConfigDir, no StaticDir). The
-	// watched dir is then likely full of unrelated files (think
-	// `mockzilla petstore.yaml` from ~/Downloads), so we filter strictly
-	// to the spec's own filename.
+	// bareSpecs maps service name to spec basename for services pointed at a
+	// single file (no ConfigDir, no StaticDir). Watched dir likely holds
+	// unrelated files, so filter strictly to the spec's own filename.
 	bareSpecs := make(map[string]string)
 	for _, svc := range services {
 		if svc.ConfigDir == "" && svc.StaticDir == "" && svc.SpecPath != "" {
@@ -279,9 +272,8 @@ func reloadService(svc Service, router *api.Router, handlers map[string]*swappab
 		return
 	}
 	// Rebuild validator on reload. If the new spec breaks the validator,
-	// keep the old validator in place rather than swapping to nil — the
-	// previous successful state is the safest fallback while the operator
-	// fixes the spec.
+	// keep the old one rather than swapping to nil; the prior state is the
+	// safest fallback while the operator fixes the spec.
 	v, vErr := buildValidator(h)
 	if vErr != nil {
 		slog.Error("Reload: validator could not be built for new spec; keeping previous validator",

@@ -136,7 +136,6 @@ func resolveReplayParams(req *http.Request, cfg *config.ServiceConfig) (match *c
 	// Check if auto-replay is enabled
 	autoReplay := cfg.Cache != nil && cfg.Cache.Replay != nil && cfg.Cache.Replay.AutoReplay
 
-	// No header and no auto-replay → skip
 	if !headerPresent && !autoReplay {
 		return nil, "", ""
 	}
@@ -175,7 +174,7 @@ func resolveReplayParams(req *http.Request, cfg *config.ServiceConfig) (match *c
 		return headerMatch, patternPath, endpointPath
 	}
 
-	// Header present but empty value, or auto-replay → fall back to config
+	// Header present but empty, or auto-replay: fall back to config.
 	return configMatch, patternPath, endpointPath
 }
 

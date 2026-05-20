@@ -1,9 +1,7 @@
 // Package simplify is the pure-logic core of the `mockzilla simplify` command.
 //
-// It exposes a single Simplify entry point that takes an OpenAPI spec as bytes
-// and returns a simplified YAML document as bytes — no flag parsing, no file
-// I/O, no cobra. The CLI wrapper that wires these into a user-facing command
-// lives in cmd/mockzilla (simplify.go).
+// Simplify takes an OpenAPI spec as bytes and returns simplified YAML bytes;
+// no flag parsing, no file I/O. The CLI wrapper lives in cmd/mockzilla/simplify.go.
 package simplify
 
 import (
@@ -24,12 +22,12 @@ type Options struct {
 	// Overlay 1.0 deltas, and drop dangling refs).
 	ConfigYAML []byte
 
-	// OptionalProperties controls how optional schema properties are pruned:
+	// OptionalProperties controls pruning of optional schema properties:
 	//   nil               keep every optional property
 	//   &{Min:0, Max:0}   drop every optional property
 	//   &{Min:N, Max:N}   keep exactly N optional properties
 	//   &{Min:A, Max:B}   keep a random number in [A,B] per schema
-	// (Seed reproduces the random selection — leave 0 for time-based.)
+	// Seed reproduces the random selection; leave 0 for time-based.
 	OptionalProperties *typedef.OptionalPropertyConfig
 }
 
