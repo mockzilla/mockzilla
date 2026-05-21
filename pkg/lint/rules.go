@@ -22,7 +22,7 @@ var rules = []func(*base.Schema, string) []Defect{
 // ruleArrayEnumScalars flags `type: array` schemas whose `enum` declares
 // scalar values (strings, numbers, bools). The validator interprets enum as
 // "value must equal one of these"; an array can never equal a scalar, so
-// every array shape — including `[]` — is rejected.
+// every array shape (including `[]`) is rejected.
 func ruleArrayEnumScalars(s *base.Schema, path string) []Defect {
 	if s == nil || len(s.Enum) == 0 {
 		return nil
@@ -53,7 +53,7 @@ func ruleArrayEnumScalars(s *base.Schema, path string) []Defect {
 	return []Defect{{
 		Rule:   "array-enum-scalars",
 		Path:   path,
-		Detail: "type: array with scalar enum — arrays can never equal a scalar, schema is unsatisfiable",
+		Detail: "type: array with scalar enum: arrays can never equal a scalar, schema is unsatisfiable",
 	}}
 }
 
@@ -195,7 +195,7 @@ func ruleAllOfAdditionalPropertiesConflictsSibling(s *base.Schema, path string) 
 		}
 		branches = append(branches, collect(sub))
 	}
-	// The schema's own top-level acts as a sibling allOf branch — JSON
+	// The schema's own top-level acts as a sibling allOf branch; JSON
 	// Schema merges them when validating.
 	branches = append(branches, collect(s))
 	if len(branches) < 2 {
@@ -230,7 +230,7 @@ func ruleAllOfAdditionalPropertiesConflictsSibling(s *base.Schema, path string) 
 
 // rulePatternUnicodeCircumflex flags patterns containing U+02C6 (ˆ MODIFIER
 // LETTER CIRCUMFLEX). It looks like `^` but is a literal char, so patterns
-// like `ˆ^\d{4}$` require a literal ˆ followed by a start-of-string anchor —
+// like `ˆ^\d{4}$` require a literal ˆ followed by a start-of-string anchor;
 // the anchor can never match after consuming a character.
 func rulePatternUnicodeCircumflex(s *base.Schema, path string) []Defect {
 	if s == nil || s.Pattern == "" {

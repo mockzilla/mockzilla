@@ -8,7 +8,7 @@ import (
 
 	"github.com/mockzilla/mockzilla/v2/internal/files"
 	"github.com/mockzilla/mockzilla/v2/internal/simplify"
-	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/spf13/cobra"
 )
 
@@ -115,14 +115,14 @@ Run 'mockzilla simplify --help' for all options`)
 	}
 }
 
-// buildOptionalConfig translates the three CLI flags into the typedef config.
+// buildOptionalConfig translates the three CLI flags into the config struct.
 // Returns nil when the user supplied no optional-property flags (= keep all).
-func buildOptionalConfig(cmd *cobra.Command, fixed, min, max int) *typedef.OptionalPropertyConfig {
+func buildOptionalConfig(cmd *cobra.Command, fixed, min, max int) *config.OptionalProperties {
 	switch {
 	case cmd.Flags().Changed("optional-min"), cmd.Flags().Changed("optional-max"):
-		return &typedef.OptionalPropertyConfig{Min: min, Max: max}
+		return &config.OptionalProperties{Min: min, Max: max}
 	case cmd.Flags().Changed("optional"):
-		return &typedef.OptionalPropertyConfig{Min: fixed, Max: fixed}
+		return &config.OptionalProperties{Min: fixed, Max: fixed}
 	default:
 		return nil
 	}

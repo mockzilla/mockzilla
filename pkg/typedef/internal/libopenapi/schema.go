@@ -139,7 +139,7 @@ func convertSchema(s *base.Schema, ctx *convertCtx) *schema.Schema {
 		// can satisfy everything is JSON null. uploadcare /group's
 		// `files` field is the canonical case (type: array + allOf:
 		// [{type: object}, ...] + nullable, no enum). Skip the IsNull
-		// switch when an enum is present — the generator can pick a
+		// switch when an enum is present: the generator can pick a
 		// branch-typed value that satisfies at least one oneOf path
 		// (procurify CreditCard.status, integer + oneOf of string
 		// enums, would otherwise emit null and fail every oneOf).
@@ -356,11 +356,10 @@ func decodeNodes(nodes []*yaml.Node) []any {
 	return out
 }
 
-// withPattern returns a shallow copy of s with Pattern set. Used so we
-// can synthesise a string pattern from a oneOf/anyOf branch without
-// mutating the libopenapi-owned object.
+// withPattern returns a shallow copy of s with Pattern set so a
+// synthesised oneOf/anyOf branch pattern doesn't mutate the original.
 func withPattern(s *base.Schema, pattern string) *base.Schema {
-	copy := *s
-	copy.Pattern = pattern
-	return &copy
+	out := *s
+	out.Pattern = pattern
+	return &out
 }

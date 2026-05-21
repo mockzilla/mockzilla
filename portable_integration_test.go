@@ -89,7 +89,7 @@ func TestPortableIntegration(t *testing.T) {
 	specs = excludeMarkedSpecs(specs)
 
 	// Skip oversized specs (default 10MB via MAX_SPEC_SIZE_MB). Matches
-	// the codegen integration suite — both pipelines hit libopenapi
+	// the codegen integration suite; both pipelines hit libopenapi
 	// memory pressure on the multi-megabyte specs (stripe, clarifai,
 	// AWS), and the marginal coverage isn't worth the run-time cost.
 	runtimeOpts := integrationtest.NewRuntimeOptionsFromEnv()
@@ -407,7 +407,7 @@ func (s *portableStats) printSummary(totalSpecs int) {
 	totalFails := s.totalRouteFailures.Load()
 	// totalOK is the count of operations that passed. Boot/list failures
 	// increment totalFails without contributing to totalOps, so clamp to
-	// zero — the previous arithmetic could produce negative counts in
+	// zero; the previous arithmetic could produce negative counts in
 	// the per-batch summary when many specs failed before any route was
 	// exercised.
 	totalOK := totalOps - totalFails

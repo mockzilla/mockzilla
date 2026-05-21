@@ -21,9 +21,9 @@ type composedShape struct {
 
 	// Scalar constraints inherited from the picked union branch when
 	// the outer schema didn't declare them. Critical for specs whose
-	// only constraint lives inside `oneOf` — e.g. `abi_version: oneOf:
-	// [{type: integer, maximum: 65535}, {type: string}]` would
-	// otherwise let the generator emit an unconstrained int that fails
+	// only constraint lives inside `oneOf` (e.g. `abi_version: oneOf:
+	// [{type: integer, maximum: 65535}, {type: string}]`): without
+	// this the generator emits an unconstrained int that fails
 	// validation against the picked branch.
 	minimum    *float64
 	maximum    *float64
@@ -191,7 +191,7 @@ func mergeUnionBranch(proxy *base.SchemaProxy, out *composedShape, ctx *convertC
 	// no direct shape. Walk its allOf so the merged shape includes the
 	// branch's nested properties; without this, the generator gets a
 	// bare schema and falls back to a string. Skip when the branch
-	// already contributed properties/type/enum — saves a lot of
+	// already contributed properties/type/enum: saves a lot of
 	// redundant work on heavy specs (clarifai, docusign) where union
 	// branches are well-formed and don't need the allOf rescue.
 	hasOwnProps := sub.Properties != nil && sub.Properties.Len() > 0
@@ -339,28 +339,34 @@ func applyAllOfEnumIntersection(properties map[string]*schema.Schema, allOf []*b
 			if branch == nil {
 				continue
 			}
+
 			sub := branch.Schema()
 			if sub == nil || sub.Properties == nil {
 				continue
 			}
+
 			proxy, ok := sub.Properties.Get(propName)
 			if !ok || proxy == nil {
 				continue
 			}
+
 			pb := proxy.Schema()
 			if pb == nil || len(pb.Enum) == 0 {
 				continue
 			}
 			values := make(map[string]bool, len(pb.Enum))
+
 			for _, e := range pb.Enum {
 				if e != nil {
 					values[e.Value] = true
 				}
 			}
+
 			if intersection == nil {
 				intersection = values
 				continue
 			}
+
 			for k := range intersection {
 				if !values[k] {
 					delete(intersection, k)
@@ -387,6 +393,7 @@ func applyAllOfEnumIntersection(properties map[string]*schema.Schema, allOf []*b
 			}
 			continue
 		}
+
 		for k := range intersection {
 			propSchema.Enum = append(propSchema.Enum, k)
 		}
@@ -405,6 +412,7 @@ func applyDiscriminator(properties map[string]*schema.Schema, s *base.Schema, co
 	if propName == "" {
 		return
 	}
+
 	branch := firstNonNullBranch(s.OneOf)
 	if branch == nil {
 		branch = firstNonNullBranch(s.AnyOf)
@@ -412,6 +420,7 @@ func applyDiscriminator(properties map[string]*schema.Schema, s *base.Schema, co
 	if branch == nil {
 		return
 	}
+
 	value := discriminatorValueFor(s.Discriminator, branch)
 	if value == "" {
 		return
@@ -425,6 +434,7 @@ func applyDiscriminator(properties map[string]*schema.Schema, s *base.Schema, co
 		}
 		return
 	}
+
 	if enumContainsKey(prop.Enum, value) || len(prop.Enum) == 0 {
 		prop.Enum = []any{value}
 	}
@@ -443,6 +453,7 @@ func discriminatorValueFor(d *base.Discriminator, branch *base.SchemaProxy) stri
 			branchRef = branch.GetReference()
 		}
 	}
+
 	for key, mapTarget := range d.Mapping.FromOldest() {
 		if branchRef != "" && mapTarget == branchRef {
 			return key

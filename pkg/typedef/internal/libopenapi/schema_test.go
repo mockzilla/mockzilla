@@ -323,9 +323,101 @@ info: {title: t, version: 1}
 paths: {}`
 	reg, err := NewRegistry([]byte(spec), Options{})
 	require.NoError(t, err)
-	provider, ok := reg.(*Registry)
-	require.True(t, ok)
-	doc, err := provider.Document()
+	doc, err := reg.Document()
 	require.NoError(t, err)
 	require.NotNil(t, doc)
+}
+
+func TestConvertSchema_NilReturnsNil(t *testing.T) {
+	assert.Nil(t, convertSchema(nil, newConvertCtx()))
+}
+
+func TestConvertProxy_NilProxyReturnsNil(t *testing.T) {
+	assert.Nil(t, convertProxy(nil, newConvertCtx()))
+}
+
+func TestConvertProperties_NilProperties(t *testing.T) {
+	props, nullOnly := convertProperties(nil, newConvertCtx())
+	assert.Empty(t, props)
+	assert.Empty(t, nullOnly)
+}
+
+func TestConvertProxy_CycleEmitsRecursiveMarker(t *testing.T) {
+	spec := `openapi: 3.0.0
+info: {title: t, version: 1}
+paths:
+  /:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Node"
+components:
+  schemas:
+    Node:
+      type: object
+      properties:
+        next: {$ref: "#/components/schemas/Node"}
+`
+	s := loadResponseSchema(t, spec, "/", "GET")
+	require.NotNil(t, s)
+	require.NotNil(t, s.Properties)
+	require.Contains(t, s.Properties, "next")
+	assert.True(t, s.Properties["next"].Recursive, "self-ref should be marked Recursive")
+}
+
+func TestInferType(t *testing.T) {
+	assert.Equal(t, types.TypeArray, inferType(&schema.Schema{}, nil, nil, nil))
+	assert.Equal(t, types.TypeObject, inferType(nil, map[string]*schema.Schema{"k": nil}, nil, nil))
+	assert.Equal(t, types.TypeObject, inferType(nil, nil, &schema.Schema{}, nil))
+	assert.Equal(t, types.TypeString, inferType(nil, nil, nil, []any{"x"}))
+	assert.Equal(t, types.TypeString, inferType(nil, nil, nil, nil), "empty schema defaults to string so the generator has a concrete type")
+}
+
+func TestChooseType(t *testing.T) {
+	typ, isNull := chooseType([]string{"null"})
+	assert.Equal(t, "", typ)
+	assert.True(t, isNull)
+
+	typ, isNull = chooseType([]string{"string", "null"})
+	assert.Equal(t, "string", typ)
+	assert.False(t, isNull)
+
+	typ, isNull = chooseType(nil)
+	assert.Equal(t, "", typ)
+	assert.False(t, isNull)
+}
+
+func TestFirstNonNullType(t *testing.T) {
+	assert.Equal(t, "string", firstNonNullType([]string{"null", "string"}))
+	assert.Equal(t, "", firstNonNullType([]string{"null"}))
+	assert.Equal(t, "", firstNonNullType(nil))
+}
+
+func TestIsAllNullType(t *testing.T) {
+	assert.False(t, isAllNullType(nil))
+	assert.True(t, isAllNullType([]string{"null"}))
+	assert.True(t, isAllNullType([]string{"NULL", "Null"}))
+	assert.False(t, isAllNullType([]string{"null", "string"}))
+}
+
+func TestMergeStringLists(t *testing.T) {
+	assert.Equal(t, []string{"a", "b"}, mergeStringLists([]string{"a"}, []string{"b"}))
+	assert.Equal(t, []string{"a"}, mergeStringLists(nil, []string{"a"}))
+	assert.Equal(t, []string{"a"}, mergeStringLists([]string{"a"}, nil))
+	assert.Equal(t, []string{"a", "b"}, mergeStringLists([]string{"a"}, []string{"a", "b"}))
+}
+
+func TestAppendUnique(t *testing.T) {
+	assert.Equal(t, []string{"a", "b"}, appendUnique([]string{"a"}, "b"))
+	assert.Equal(t, []string{"a"}, appendUnique([]string{"a"}, "a"))
+}
+
+func TestShortName(t *testing.T) {
+	assert.Equal(t, "Foo", shortName("#/components/schemas/Foo"))
+	assert.Equal(t, "bare", shortName("bare"))
+	assert.Equal(t, "", shortName(""))
 }

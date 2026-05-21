@@ -1,55 +1,38 @@
-package typedef
+package libopenapi
 
 import (
 	"fmt"
 	"math/rand"
 	"slices"
 
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3high "github.com/pb33f/libopenapi/datamodel/high/v3"
 )
 
-// OptionalPropertyConfig controls how optional properties are removed
-type OptionalPropertyConfig struct {
-	// Min: minimum number of optional properties to keep
-	Min int
-
-	// Max: maximum number of optional properties to keep
-	// If Min == Max, keeps exactly that many
-	Max int
-
-	// Seed for random number generation (0 = use current time)
-	Seed int64
-}
-
-// BuildModel builds the OpenAPI model from the document.
-// If simplify is true, it also simplifies the model in-place (removes unions, limits optional properties).
-// Returns the model which should be passed directly to CreateParseContextFromModel.
-func BuildModel(doc libopenapi.Document, simplify bool, optConfig *OptionalPropertyConfig) (*v3high.Document, error) {
+// BuildModel builds the v3 model from a parsed libopenapi document.
+// When simplify is true the model is simplified in place: unions are
+// reduced to their first variant and optional properties are pruned
+// per optConfig.
+func BuildModel(doc libopenapi.Document, simplify bool, optConfig *config.OptionalProperties) (*v3high.Document, error) {
 	model, err := doc.BuildV3Model()
 	if err != nil {
 		return nil, fmt.Errorf("error building model: %w", err)
 	}
 
 	if simplify {
-		// Initialize random number generator if config is provided
 		var rng *rand.Rand
 		if optConfig != nil {
-			if optConfig.Seed == 0 {
-				rng = rand.New(rand.NewSource(rand.Int63()))
-			} else {
-				rng = rand.New(rand.NewSource(optConfig.Seed))
-			}
+			rng = rand.New(rand.NewSource(rand.Int63()))
 		}
-
 		simplifyDocument(&model.Model, optConfig, rng)
 	}
 
 	return &model.Model, nil
 }
 
-func simplifyDocument(model *v3high.Document, optConfig *OptionalPropertyConfig, rng *rand.Rand) {
+func simplifyDocument(model *v3high.Document, optConfig *config.OptionalProperties, rng *rand.Rand) {
 	// Create a visited set to track schemas we've already processed (to avoid infinite recursion)
 	visited := make(map[*base.Schema]bool)
 
@@ -375,8 +358,8 @@ func mergeSchemaProperties(dst, src *base.Schema) {
 // - Keeps properties selected alphabetically (first N names)
 // - If Min == Max, keeps exactly that many
 // - If Min < Max, keeps a random number between Min and Max
-func removeOptionalProperties(schema *base.Schema, config *OptionalPropertyConfig, rng *rand.Rand) {
-	if schema == nil || schema.Properties == nil || config == nil {
+func removeOptionalProperties(schema *base.Schema, opts *config.OptionalProperties, rng *rand.Rand) {
+	if schema == nil || schema.Properties == nil || opts == nil {
 		return
 	}
 
@@ -399,9 +382,9 @@ func removeOptionalProperties(schema *base.Schema, config *OptionalPropertyConfi
 	}
 
 	// Determine how many to keep
-	numToKeep := config.Min
-	if config.Max > config.Min {
-		numToKeep = config.Min + rng.Intn(config.Max-config.Min+1)
+	numToKeep := opts.Min
+	if opts.Max > opts.Min {
+		numToKeep = opts.Min + rng.Intn(opts.Max-opts.Min+1)
 	}
 
 	// If we have more optional properties than we want to keep, remove some

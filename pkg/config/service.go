@@ -706,14 +706,6 @@ type SpecOptions struct {
 	LazyLoad           bool                `yaml:"lazyLoad"`
 	Simplify           bool                `yaml:"simplify"`
 	OptionalProperties *OptionalProperties `yaml:"optional-properties"`
-
-	// Provider selects the OpenAPI parsing backend. Empty (the default) and
-	// "codegen" route through oapi-codegen-dd with the pkg/typedef
-	// schema converter. "libopenapi" uses the libopenapi-direct provider
-	// in pkg/provider/libopenapi (O(1) operation lookup, no per-request
-	// reparse, no codegen-side workarounds). The default may flip to
-	// "libopenapi" once the portable integration corpus is green under it.
-	Provider string `yaml:"provider,omitempty"`
 }
 
 func NewSpecOptions() *SpecOptions {

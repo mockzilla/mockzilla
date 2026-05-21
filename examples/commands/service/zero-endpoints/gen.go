@@ -14,7 +14,6 @@ import (
 
 	"sync"
 
-	oapicodegen "github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/runtime"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
@@ -25,7 +24,6 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/generator"
 	"github.com/mockzilla/mockzilla/v2/pkg/loader"
 	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
-	yamlv4 "go.yaml.in/yaml/v4"
 )
 
 // OapiErrorKind represents the type of error that occurred during request processing.
@@ -171,9 +169,6 @@ var configSrc []byte
 //go:embed setup/openapi.*
 var openapiSpecFS embed.FS
 
-//go:embed setup/codegen.yml
-var codegenConfigSrc []byte
-
 //go:embed setup/context.yml
 var contextSrc []byte
 
@@ -203,19 +198,9 @@ func RegisterAPIRouter(router *api.Router) {
 		return
 	}
 
-	// Load codegen config
-	var codegenCfg oapicodegen.Configuration
-	if err := yamlv4.Unmarshal(codegenConfigSrc, &codegenCfg); err != nil {
-		slog.Error(fmt.Sprintf("Failed to parse codegen config for %s", serviceName),
-			"error", err,
-			"service", serviceName,
-		)
-		return
-	}
-	codegenCfg = codegenCfg.Merge(oapicodegen.NewDefaultConfiguration())
-
-	// Create the typedef registry from the OpenAPI spec
-	registry, err := typedef.NewRegistryFromSpec(openapiSpec, codegenCfg, cfg.SpecOptions)
+	registry, err := typedef.NewRegistry(openapiSpec, typedef.RegistryOptions{
+		SpecOptions: cfg.SpecOptions,
+	})
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed to create registry for %s", serviceName),
 			"error", err,
@@ -348,7 +333,7 @@ var (
 )
 
 // NewFactory creates a Factory pre-configured with this service's OpenAPI spec,
-// codegen config, spec options, and context.
+// spec options, and context.
 // Use it to generate mock requests and responses programmatically without running the server.
 func NewFactory(opts ...factory.FactoryOption) (*factory.Factory, error) {
 	openapiSpec, err := readFirstEmbeddedFile(openapiSpecFS)
@@ -356,14 +341,8 @@ func NewFactory(opts ...factory.FactoryOption) (*factory.Factory, error) {
 		return nil, err
 	}
 
-	var codegenCfg oapicodegen.Configuration
-	if err := yamlv4.Unmarshal(codegenConfigSrc, &codegenCfg); err != nil {
-		return nil, err
-	}
-
 	allOpts := []factory.FactoryOption{
 		factory.WithServiceContext(contextSrc),
-		factory.WithCodegenConfig(codegenCfg),
 	}
 	if cfg != nil && cfg.SpecOptions != nil {
 		allOpts = append(allOpts, factory.WithSpecOptions(cfg.SpecOptions))

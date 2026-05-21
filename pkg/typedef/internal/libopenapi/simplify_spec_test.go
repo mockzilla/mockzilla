@@ -1,10 +1,11 @@
-package typedef
+package libopenapi
 
 import (
 	"os"
 	"testing"
 
-	"github.com/pb33f/libopenapi"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	libopenapilib "github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	"github.com/stretchr/testify/assert"
 	"go.yaml.in/yaml/v4"
@@ -32,7 +33,7 @@ components:
             - type: integer
 `
 
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	model, err := BuildModel(doc, true, nil)
@@ -70,7 +71,7 @@ components:
             - type: integer
 `
 
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	model, err := BuildModel(doc, true, nil)
@@ -120,7 +121,7 @@ components:
             - type: number
 `
 
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	model, err := BuildModel(doc, true, nil)
@@ -166,7 +167,7 @@ components:
             - type: boolean
 `
 
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	model, err := BuildModel(doc, true, nil)
@@ -211,7 +212,7 @@ components:
             - type: boolean
 `
 
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	model, err := BuildModel(doc, true, nil)
@@ -236,12 +237,12 @@ components:
 
 func TestBuildModel_ComplexTestData(t *testing.T) {
 	// Load complex test data
-	data, err := os.ReadFile("testdata/simplify-unions-complex.yml")
+	data, err := os.ReadFile("../../testdata/simplify-unions-complex.yml")
 	if !assert.NoError(t, err) {
 		t.Skip("Test data file not found")
 	}
 
-	doc, err := libopenapi.NewDocument(data)
+	doc, err := libopenapilib.NewDocument(data)
 	assert.NoError(t, err)
 
 	model, err := BuildModel(doc, true, nil)
@@ -407,18 +408,12 @@ components:
           type: string
 `
 
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
-	config := &OptionalPropertyConfig{
-		Min:  1,
-		Max:  2,
-		Seed: 42, // Fixed seed for reproducibility
-	}
+	opts := &config.OptionalProperties{Min: 1, Max: 2}
 
-	model, err := BuildModel(doc, true, config)
-	assert.NoError(t, err)
-
+	model, err := BuildModel(doc, true, opts)
 	assert.NoError(t, err)
 
 	// ManyRequired has 5 required properties + 5 optional, should keep 1-2 optional
@@ -469,7 +464,7 @@ components:
             $ref: '#/components/schemas/NavElement'
 `
 
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	// This should not cause stack overflow
@@ -492,7 +487,7 @@ func TestBuildModel_NavigationServiceSpec(t *testing.T) {
 		t.Skip("Navigation service spec not found")
 	}
 
-	doc, err := libopenapi.NewDocument(data)
+	doc, err := libopenapilib.NewDocument(data)
 	assert.NoError(t, err)
 
 	// This should not cause stack overflow
@@ -620,10 +615,10 @@ func TestMergeSchemaProperties(t *testing.T) {
 }
 
 func TestBuildModel_PathOperations(t *testing.T) {
-	spec, err := os.ReadFile("testdata/path-operations-unions.yml")
+	spec, err := os.ReadFile("../../testdata/path-operations-unions.yml")
 	assert.NoError(t, err)
 
-	doc, err := libopenapi.NewDocument(spec)
+	doc, err := libopenapilib.NewDocument(spec)
 	assert.NoError(t, err)
 
 	model, err := BuildModel(doc, true, nil)
@@ -684,7 +679,7 @@ components:
           - type: string
           - type: integer
 `
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	model, err := BuildModel(doc, true, nil)
@@ -719,7 +714,7 @@ components:
           - type: string
           - type: number
 `
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	model, err := BuildModel(doc, true, nil)
@@ -741,7 +736,7 @@ components:
 func TestBuildModel_Error(t *testing.T) {
 	// Test with invalid document
 	invalidSpec := []byte(`invalid yaml: [`)
-	_, err := libopenapi.NewDocument(invalidSpec)
+	_, err := libopenapilib.NewDocument(invalidSpec)
 	assert.Error(t, err)
 }
 
@@ -775,7 +770,7 @@ components:
                   age:
                     type: integer
 `
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	if !assert.NoError(t, err) {
 		return
 	}
@@ -823,7 +818,7 @@ components:
             - type: string
             - type: integer
 `
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	// Build without simplification
@@ -866,7 +861,7 @@ components:
         optional5:
           type: string
 `
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	// nil config means keep all optional properties
@@ -901,16 +896,12 @@ components:
         optional3:
           type: string
 `
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
 	// {0, 0} removes all optional properties
-	config := &OptionalPropertyConfig{
-		Min:  0,
-		Max:  0,
-		Seed: 42,
-	}
-	model, err := BuildModel(doc, true, config)
+	opts := &config.OptionalProperties{Min: 0, Max: 0}
+	model, err := BuildModel(doc, true, opts)
 	assert.NoError(t, err)
 
 	userSchema := model.Components.Schemas.GetOrZero("User").Schema()
@@ -919,7 +910,7 @@ components:
 	assert.NotNil(t, userSchema.Properties.GetOrZero("name"))
 }
 
-func TestBuildModel_WithOptionalConfigSeed(t *testing.T) {
+func TestBuildModel_WithOptionalPropertiesRandomized(t *testing.T) {
 	spec := `
 openapi: 3.0.0
 info:
@@ -940,26 +931,10 @@ components:
         optional2:
           type: string
 `
-	doc, err := libopenapi.NewDocument([]byte(spec))
+	doc, err := libopenapilib.NewDocument([]byte(spec))
 	assert.NoError(t, err)
 
-	// Build with seed=0 (random seed)
-	optConfig := &OptionalPropertyConfig{
-		Min:  0,
-		Max:  1,
-		Seed: 0,
-	}
-	model, err := BuildModel(doc, true, optConfig)
+	model, err := BuildModel(doc, true, &config.OptionalProperties{Min: 0, Max: 1})
 	assert.NoError(t, err)
 	assert.NotNil(t, model)
-
-	// Build with specific seed
-	optConfig2 := &OptionalPropertyConfig{
-		Min:  0,
-		Max:  1,
-		Seed: 12345,
-	}
-	model2, err := BuildModel(doc, true, optConfig2)
-	assert.NoError(t, err)
-	assert.NotNil(t, model2)
 }

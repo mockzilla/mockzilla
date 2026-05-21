@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -83,7 +83,7 @@ func TestSimplify_OptionalPropertyConfig(t *testing.T) {
 
 	t.Run("Min:0 Max:0 drops all optional", func(t *testing.T) {
 		out, err := Simplify([]byte(demoSpec), Options{
-			OptionalProperties: &typedef.OptionalPropertyConfig{Min: 0, Max: 0},
+			OptionalProperties: &config.OptionalProperties{Min: 0, Max: 0},
 		})
 		require.NoError(t, err)
 		assert.NotContains(t, string(out), "keep_me:")
@@ -93,7 +93,7 @@ func TestSimplify_OptionalPropertyConfig(t *testing.T) {
 		// Thing has only one optional property after union removal (keep_me),
 		// so requesting 5 yields 1.
 		out, err := Simplify([]byte(demoSpec), Options{
-			OptionalProperties: &typedef.OptionalPropertyConfig{Min: 5, Max: 5},
+			OptionalProperties: &config.OptionalProperties{Min: 5, Max: 5},
 		})
 		require.NoError(t, err)
 		assert.Contains(t, string(out), "keep_me:")

@@ -153,7 +153,7 @@ For single-folder invocations, in priority order:
    collide. See [HomeURL and root-mounted services](../config/app.md#homeurl-and-root-mounted-services).
 
 This is why `mockzilla .` from a directory named `~/Documents/foo`
-doesn't accidentally produce a service called `foo` — the cwd's
+doesn't accidentally produce a service called `foo`; the cwd's
 basename is never used as the name.
 
 ### 3. Multi-service `services/` subtree

@@ -2,6 +2,12 @@ package schema
 
 import "github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 
+type RouteInfo struct {
+	ID     string
+	Method string
+	Path   string
+}
+
 // Operation represents an OpenAPI operation (endpoint).
 type Operation struct {
 	ID string `json:"id,omitempty"`

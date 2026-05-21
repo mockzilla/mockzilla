@@ -241,6 +241,94 @@ func mapToStrings(values []any) []string {
 	return out
 }
 
-// guard so the import of schema stays used when no other test in this file
-// touches it directly through a method.
-var _ = (&schema.Operation{})
+func TestConvertParameters_NilEntriesIgnored(t *testing.T) {
+	ctx := newConvertCtx()
+	pathS, hdr, q := convertParameters(nil, ctx)
+	assert.Nil(t, pathS)
+	assert.Nil(t, hdr)
+	assert.Nil(t, q)
+}
+
+func TestPickContent_Empty(t *testing.T) {
+	mt, ct := pickContent(nil)
+	assert.Equal(t, "", mt)
+	assert.Nil(t, ct)
+}
+
+func TestNonJSONContentSelectsFirst(t *testing.T) {
+	spec := `openapi: 3.0.0
+info: {title: t, version: 1}
+paths:
+  /:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            text/plain:
+              schema: {type: string}
+            text/csv:
+              schema: {type: string}
+`
+	reg, err := NewRegistry([]byte(spec), Options{})
+	require.NoError(t, err)
+	op := reg.FindOperation("/", "GET")
+	require.NotNil(t, op)
+	success := op.Response.GetSuccess()
+	require.NotNil(t, success)
+	assert.Contains(t, []string{"text/plain", "text/csv"}, success.ContentType)
+}
+
+func TestPickSuccessCode_FallthroughBranches(t *testing.T) {
+	items := func(codes ...int) map[int]*schema.ResponseItem {
+		out := map[int]*schema.ResponseItem{}
+		for _, c := range codes {
+			out[c] = &schema.ResponseItem{StatusCode: c}
+		}
+		return out
+	}
+	assert.Equal(t, 200, pickSuccessCode(items(200, 404, 500)))
+	assert.Equal(t, 302, pickSuccessCode(items(302, 500)))
+	assert.Equal(t, 404, pickSuccessCode(items(404, 500)))
+	assert.Equal(t, 503, pickSuccessCode(items(503)))
+	assert.Equal(t, 0, pickSuccessCode(items()))
+}
+
+func TestParseStatusCode(t *testing.T) {
+	cases := []struct {
+		in   string
+		code int
+		ok   bool
+	}{
+		{"200", 200, true},
+		{"404", 404, true},
+		{"2XX", 200, true},
+		{"3xx", 300, true},
+		{"4XX", 400, true},
+		{"5XX", 500, true},
+		{"default", 0, false},
+		{"", 0, false},
+		{"abc", 0, false},
+		{"6XX", 0, false},
+	}
+	for _, c := range cases {
+		code, ok := parseStatusCode(c.in)
+		assert.Equal(t, c.ok, ok, "input=%q", c.in)
+		if ok {
+			assert.Equal(t, c.code, code, "input=%q", c.in)
+		}
+	}
+}
+
+func TestIsMediaTypeJSON(t *testing.T) {
+	cases := map[string]bool{
+		"application/json":         true,
+		"application/vnd.api+json": true,
+		"application/xml":          false,
+		"text/plain":               false,
+		"":                         false,
+	}
+	for mt, want := range cases {
+		assert.Equal(t, want, isMediaTypeJSON(mt), "media-type %q", mt)
+	}
+}

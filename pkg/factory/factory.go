@@ -5,16 +5,13 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/generator"
-	libopenapiprovider "github.com/mockzilla/mockzilla/v2/pkg/provider/libopenapi"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 	"github.com/pb33f/libopenapi"
@@ -41,7 +38,6 @@ type Factory struct {
 type factoryConfig struct {
 	serviceContext []byte
 	specOptions    *config.SpecOptions
-	codegenCfg     *codegen.Configuration
 	logger         *slog.Logger
 }
 
@@ -59,14 +55,6 @@ func WithServiceContext(contextYAML []byte) FactoryOption {
 func WithSpecOptions(opts *config.SpecOptions) FactoryOption {
 	return func(c *factoryConfig) {
 		c.specOptions = opts
-	}
-}
-
-// WithCodegenConfig sets the codegen configuration used for spec parsing.
-// When not provided, the default codegen configuration is used.
-func WithCodegenConfig(cfg codegen.Configuration) FactoryOption {
-	return func(c *factoryConfig) {
-		c.codegenCfg = &cfg
 	}
 }
 
@@ -94,23 +82,10 @@ func NewFactory(specBytes []byte, opts ...FactoryOption) (*Factory, error) {
 		opt(fc)
 	}
 
-	codegenCfg := codegen.NewDefaultConfiguration()
-	if fc.codegenCfg != nil {
-		codegenCfg = fc.codegenCfg.WithDefaults()
-	}
-
-	var (
-		registry typedef.OperationRegistry
-		err      error
-	)
-	if useLibopenapiProvider(fc.specOptions) {
-		registry, err = libopenapiprovider.NewRegistry(specBytes, libopenapiprovider.Options{
-			SpecOptions: fc.specOptions,
-			Logger:      fc.logger,
-		})
-	} else {
-		registry, err = typedef.NewRegistryFromSpec(specBytes, codegenCfg, fc.specOptions)
-	}
+	registry, err := typedef.NewRegistry(specBytes, typedef.RegistryOptions{
+		SpecOptions: fc.specOptions,
+		Logger:      fc.logger,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("creating registry: %w", err)
 	}
@@ -159,34 +134,15 @@ func (f *Factory) Document() (libopenapi.Document, error) {
 	return f.doc, f.docErr
 }
 
-// useLibopenapiProvider returns true when the libopenapi-direct path is
-// selected. The OPENAPI_PARSE_PROVIDER environment variable overrides
-// any per-service SpecOptions.Provider value so tests can opt the
-// whole process into the new path without touching each service's
-// config. Empty config (or "codegen") keeps the existing
-// oapi-codegen-dd registry.
-func useLibopenapiProvider(opts *config.SpecOptions) bool {
-	if env := os.Getenv("OPENAPI_PARSE_PROVIDER"); env != "" {
-		return strings.EqualFold(env, "libopenapi")
-	}
-	if opts == nil {
-		return false
-	}
-	return strings.EqualFold(opts.Provider, "libopenapi")
-}
-
 // SuccessStatusCode returns the HTTP status code to use for a successful
 // response. It mirrors op.Response.SuccessCode when that code is
 // actually declared in the spec, otherwise picks a code the spec does
 // declare so response validation can match against a real response
-// schema.
+// schema. The registry fabricates a 204 entry when no 2xx is declared
+// (OAuth redirects, deletes-with-only-error-responses, "default"-only
+// operations); returning that synthetic 204 would fail validation, so
+// this method falls back as follows:
 //
-// This compensates for oapi-codegen-dd fabricating a 204 entry when no
-// 2xx is declared (OAuth redirects, deletes-with-only-error-responses,
-// "default"-only operations). Returning the fabricated 204 would fail
-// OpenAPI validation since the spec never declared it.
-//
-// Resolution order:
 //  1. SuccessCode declared in spec: keep it.
 //  2. Lowest declared 2xx, then 3xx, then 4xx.
 //  3. "default" declared: 200 (preferred over 5xx so the happy path stays green).
@@ -203,27 +159,11 @@ func (f *Factory) SuccessStatusCode(path, method string) int {
 		return regCode
 	}
 
-	var min2xx, min3xx, min4xx, min5xx int
+	keys := make([]int, 0, len(codes))
 	for code := range codes {
-		switch {
-		case code >= 200 && code < 300:
-			if min2xx == 0 || code < min2xx {
-				min2xx = code
-			}
-		case code >= 300 && code < 400:
-			if min3xx == 0 || code < min3xx {
-				min3xx = code
-			}
-		case code >= 400 && code < 500:
-			if min4xx == 0 || code < min4xx {
-				min4xx = code
-			}
-		case code >= 500:
-			if min5xx == 0 || code < min5xx {
-				min5xx = code
-			}
-		}
+		keys = append(keys, code)
 	}
+	min2xx, min3xx, min4xx, min5xx := schema.MinResponseCodes(keys)
 
 	switch {
 	case min2xx > 0:

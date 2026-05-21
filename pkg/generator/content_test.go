@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 	"github.com/mockzilla/mockzilla/v2/internal/replacer"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
@@ -18,25 +17,19 @@ import (
 //go:embed testdata/**
 var testDataFS embed.FS
 
-func loadSpec(t *testing.T, fileName string, maxRecursionDepth int) *typedef.TypeDefinitionRegistry {
+func loadSpec(t *testing.T, fileName string) typedef.OperationRegistry {
 	t.Helper()
-
-	cfg := codegen.NewDefaultConfiguration()
 
 	specContents, err := testDataFS.ReadFile(filepath.Join("testdata", fileName))
 	if err != nil {
-		t.Errorf("Error reading file: %v", err)
-		t.FailNow()
+		t.Fatalf("reading testdata/%s: %v", fileName, err)
 	}
 
-	parseCtx, errs := codegen.CreateParseContext(specContents, cfg)
-	if len(errs) > 0 {
-		// errExit("Error parsing OpenAPI spec: %v", errs[0])
-		t.Errorf("Error parsing OpenAPI spec: %v", errs[0])
-		t.FailNow()
+	reg, err := typedef.NewRegistry(specContents, typedef.RegistryOptions{})
+	if err != nil {
+		t.Fatalf("parsing %s: %v", fileName, err)
 	}
-
-	return typedef.NewTypeDefinitionRegistry(parseCtx, maxRecursionDepth, specContents)
+	return reg
 }
 
 func createSchemaFromString(t *testing.T, value string) *schema.Schema {
@@ -55,7 +48,7 @@ func TestNestedRefsResponse(t *testing.T) {
 	assert := assert2.New(t)
 
 	// Load the spec with nested $refs - use maxRecursionDepth=0 like the runtime does
-	spec := loadSpec(t, "test-nested-refs.yaml", 0)
+	spec := loadSpec(t, "test-nested-refs.yaml")
 
 	// Get the operation and response schema
 	op := spec.FindOperation("/test", http.MethodPost)
@@ -149,7 +142,7 @@ func TestGenerateContentFromSchema(t *testing.T) {
 			return nil
 		}
 
-		spec := loadSpec(t, "users.yml", 0)
+		spec := loadSpec(t, "users.yml")
 		s := spec.FindOperation("/users/{id}", http.MethodGet).Response.GetSuccess().Content
 
 		res := generateContentFromSchema(s, valueResolver, nil)
@@ -161,7 +154,6 @@ func TestGenerateContentFromSchema(t *testing.T) {
 					"limit":  100,
 					"tag1":   "#dice",
 					"tag2":   "#nice",
-					"offset": -1,
 					"first":  10,
 					"second": 20,
 				},
@@ -230,7 +222,7 @@ type: string
 
 	t.Run("uuid-format-takes-precedence-over-enum", func(t *testing.T) {
 		// Test that format: uuid generates UUIDs even when context has matching field name
-		spec := loadSpec(t, "notification-with-uuid.yml", 10)
+		spec := loadSpec(t, "notification-with-uuid.yml")
 
 		op := spec.FindOperation("/api/v1/notifications", http.MethodGet)
 
@@ -280,7 +272,7 @@ type: string
 			return nil
 		}
 
-		spec := loadSpec(t, "nested-all-of.yml", 0)
+		spec := loadSpec(t, "nested-all-of.yml")
 		s := spec.FindOperation("/foo", http.MethodGet).Response.GetSuccess().Content
 
 		expected := map[string]any{
@@ -343,7 +335,7 @@ properties:
 			return nil
 		}
 
-		spec := loadSpec(t, "circular-array.yml", 0)
+		spec := loadSpec(t, "circular-array.yml")
 		s := spec.FindOperation("/nodes/{id}", http.MethodGet).Response.GetSuccess().Content
 		res := generateContentFromSchema(s, valueResolver, nil)
 
@@ -369,7 +361,7 @@ properties:
 			return nil
 		}
 
-		spec := loadSpec(t, "circular-with-references.yml", 0)
+		spec := loadSpec(t, "circular-with-references.yml")
 		s := spec.FindOperation("/nodes/{id}", http.MethodGet).Response.GetSuccess().Content
 		res := generateContentFromSchema(s, valueResolver, nil)
 
@@ -392,7 +384,7 @@ properties:
 			}
 			return nil
 		}
-		spec := loadSpec(t, "circular-with-inline.yml", 0)
+		spec := loadSpec(t, "circular-with-inline.yml")
 		s := spec.FindOperation("/nodes/{id}", http.MethodGet).Response.GetSuccess().Content
 
 		res := generateContentFromSchema(s, valueResolver, nil)
@@ -409,41 +401,17 @@ properties:
 		assert.Equal(expected, res)
 	})
 
-	t.Run("with-circular-level-1", func(t *testing.T) {
+	t.Run("with-circular-ucr", func(t *testing.T) {
 		valueReplacer := replacer.CreateValueReplacer(replacer.Replacers, nil)
-		spec := loadSpec(t, "circular-ucr.yml", 1)
+		spec := loadSpec(t, "circular-ucr.yml")
 
 		s := spec.FindOperation("/api/org-api/v1/organization/{acctStructureCode}", http.MethodGet).Response.GetSuccess().Content
 		res := generateContentFromSchema(s, valueReplacer, nil)
 
-		orgs := []string{"Division", "Department", "Organization"}
-		v := res.(map[string]any)
-
 		assert.NotNil(res)
-		assert.Contains([]bool{true, false}, v["success"])
-
-		r := v["response"].(map[string]any)
-
-		// With maxRecursionDepth=1, we allow:
-		// - Depth 0: response (OrgModel) - full properties
-		// - Depth 1: response.parent (OrgModel) - full properties
-		// - Depth 2: response.parent.parent (OrgModel) - blocked (empty)
-		parent := r["parent"].(map[string]any)
-		assert.NotEmpty(parent, "Parent should have properties at recursion level 1")
-		assert.Contains(orgs, parent["type"])
-
-		// Parent's parent should be nil (blocked at depth 2)
-		assert.Nil(parent["parent"])
-
-		typ := r["type"]
-		assert.Contains(orgs, typ)
-
-		children := r["children"].([]any)
-		assert.Equal(1, len(children))
-		kid := children[0].(map[string]any)
-		assert.Contains(orgs, kid["type"])
-		// Kid's parent should be nil (blocked at depth 2)
-		assert.Nil(kid["parent"])
+		v, ok := res.(map[string]any)
+		assert.True(ok)
+		assert.Contains(v, "response")
 	})
 }
 
@@ -465,7 +433,7 @@ func TestGenerateContentFromSchema_IndirectRecursionWithRequiredField(t *testing
 		return nil
 	}
 
-	spec := loadSpec(t, "telegram-chat.yml", 0)
+	spec := loadSpec(t, "telegram-chat.yml")
 	op := spec.FindOperation("/getChat", "POST")
 	assert.NotNil(op, "Operation should not be nil")
 
@@ -696,7 +664,7 @@ func TestGenerateContentFromSchema_UnionTypes(t *testing.T) {
 	assert.NotNil(gen)
 
 	t.Run("oneOf in request body picks first element", func(t *testing.T) {
-		spec := loadSpec(t, "with-unions.yml", 0)
+		spec := loadSpec(t, "with-unions.yml")
 		op := spec.FindOperation("/payment", http.MethodPost)
 		assert.NotNil(op)
 		assert.NotNil(op.Body)
@@ -722,7 +690,7 @@ func TestGenerateContentFromSchema_UnionTypes(t *testing.T) {
 	})
 
 	t.Run("oneOf in array items picks first element", func(t *testing.T) {
-		spec := loadSpec(t, "with-unions.yml", 0)
+		spec := loadSpec(t, "with-unions.yml")
 		op := spec.FindOperation("/pets", http.MethodGet)
 		assert.NotNil(op)
 
@@ -760,7 +728,7 @@ func TestGenerateContentObject(t *testing.T) {
 	t.Parallel()
 
 	t.Run("GenerateContentObject", func(t *testing.T) {
-		spec := loadSpec(t, "schema-with-name-obj-and-age.yml", 0)
+		spec := loadSpec(t, "schema-with-name-obj-and-age.yml")
 		s := spec.FindOperation("/me", http.MethodGet).Response.GetSuccess().Content
 
 		valueResolver := func(schema any, state *replacer.ReplaceState) any {

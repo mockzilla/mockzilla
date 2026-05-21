@@ -90,3 +90,11 @@ paths:
 	require.NotNil(t, q)
 	assert.Nil(t, q.Encoding, "no style/explode means no encoding entry")
 }
+
+func TestConvertRequestBodyEncoding_Nil(t *testing.T) {
+	assert.Nil(t, convertRequestBodyEncoding(nil))
+}
+
+func TestConvertParameterEncoding_NilOrUnstyled(t *testing.T) {
+	assert.Nil(t, convertParameterEncoding(nil))
+}
