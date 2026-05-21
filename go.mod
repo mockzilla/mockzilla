@@ -13,7 +13,7 @@ require (
 	github.com/jaswdr/faker/v2 v2.9.1
 	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.1.2
-	github.com/pb33f/libopenapi v0.36.1
+	github.com/pb33f/libopenapi v0.36.5
 	github.com/pb33f/libopenapi-validator v0.13.7
 	github.com/redis/go-redis/v9 v9.13.0
 	github.com/spf13/cobra v1.10.2
