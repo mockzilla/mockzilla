@@ -10,6 +10,7 @@ import (
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
+	"github.com/pb33f/libopenapi"
 )
 
 // OperationRegistry is the interface for accessing parsed operations.
@@ -27,6 +28,13 @@ type OperationRegistry interface {
 	// GetResponseSchema returns the success response schema for an operation.
 	// Returns nil if the operation is not found or has no success response.
 	GetResponseSchema(path, method string) *schema.ResponseSchema
+}
+
+// DocumentProvider is an optional extension implemented by registries that
+// already hold a parsed libopenapi document. The factory uses it to share
+// the document with validator construction without re-parsing.
+type DocumentProvider interface {
+	Document() (libopenapi.Document, error)
 }
 
 // RouteInfo holds minimal route information extracted at startup.

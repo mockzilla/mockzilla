@@ -147,13 +147,82 @@ func TestPortableIntegration(t *testing.T) {
 		}
 	})
 
-	client := &http.Client{Timeout: requestTimeout}
+	// All parallel goroutines in a batch share one httptest.Server and
+	// therefore one host:port. The default Transport's
+	// MaxIdleConnsPerHost=2 is smaller than MAX_CONCURRENCY (default 4),
+	// so the extra parallel goroutines open and then evict connections
+	// repeatedly. Each eviction churns a client-side ephemeral port
+	// through TIME_WAIT and over a 2000+ spec corpus exhausts the
+	// kernel's port pool. Pool of 16 is comfortable headroom over the
+	// usual MAX_CONCURRENCY range.
+	transport := &http.Transport{
+		MaxIdleConns:        64,
+		MaxIdleConnsPerHost: 16,
+		IdleConnTimeout:     30 * time.Second,
+		DisableCompression:  true,
+	}
+	client := &http.Client{Timeout: requestTimeout, Transport: transport}
+	t.Cleanup(transport.CloseIdleConnections)
 
 	// cacheSaveMu serializes incremental cache flushes so we don't write
 	// the file from multiple goroutines simultaneously. Save itself is
 	// cheap (small JSON), and saving per-spec means a SIGKILL'd run
 	// still preserves progress on every spec that completed.
 	var cacheSaveMu sync.Mutex
+
+	// Pre-flight lint everything in parallel. Specs flagged as
+	// known-unsatisfiable never make it onto the shared server below.
+	lintSkipped := preflightLint(specs)
+
+	// Specs that survived lint go into one shared portable Setup so
+	// the whole batch runs against a single httptest.Server. Previous
+	// approach (fresh server per spec) consumed an ephemeral port per
+	// spec; over a 2000+ spec corpus that exhausted macOS's TIME_WAIT
+	// pool. One server per batch reduces port pressure ~10x.
+	var (
+		toTest     []string
+		batchBoot  time.Duration
+		batchSetup *portable.Setup
+		batchMat   *batchMaterialization
+		batchURL   string
+		setupErr   error
+		failByName = map[string]error{}
+	)
+	for _, spec := range specs {
+		if _, ok := lintSkipped[spec]; !ok {
+			toTest = append(toTest, spec)
+		}
+	}
+	if len(toTest) > 0 {
+		bootStart := time.Now()
+		mat, err := materializeBatch(toTest)
+		if err != nil {
+			setupErr = fmt.Errorf("materialize batch: %w", err)
+		} else {
+			batchMat = mat
+			t.Cleanup(mat.cleanup)
+			batchSetup, err = portable.BuildSetup([]string{mat.root})
+			if err != nil {
+				setupErr = fmt.Errorf("build setup: %w", err)
+			} else {
+				for _, f := range batchSetup.Failed {
+					failByName[f.Name] = f.Err
+				}
+				ts := httptest.NewServer(batchSetup.Router)
+				batchURL = ts.URL
+				t.Cleanup(ts.Close)
+			}
+		}
+		batchBoot = time.Since(bootStart)
+	}
+
+	// Amortise the batch boot across every spec that participated so
+	// the per-spec "boot=Xms" column on the output line stays
+	// meaningful and the Boot total still equals real time spent.
+	bootPerSpec := time.Duration(0)
+	if len(toTest) > 0 {
+		bootPerSpec = batchBoot / time.Duration(len(toTest))
+	}
 
 	for _, spec := range specs {
 		t.Run(spec, func(t *testing.T) {
@@ -168,18 +237,30 @@ func TestPortableIntegration(t *testing.T) {
 			// pointing at the spec that was in flight.
 			fmt.Fprintf(os.Stderr, "  start %s\n", spec)
 
-			// Pre-flight lint. Specs that hit a known unsatisfiable
-			// pattern (see pkg/lint) can never pass response validation
-			// regardless of generator quality, so booting them is
-			// wasted work. Record as skipped and surface in summary.
-			if defects, err := lint.Spec(spec); err == nil && len(defects) > 0 {
+			if defects, ok := lintSkipped[spec]; ok {
 				result := specResult{lintDefects: defects}
 				stats.record(spec, result, cache)
 				stats.printSpecLine(spec, result, totalSpecs)
 				return
 			}
 
-			result := runOneSpec(ctx, spec, client)
+			var result specResult
+			switch {
+			case setupErr != nil:
+				result = specResult{bootErr: setupErr, bootDuration: bootPerSpec}
+			default:
+				svcName := batchMat.specToSvc[spec]
+				if regErr, ok := failByName[svcName]; ok {
+					result = specResult{
+						bootErr:      fmt.Errorf("service failed to register: %w", regErr),
+						bootDuration: bootPerSpec,
+					}
+				} else {
+					result = runOneSpecOnServer(ctx, client, batchURL, svcName)
+					result.bootDuration = bootPerSpec
+				}
+			}
+
 			stats.record(spec, result, cache)
 			stats.printSpecLine(spec, result, totalSpecs)
 
@@ -324,7 +405,15 @@ func (s *portableStats) printSummary(totalSpecs int) {
 
 	totalOps := s.totalRoutesTested.Load()
 	totalFails := s.totalRouteFailures.Load()
+	// totalOK is the count of operations that passed. Boot/list failures
+	// increment totalFails without contributing to totalOps, so clamp to
+	// zero — the previous arithmetic could produce negative counts in
+	// the per-batch summary when many specs failed before any route was
+	// exercised.
 	totalOK := totalOps - totalFails
+	if totalOK < 0 {
+		totalOK = 0
+	}
 	bootTotal := time.Duration(s.totalBootNs.Load())
 	testTotal := time.Duration(s.totalTestNs.Load())
 
@@ -442,86 +531,112 @@ func loadPortableCache(t *testing.T) *integrationtest.ResultCache {
 	return cache
 }
 
-func runOneSpec(ctx context.Context, specPath string, client *http.Client) specResult {
+// runOneSpecOnServer drives the per-spec test phase (list routes, then
+// generate + call each endpoint) against a server that's already up
+// for the whole batch. Boot is recorded separately by the caller.
+func runOneSpecOnServer(ctx context.Context, client *http.Client, baseURL, svcName string) specResult {
 	res := specResult{}
-
-	bootStart := time.Now()
-
-	specBytes, err := integrationtest.ReadSpecFileWithBaseDir(specPath, "testdata/specs")
-	if err != nil {
-		res.bootErr = fmt.Errorf("read spec: %w", err)
-		return res
-	}
-
-	root, cleanup, err := materializeSpec(specPath, specBytes)
-	if err != nil {
-		res.bootErr = fmt.Errorf("materialize: %w", err)
-		return res
-	}
-	defer cleanup()
-
-	setup, err := portable.BuildSetup([]string{root})
-	if err != nil {
-		res.bootErr = fmt.Errorf("build setup: %w", err)
-		return res
-	}
-
-	// Any resolved-but-not-registered service is a spec or validator
-	// failure the integration suite must surface. The server keeps
-	// running in production, but for tests "service silently dropped"
-	// is the kind of regression this suite exists to catch.
-	if len(setup.Failed) > 0 {
-		first := setup.Failed[0]
-		res.bootErr = fmt.Errorf("service %q failed to register: %w", first.Name, first.Err)
-		return res
-	}
-
-	ts := httptest.NewServer(setup.Router)
-	defer ts.Close()
-
-	res.bootDuration = time.Since(bootStart)
-
 	testStart := time.Now()
-	for _, svc := range setup.Services {
-		if ctx.Err() != nil {
-			break
-		}
-		failures, n := testService(ctx, client, ts.URL, svc.Name)
-		res.routesTested += n
-		res.failures = append(res.failures, failures...)
-	}
+	failures, n := testService(ctx, client, baseURL, svcName)
 	res.testDuration = time.Since(testStart)
-
+	res.routesTested = n
+	res.failures = failures
 	return res
 }
 
-func materializeSpec(specPath string, specBytes []byte) (root string, cleanup func(), err error) {
-	ext := filepath.Ext(specPath)
-	name := strings.TrimSuffix(filepath.Base(specPath), ext)
-	root, err = os.MkdirTemp("", "portable-int-")
+// batchMaterialization writes a batch of specs into one shared
+// services/<name>/ tree that portable.BuildSetup discovers in a single
+// pass. The service names are index-based so two specs with the same
+// basename in the batch don't collide.
+type batchMaterialization struct {
+	root      string
+	specToSvc map[string]string // original spec path -> service name
+	cleanup   func()
+}
+
+func materializeBatch(specs []string) (*batchMaterialization, error) {
+	root, err := os.MkdirTemp("", "portable-int-batch-")
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	svcDir := filepath.Join(root, "services", name)
-	if err := os.MkdirAll(svcDir, 0o755); err != nil {
+	servicesRoot := filepath.Join(root, "services")
+	if err := os.MkdirAll(servicesRoot, 0o755); err != nil {
 		_ = os.RemoveAll(root)
-		return "", nil, err
-	}
-	if err := os.WriteFile(filepath.Join(svcDir, "openapi"+ext), specBytes, 0o644); err != nil {
-		_ = os.RemoveAll(root)
-		return "", nil, err
+		return nil, err
 	}
 
 	// Eager parsing: the suite exercises every endpoint of every spec,
 	// so on-demand parsing would just defer the same work behind first
-	// requests. Eager surfaces spec-parse failures at boot — easier to
-	// attribute to a spec, and faster overall.
-	cfgBody := "spec:\n  lazyLoad: false\nvalidate:\n  request: true\n  response: true\n"
-	if err := os.WriteFile(filepath.Join(svcDir, "config.yml"), []byte(cfgBody), 0o644); err != nil {
-		_ = os.RemoveAll(root)
-		return "", nil, err
+	// requests. Eager also surfaces spec-parse failures at boot, which
+	// the orchestrator wants visible as a per-spec failure.
+	cfgBody := []byte("spec:\n  lazyLoad: false\nvalidate:\n  request: true\n  response: true\n")
+
+	specToSvc := make(map[string]string, len(specs))
+	for i, spec := range specs {
+		specBytes, err := integrationtest.ReadSpecFileWithBaseDir(spec, "testdata/specs")
+		if err != nil {
+			_ = os.RemoveAll(root)
+			return nil, fmt.Errorf("read %s: %w", spec, err)
+		}
+		svcName := fmt.Sprintf("s%04d", i)
+		svcDir := filepath.Join(servicesRoot, svcName)
+		if err := os.MkdirAll(svcDir, 0o755); err != nil {
+			_ = os.RemoveAll(root)
+			return nil, err
+		}
+		ext := filepath.Ext(spec)
+		if err := os.WriteFile(filepath.Join(svcDir, "openapi"+ext), specBytes, 0o644); err != nil {
+			_ = os.RemoveAll(root)
+			return nil, err
+		}
+		if err := os.WriteFile(filepath.Join(svcDir, "config.yml"), cfgBody, 0o644); err != nil {
+			_ = os.RemoveAll(root)
+			return nil, err
+		}
+		specToSvc[spec] = svcName
 	}
-	return root, func() { _ = os.RemoveAll(root) }, nil
+
+	return &batchMaterialization{
+		root:      root,
+		specToSvc: specToSvc,
+		cleanup:   func() { _ = os.RemoveAll(root) },
+	}, nil
+}
+
+// preflightLint runs lint.Spec for every spec with bounded parallelism
+// and returns the map of spec path -> defects for specs that should be
+// skipped. The work was previously inline in each t.Run; doing it
+// upfront lets the batch materialiser skip lint-failed specs entirely
+// (saves writing them to disk and registering services for them).
+func preflightLint(specs []string) map[string][]lint.Defect {
+	out := make(map[string][]lint.Defect)
+	var mu sync.Mutex
+
+	const workers = 8
+	jobs := make(chan string, len(specs))
+	for _, s := range specs {
+		jobs <- s
+	}
+	close(jobs)
+
+	var wg sync.WaitGroup
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for spec := range jobs {
+				defects, err := lint.Spec(spec)
+				if err != nil || len(defects) == 0 {
+					continue
+				}
+				mu.Lock()
+				out[spec] = defects
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	return out
 }
 
 func testService(ctx context.Context, client *http.Client, baseURL, serviceName string) ([]routeFailure, int) {
@@ -656,7 +771,15 @@ func callEndpoint(ctx context.Context, client *http.Client, url, method string, 
 		}
 		return err
 	}
-	defer func() { _ = resp.Body.Close() }()
+	defer func() {
+		// Drain before close so the underlying TCP connection goes back
+		// to the keep-alive pool. Closing without reading abandons the
+		// conn (per net/http docs), and over a 2000+ spec corpus that
+		// churns enough ephemeral ports through TIME_WAIT to exhaust
+		// macOS's port pool and produce EADDRNOTAVAIL on later dials.
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode >= 500 {
 		respBody, _ := io.ReadAll(resp.Body)

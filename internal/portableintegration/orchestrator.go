@@ -102,12 +102,21 @@ func Run(t *testing.T, cfg Config) {
 			len(specs), len(batches), opts.BatchSizeMB)
 	}
 
+	// Build the test binary once and re-exec it per batch. Skipping
+	// `go test`'s per-invocation build graph hashing saves roughly a
+	// second per batch (4+ minutes across the full corpus).
+	binaryPath, cleanup, buildErr := buildTestBinary(t.Context())
+	if buildErr != nil {
+		t.Fatalf("pre-build test binary: %v", buildErr)
+	}
+	defer cleanup()
+
 	var agg aggregate
 	failedBatches := 0
 	for i, batch := range batches {
 		fmt.Fprintln(os.Stderr)
 		fmt.Fprintf(os.Stderr, "=== Batch %d/%d: %d spec(s) ===\n", i+1, len(batches), len(batch))
-		summary, err := runBatchChild(t.Context(), batch, cfg)
+		summary, err := runBatchChild(t.Context(), binaryPath, batch, cfg)
 		agg.merge(summary)
 		if err != nil {
 			failedBatches++
@@ -161,9 +170,24 @@ func resolveSpecPath(p, baseDir string) string {
 	return p
 }
 
-// runBatchChild re-execs `go test -run <pattern>` on the given specs
+// buildTestBinary compiles the current package's test binary once so
+// the per-batch invocations skip `go test`'s build graph hashing. The
+// returned cleanup removes the binary on exit.
+func buildTestBinary(ctx context.Context) (string, func(), error) {
+	binPath := filepath.Join(os.TempDir(), fmt.Sprintf("mockzilla-portable.%d.test", os.Getpid()))
+	cmd := exec.CommandContext(ctx, "go", "test", "-c", "-o", binPath, ".")
+	cmd.Stdout = os.Stderr
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", func() {}, fmt.Errorf("go test -c: %w", err)
+	}
+	cleanup := func() { _ = os.Remove(binPath) }
+	return binPath, cleanup, nil
+}
+
+// runBatchChild re-execs the pre-built test binary on the given specs
 // with the batch env var set so the child takes the in-process loop.
-func runBatchChild(ctx context.Context, specs []string, cfg Config) (batchSummary, error) {
+func runBatchChild(ctx context.Context, binPath string, specs []string, cfg Config) (batchSummary, error) {
 	deadline := defaultBatchTimeout
 	if v := os.Getenv("BATCH_TIMEOUT"); v != "" {
 		if d, err := time.ParseDuration(v); err == nil {
@@ -179,17 +203,20 @@ func runBatchChild(ctx context.Context, specs []string, cfg Config) (batchSummar
 		mc = "4"
 	}
 	args := []string{
-		"test", "-v",
-		"-run=" + cfg.TestRunPattern,
-		"-timeout=" + deadline.String(),
-		"-count=1",
-		"-parallel=" + mc,
-		".",
+		"-test.v",
+		"-test.run=" + cfg.TestRunPattern,
+		"-test.timeout=" + deadline.String(),
+		"-test.count=1",
+		"-test.parallel=" + mc,
 	}
 
-	cmd := exec.CommandContext(batchCtx, "go", args...)
+	cmd := exec.CommandContext(batchCtx, binPath, args...)
+	// SPECS carries the orchestrator's per-batch list; unset SPEC and any
+	// inherited SPECS so the child doesn't re-add the operator's
+	// original single-spec arg on top of what we already packed for it.
 	cmd.Env = append(os.Environ(),
 		cfg.BatchEnvVar+"=1",
+		"SPEC=",
 		"SPECS="+strings.Join(specs, "\n"),
 	)
 

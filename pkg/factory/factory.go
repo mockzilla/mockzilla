@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/generator"
+	libopenapiprovider "github.com/mockzilla/mockzilla/v2/pkg/provider/libopenapi"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 	"github.com/pb33f/libopenapi"
@@ -97,7 +99,18 @@ func NewFactory(specBytes []byte, opts ...FactoryOption) (*Factory, error) {
 		codegenCfg = fc.codegenCfg.WithDefaults()
 	}
 
-	registry, err := typedef.NewRegistryFromSpec(specBytes, codegenCfg, fc.specOptions)
+	var (
+		registry typedef.OperationRegistry
+		err      error
+	)
+	if useLibopenapiProvider(fc.specOptions) {
+		registry, err = libopenapiprovider.NewRegistry(specBytes, libopenapiprovider.Options{
+			SpecOptions: fc.specOptions,
+			Logger:      fc.logger,
+		})
+	} else {
+		registry, err = typedef.NewRegistryFromSpec(specBytes, codegenCfg, fc.specOptions)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("creating registry: %w", err)
 	}
@@ -131,6 +144,10 @@ func NewFactory(specBytes []byte, opts ...FactoryOption) (*Factory, error) {
 // the host process can't easily silence or attribute.
 func (f *Factory) Document() (libopenapi.Document, error) {
 	f.docOnce.Do(func() {
+		if dp, ok := f.registry.(typedef.DocumentProvider); ok {
+			f.doc, f.docErr = dp.Document()
+			return
+		}
 		if f.logger != nil {
 			cfg := datamodel.NewDocumentConfiguration()
 			cfg.Logger = f.logger
@@ -140,6 +157,22 @@ func (f *Factory) Document() (libopenapi.Document, error) {
 		f.doc, f.docErr = libopenapi.NewDocument(f.specBytes)
 	})
 	return f.doc, f.docErr
+}
+
+// useLibopenapiProvider returns true when the libopenapi-direct path is
+// selected. The OPENAPI_PARSE_PROVIDER environment variable overrides
+// any per-service SpecOptions.Provider value so tests can opt the
+// whole process into the new path without touching each service's
+// config. Empty config (or "codegen") keeps the existing
+// oapi-codegen-dd registry.
+func useLibopenapiProvider(opts *config.SpecOptions) bool {
+	if env := os.Getenv("OPENAPI_PARSE_PROVIDER"); env != "" {
+		return strings.EqualFold(env, "libopenapi")
+	}
+	if opts == nil {
+		return false
+	}
+	return strings.EqualFold(opts.Provider, "libopenapi")
 }
 
 // SuccessStatusCode returns the HTTP status code to use for a successful
