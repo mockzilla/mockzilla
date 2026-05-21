@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/datamodel"
@@ -27,8 +28,7 @@ type Options struct {
 	//   &{Min:0, Max:0}   drop every optional property
 	//   &{Min:N, Max:N}   keep exactly N optional properties
 	//   &{Min:A, Max:B}   keep a random number in [A,B] per schema
-	// Seed reproduces the random selection; leave 0 for time-based.
-	OptionalProperties *typedef.OptionalPropertyConfig
+	OptionalProperties *config.OptionalProperties
 }
 
 // Simplify reads an OpenAPI spec, removes anyOf/oneOf unions, strips schema-

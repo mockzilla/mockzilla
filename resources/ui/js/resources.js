@@ -325,7 +325,7 @@ export const generateResult = (service, ix, path, method) => {
 
             const curlBlock = document.getElementById('example-curl');
 
-            // The server-reported prefix is the source of truth — including
+            // The server-reported prefix is the source of truth, including
             // when `--mount` overrides a root-named service. joinServiceUrl
             // collapses the "/" prefix (root mount) and any trailing slash
             // from a CLI mount value so the join with reqPath stays clean.

@@ -192,7 +192,7 @@ endpoints:
 
 Each endpoint is matched by path pattern and HTTP method. Path parameters (`{id}`) match any value, just like OpenAPI path parameters.
 
-When a request matches an endpoint, only that endpoint's latency and error config is used — the service-level `latency`, `latencies`, and `errors` are ignored for that request. Requests that don't match any endpoint pattern fall back to the service-level settings.
+When a request matches an endpoint, only that endpoint's latency and error config is used; the service-level `latency`, `latencies`, and `errors` are ignored for that request. Requests that don't match any endpoint pattern fall back to the service-level settings.
 
 In portable mode, the same structure lives in the service's own `config.yml`:
 

@@ -164,7 +164,7 @@ func TestResolveStaticFileDirect(t *testing.T) {
 
 	t.Run("each call gets its own temp dir", func(t *testing.T) {
 		// Concurrent invocations (or just repeated calls) must not
-		// share state — they each synthesize their own spec into a
+		// share state; they each synthesize their own spec into a
 		// fresh dir.
 		s1, err := resolveStaticFile("a.json", []byte(`{"a":1}`), "")
 		require.NoError(t, err)

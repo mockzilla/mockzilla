@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	assert2 "github.com/stretchr/testify/assert"
 )
@@ -40,16 +39,6 @@ func TestNewFactory_WithServiceContext(t *testing.T) {
 name: custom-pet
 `)
 	f, err := NewFactory(spec, WithServiceContext(ctx))
-	assert.NoError(err)
-	assert.NotNil(f)
-}
-
-func TestNewFactory_WithCodegenConfig(t *testing.T) {
-	assert := assert2.New(t)
-
-	spec := loadTestSpec(t, "factory-test.yml")
-	cfg := codegen.NewDefaultConfiguration()
-	f, err := NewFactory(spec, WithCodegenConfig(cfg))
 	assert.NoError(err)
 	assert.NotNil(f)
 }

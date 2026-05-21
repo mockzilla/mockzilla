@@ -19,7 +19,7 @@ func writeSpec(t *testing.T, name, body string) string {
 }
 
 // TestSpec_CleanSpec confirms the engine returns no defects for a well-formed
-// spec. Failures here mean a rule fires on something innocuous — fix the
+// spec. Failures here mean a rule fires on something innocuous; fix the
 // rule, don't relax this test.
 func TestSpec_CleanSpec(t *testing.T) {
 	spec := writeSpec(t, "ok.yml", `

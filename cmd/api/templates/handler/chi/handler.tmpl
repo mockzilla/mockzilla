@@ -81,12 +81,12 @@ var configSrc []byte
 //go:embed setup/openapi.*
 var openapiSpecFS embed.FS
 
-//go:embed setup/codegen.yml
-var codegenConfigSrc []byte
-
 //go:embed setup/context.yml
 var contextSrc []byte
 {{- if $config.UserContext }}{{- with index $config.UserContext "OverlayFiles" }}
+
+//go:embed setup/codegen.yml
+var codegenConfigSrc []byte
 
 //go:embed{{ range . }} setup/{{ . }}{{ end }}
 var overlayFS embed.FS
@@ -117,8 +117,8 @@ func RegisterAPIRouter(router *api.Router) {
 		)
 		return
 	}
+{{- if $config.UserContext }}{{- with index $config.UserContext "OverlayFiles" }}
 
-	// Load codegen config
 	var codegenCfg oapicodegen.Configuration
 	if err := yamlv4.Unmarshal(codegenConfigSrc, &codegenCfg); err != nil {
 		slog.Error(fmt.Sprintf("Failed to parse codegen config for %s", serviceName),
@@ -127,12 +127,7 @@ func RegisterAPIRouter(router *api.Router) {
 		)
 		return
 	}
-	codegenCfg = codegenCfg.Merge(oapicodegen.NewDefaultConfiguration())
-{{- if $config.UserContext }}{{- with index $config.UserContext "OverlayFiles" }}
 
-	// Apply embedded overlays to the spec before registry creation.
-	// Overlays are referenced in codegen.yml by filesystem path,
-	// which doesn't work with embedded specs. Apply from embedded bytes instead.
 	if codegenCfg.Overlay != nil && len(codegenCfg.Overlay.Sources) > 0 {
 		openapiSpec, err = applyEmbeddedOverlays(openapiSpec, overlayFS, codegenCfg.Overlay.Sources)
 		if err != nil {
@@ -142,12 +137,12 @@ func RegisterAPIRouter(router *api.Router) {
 			)
 			return
 		}
-		codegenCfg.Overlay = nil
 	}
 {{- end }}{{- end }}
 
-	// Create the typedef registry from the OpenAPI spec
-	registry, err := typedef.NewRegistryFromSpec(openapiSpec, codegenCfg, cfg.SpecOptions)
+	registry, err := typedef.NewRegistry(openapiSpec, typedef.RegistryOptions{
+		SpecOptions: cfg.SpecOptions,
+	})
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed to create registry for %s", serviceName),
 			"error", err,
@@ -391,33 +386,30 @@ var (
 )
 
 // NewFactory creates a Factory pre-configured with this service's OpenAPI spec,
-// codegen config, spec options, and context.
+// spec options, and context.
 // Use it to generate mock requests and responses programmatically without running the server.
 func NewFactory(opts ...factory.FactoryOption) (*factory.Factory, error) {
 	openapiSpec, err := readFirstEmbeddedFile(openapiSpecFS)
 	if err != nil {
 		return nil, err
 	}
+{{- if $config.UserContext }}{{- with index $config.UserContext "OverlayFiles" }}
 
 	var codegenCfg oapicodegen.Configuration
 	if err := yamlv4.Unmarshal(codegenConfigSrc, &codegenCfg); err != nil {
 		return nil, err
 	}
-{{- if $config.UserContext }}{{- with index $config.UserContext "OverlayFiles" }}
 
-	// Apply embedded overlays
 	if codegenCfg.Overlay != nil && len(codegenCfg.Overlay.Sources) > 0 {
 		openapiSpec, err = applyEmbeddedOverlays(openapiSpec, overlayFS, codegenCfg.Overlay.Sources)
 		if err != nil {
 			return nil, fmt.Errorf("applying overlay: %w", err)
 		}
-		codegenCfg.Overlay = nil
 	}
 {{- end }}{{- end }}
 
 	allOpts := []factory.FactoryOption{
 		factory.WithServiceContext(contextSrc),
-		factory.WithCodegenConfig(codegenCfg),
 	}
 	if cfg != nil && cfg.SpecOptions != nil {
 		allOpts = append(allOpts, factory.WithSpecOptions(cfg.SpecOptions))

@@ -136,7 +136,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 			wantBody:   `response validation failed`,
 		},
 		{
-			name:       "response:false explicit (matches default) — invalid body still passes",
+			name:       "response:false explicit (matches default); invalid body still passes",
 			cfg:        &config.ValidateConfig{Response: boolPtr(false)},
 			handler:    invalidHandler,
 			reqBody:    `{"name":"rex"}`,

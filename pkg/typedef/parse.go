@@ -17,14 +17,9 @@ func CreateParseContext(docContents []byte, cfg codegen.Configuration, specOptio
 		specOptions = config.NewSpecOptions()
 	}
 
-	// Build model - optionally simplify it before parsing
-	var optConfig *OptionalPropertyConfig
-	if specOptions.Simplify && specOptions.OptionalProperties != nil {
-		props := specOptions.OptionalProperties
-		optConfig = &OptionalPropertyConfig{
-			Min: props.Min,
-			Max: props.Max,
-		}
+	var optConfig *config.OptionalProperties
+	if specOptions.Simplify {
+		optConfig = specOptions.OptionalProperties
 	}
 
 	model, err := BuildModel(doc, specOptions.Simplify, optConfig)

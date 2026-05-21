@@ -290,13 +290,13 @@ func GenerateService(opts ServiceOptions) error {
 		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/generator"},
 		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/loader"},
 		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/typedef"},
-		codegen.AdditionalImport{Alias: "oapicodegen", Package: "github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"},
-		codegen.AdditionalImport{Alias: "yamlv4", Package: "go.yaml.in/yaml/v4"},
 	)
 
-	// Add libopenapi import for runtime overlay application
+	// Imports only the overlay-application code path needs at runtime.
 	if cfg.Overlay != nil && len(cfg.Overlay.Sources) > 0 {
 		cfg.AdditionalImports = append(cfg.AdditionalImports,
+			codegen.AdditionalImport{Alias: "oapicodegen", Package: "github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"},
+			codegen.AdditionalImport{Alias: "yamlv4", Package: "go.yaml.in/yaml/v4"},
 			codegen.AdditionalImport{Package: "github.com/pb33f/libopenapi"},
 		)
 	}

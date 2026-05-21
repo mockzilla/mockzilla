@@ -392,7 +392,7 @@ latency ≈ baseline + ~100 ns × schema_leaves × context_entries
 - `~100 ns` is the marginal cost of one context-key check, per leaf. Deeply nested
   schemas (depth ≥ 3) increase this somewhat because intermediate path elements are
   also scanned against the context.
-- Allocations do **not** grow with context size — overhead is pure CPU.
+- Allocations do **not** grow with context size; overhead is pure CPU.
 
 **Worked example:** an endpoint with a response schema of ~100 fields and a service
 context file of ~500 entries:
