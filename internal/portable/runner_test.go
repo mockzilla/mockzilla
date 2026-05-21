@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"testing/fstest"
 
@@ -66,7 +67,7 @@ func TestIntegration_ServicesRoot(t *testing.T) {
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
 	handlers := make(map[string]*swappableHandler)
-	require.NoError(t, registerService(router, services[0], nil, handlers))
+	require.NoError(t, registerService(router, services[0], nil, handlers, &sync.WaitGroup{}))
 
 	ts := httptest.NewServer(router)
 	defer ts.Close()
@@ -99,7 +100,7 @@ func TestIntegration_SingleServiceFolder(t *testing.T) {
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
 	handlers := make(map[string]*swappableHandler)
-	require.NoError(t, registerService(router, services[0], nil, handlers))
+	require.NoError(t, registerService(router, services[0], nil, handlers, &sync.WaitGroup{}))
 
 	ts := httptest.NewServer(router)
 	defer ts.Close()
@@ -128,7 +129,7 @@ func TestIntegration_PackageRoundtrip(t *testing.T) {
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
 	handlers := make(map[string]*swappableHandler)
-	require.NoError(t, registerService(router, services[0], nil, handlers))
+	require.NoError(t, registerService(router, services[0], nil, handlers, &sync.WaitGroup{}))
 
 	ts := httptest.NewServer(router)
 	defer ts.Close()
@@ -169,7 +170,7 @@ func TestIntegration_MergeSpecAndStatic(t *testing.T) {
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
 	handlers := make(map[string]*swappableHandler)
-	require.NoError(t, registerService(router, services[0], nil, handlers))
+	require.NoError(t, registerService(router, services[0], nil, handlers, &sync.WaitGroup{}))
 
 	ts := httptest.NewServer(router)
 	defer ts.Close()
@@ -230,7 +231,7 @@ func TestIntegration_ImplicitGetStatic(t *testing.T) {
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
 	handlers := make(map[string]*swappableHandler)
-	require.NoError(t, registerService(router, services[0], nil, handlers))
+	require.NoError(t, registerService(router, services[0], nil, handlers, &sync.WaitGroup{}))
 
 	ts := httptest.NewServer(router)
 	defer ts.Close()
@@ -277,7 +278,7 @@ func TestIntegration_ScannerSkipsNoisyDirs(t *testing.T) {
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
 	handlers := make(map[string]*swappableHandler)
-	require.NoError(t, registerService(router, services[0], nil, handlers))
+	require.NoError(t, registerService(router, services[0], nil, handlers, &sync.WaitGroup{}))
 
 	ts := httptest.NewServer(router)
 	defer ts.Close()
@@ -343,7 +344,7 @@ func TestIntegration_ConvenienceFlags(t *testing.T) {
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
 	handlers := make(map[string]*swappableHandler)
-	require.NoError(t, registerService(router, services[0], overrides, handlers))
+	require.NoError(t, registerService(router, services[0], overrides, handlers, &sync.WaitGroup{}))
 
 	ts := httptest.NewServer(router)
 	defer ts.Close()
@@ -383,7 +384,7 @@ func TestIntegration_StaticFallbackWithMount(t *testing.T) {
 
 			router := testRouter(t)
 			handlers := make(map[string]*swappableHandler)
-			require.NoError(t, registerService(router, services[0], overrides, handlers))
+			require.NoError(t, registerService(router, services[0], overrides, handlers, &sync.WaitGroup{}))
 
 			ts := httptest.NewServer(router)
 			defer ts.Close()

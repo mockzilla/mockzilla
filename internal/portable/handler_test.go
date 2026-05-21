@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -267,7 +268,7 @@ func TestRegisterService(t *testing.T) {
 	handlers := make(map[string]*swappableHandler)
 
 	svc := Service{Name: "petstore", SpecPath: specPath}
-	err := registerService(router, svc, nil, handlers)
+	err := registerService(router, svc, nil, handlers, &sync.WaitGroup{})
 	require.NoError(t, err)
 
 	assert.Contains(t, handlers, "petstore")
@@ -361,7 +362,7 @@ func TestIntegration_EndToEnd(t *testing.T) {
 	handlers := make(map[string]*swappableHandler)
 
 	svc := Service{Name: "petstore", SpecPath: specPath}
-	err := registerService(router, svc, nil, handlers)
+	err := registerService(router, svc, nil, handlers, &sync.WaitGroup{})
 	require.NoError(t, err)
 
 	ts := httptest.NewServer(router)

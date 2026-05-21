@@ -31,6 +31,16 @@ const (
 	// freeze the whole suite (default client has no timeout).
 	requestTimeout = 30 * time.Second
 
+	// validatorWaitTimeout bounds Setup.WaitForValidators so a single
+	// runaway validator construction doesn't deadlock the whole batch.
+	// libopenapi-validator's warmSchemaCaches recurses through inline
+	// schema rendering and can stall on pathological specs (deep $ref
+	// cycles, exotic discriminator shapes). Per-spec validators that
+	// don't finish in time get the same treatment they got pre-wait
+	// (validation skipped); the test still runs and the rest of the
+	// batch isn't held hostage.
+	validatorWaitTimeout = 30 * time.Second
+
 	// portableCacheFileName is the on-disk cache of passing specs for
 	// this suite. Kept separate from the codegen cache - the two suites
 	// exercise different code paths and a spec can pass one while
@@ -201,13 +211,45 @@ func TestPortableIntegration(t *testing.T) {
 		} else {
 			batchMat = mat
 			t.Cleanup(mat.cleanup)
+			setupBuilt := time.Now()
 			batchSetup, err = portable.BuildSetup([]string{mat.root})
 			if err != nil {
 				setupErr = fmt.Errorf("build setup: %w", err)
 			} else {
+				buildElapsed := time.Since(setupBuilt)
+
+				// Validators are built in background goroutines per service.
+				// Without this wait, the per-spec test loop races them: a
+				// request that arrives before the validator is ready skips
+				// validation entirely (middleware no-ops on nil validator),
+				// hiding real response-schema failures and producing flaky
+				// pass/fail per spec across runs.
+				//
+				// Bounded: libopenapi-validator's schema-render path can go
+				// into runaway recursion on some specs (paypal, etc) and
+				// never return. We yield after validatorWaitTimeout and let
+				// the per-spec tests run; specs whose validator didn't
+				// finish exit the batch the same way they did pre-fix,
+				// with validation skipped.
+				waitStart := time.Now()
+				waitCtx, waitCancel := context.WithTimeout(ctx, validatorWaitTimeout)
+				ready := batchSetup.WaitForValidators(waitCtx)
+
+				waitCancel()
+
+				waitElapsed := time.Since(waitStart)
+				status := "ready"
+				if !ready {
+					status = "TIMED OUT"
+				}
+
+				fmt.Fprintf(os.Stderr, "  batch: %d service(s), spec parse=%s, validator wait=%s (%s)\n",
+					len(toTest), formatShortDuration(buildElapsed), formatShortDuration(waitElapsed), status)
+
 				for _, f := range batchSetup.Failed {
 					failByName[f.Name] = f.Err
 				}
+
 				ts := httptest.NewServer(batchSetup.Router)
 				batchURL = ts.URL
 				t.Cleanup(ts.Close)
