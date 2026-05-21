@@ -247,27 +247,33 @@ func simplifyUnionsInSchemaProperties(schema *base.Schema, visited map[*base.Sch
 	}
 }
 
-// simplifyUnionToFirstVariant removes anyOf/oneOf and merges the first variant into the schema
-// For $ref variants, uses allOf with single element to preserve the reference
+// simplifyUnionToFirstVariant removes anyOf/oneOf and merges the first variant into the schema.
+// For $ref variants, uses allOf with single element to preserve the reference.
 func simplifyUnionToFirstVariant(schema *base.Schema) {
-	if schema == nil {
+	simplifyUnionToFirstVariantSeen(schema, map[*base.Schema]bool{})
+}
+
+func simplifyUnionToFirstVariantSeen(schema *base.Schema, seen map[*base.Schema]bool) {
+	// seen guards against cyclic anyOf/oneOf graphs (specs where A's first
+	// variant is B and B's first variant resolves back to A). Without it,
+	// the recursive flatten below blows the stack on real-world specs
+	// (keap, contentwarehouse.v1.xl).
+	if schema == nil || seen[schema] {
 		return
 	}
+	seen[schema] = true
 
 	var variants []*base.SchemaProxy
-
-	// Collect variants
 	if len(schema.AnyOf) > 0 {
 		variants = schema.AnyOf
 	} else if len(schema.OneOf) > 0 {
 		variants = schema.OneOf
 	}
-
 	if len(variants) == 0 {
 		return
 	}
 
-	// Get the first variant (prefer $ref variants if any)
+	// Prefer a $ref variant so the reference survives as an allOf wrapper.
 	var firstVariant *base.SchemaProxy
 	for _, variant := range variants {
 		if variant.GetReference() != "" {
@@ -279,25 +285,20 @@ func simplifyUnionToFirstVariant(schema *base.Schema) {
 		firstVariant = variants[0]
 	}
 
-	// Handle the first variant
 	if firstVariant != nil {
-		// If it's a $ref, use allOf with single element to preserve the reference
 		if firstVariant.GetReference() != "" {
 			schema.AllOf = []*base.SchemaProxy{firstVariant}
 		} else {
-			// For inline schemas, merge properties
 			variantSchema := firstVariant.Schema()
 			if variantSchema != nil {
-				// If the first variant itself has a union, recursively simplify it first
 				if len(variantSchema.AnyOf) > 0 || len(variantSchema.OneOf) > 0 {
-					simplifyUnionToFirstVariant(variantSchema)
+					simplifyUnionToFirstVariantSeen(variantSchema, seen)
 				}
 				mergeSchemaProperties(schema, variantSchema)
 			}
 		}
 	}
 
-	// Remove the union
 	schema.AnyOf = nil
 	schema.OneOf = nil
 }
