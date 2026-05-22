@@ -82,10 +82,15 @@ func TestPortableIntegration(t *testing.T) {
 	}
 
 	// Silence portable runtime's INFO logs - one line per HTTP request,
-	// per registered service, etc. Errors still surface.
-	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
-		Level: slog.LevelError,
-	})))
+	// per registered service, etc. Errors still surface. The handler
+	// also scans Warn messages for validation-middleware skip/panic/
+	// timeout decisions so the final summary can report what the
+	// validator actually did across the run, without adding counters
+	// to production code.
+	resetValidationCounters()
+	slog.SetDefault(slog.New(&countingHandler{
+		base: slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}),
+	}))
 
 	integrationtest.SetSpecsFS(specsFS)
 

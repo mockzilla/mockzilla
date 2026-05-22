@@ -3,6 +3,7 @@ package integrationtest
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -253,6 +254,9 @@ func RunPipeline(batches [][]string, cfg *PipelineConfig) ([]IntegrationResult, 
 				if prepared.ServerProc != nil {
 					StopServiceServer(prepared.ServerProc)
 				}
+				if prepared.Info != nil && prepared.Info.ServerBin != "" {
+					_ = os.Remove(prepared.Info.ServerBin)
+				}
 				continue
 			}
 
@@ -417,6 +421,14 @@ func RunPipeline(batches [][]string, cfg *PipelineConfig) ([]IntegrationResult, 
 
 			// Stop this batch's server
 			StopServiceServer(prepared.ServerProc)
+
+			// Delete the per-batch binary now that we're done with it.
+			// Each one is ~70-80MB statically linked; under sandbox reuse
+			// these accumulate across runs and fill the disk. Ignore
+			// not-exist (build may have failed before producing one).
+			if prepared.Info != nil && prepared.Info.ServerBin != "" {
+				_ = os.Remove(prepared.Info.ServerBin)
+			}
 
 			testTime := time.Since(batchTestStart)
 			resultsMu.Lock()
