@@ -145,15 +145,18 @@ func (r *Registry) buildIndex() {
 			if op == nil {
 				continue
 			}
+
 			upper := strings.ToUpper(method)
 			e := &opEntry{path: path, method: upper, op: op}
 			r.index[indexKey(path, upper)] = e
+			isStatic := r.collectStaticResponses(path, upper, op)
+
 			r.routes = append(r.routes, schema.RouteInfo{
-				ID:     operationID(op, upper, path),
-				Method: upper,
-				Path:   path,
+				ID:       operationID(op, upper, path),
+				Method:   upper,
+				Path:     path,
+				IsStatic: isStatic,
 			})
-			r.collectStaticResponses(path, upper, op)
 		}
 	}
 }
@@ -297,11 +300,14 @@ func (r *Registry) convertResponseItem(code int, resp *v3.Response, ctx *convert
 // collectStaticResponses walks an operation's responses and records any
 // x-static-response extension values. Called from buildIndex so the
 // extraction happens during the same model walk that builds the
-// operation index (no separate libopenapi parse).
-func (r *Registry) collectStaticResponses(path, method string, op *v3.Operation) {
+// operation index (no separate libopenapi parse). Returns true if at
+// least one (status code, content type) was a static overlay, so the
+// caller can stamp `RouteInfo.Static = true` for UI badging.
+func (r *Registry) collectStaticResponses(path, method string, op *v3.Operation) bool {
 	if op == nil || op.Responses == nil || op.Responses.Codes == nil {
-		return
+		return false
 	}
+	found := false
 	for codeStr, resp := range op.Responses.Codes.FromOldest() {
 		if resp == nil || resp.Content == nil {
 			continue
@@ -323,8 +329,10 @@ func (r *Registry) collectStaticResponses(path, method string, op *v3.Operation)
 				continue
 			}
 			r.staticResponses[newStaticResponseKey(method, path, code)] = value
+			found = true
 		}
 	}
+	return found
 }
 
 // uniqueOperationID disambiguates colliding operation IDs by appending

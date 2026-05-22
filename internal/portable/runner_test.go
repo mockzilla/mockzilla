@@ -145,11 +145,12 @@ func TestIntegration_PackageRoundtrip(t *testing.T) {
 // for that (path, method) or adds a new endpoint, and the spec file
 // itself is also served at `GET /<filename>` as a literal asset so it
 // stays fetchable for documentation. Folder has only a generic
-// `openapi.yml`, so no inside-name signal: service mounts at /.
+// `openapi.yml`, so the folder basename ("merged-svc") provides the
+// service name and mount.
 func TestIntegration_MergeSpecAndStatic(t *testing.T) {
 	specBytes := loadTestSpec(t, "petstore.yml")
 
-	dir := filepath.Join(t.TempDir(), "any-cwd")
+	dir := filepath.Join(t.TempDir(), "merged-svc")
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "pets", "{petId}", "get"), 0o755))
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "extra", "get"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "openapi.yml"), specBytes, 0o644))
@@ -165,7 +166,7 @@ func TestIntegration_MergeSpecAndStatic(t *testing.T) {
 	services, err := resolveServices([]string{dir})
 	require.NoError(t, err)
 	require.Len(t, services, 1)
-	assert.Empty(t, services[0].Name)
+	assert.Equal(t, "merged-svc", services[0].Name)
 
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
@@ -176,13 +177,13 @@ func TestIntegration_MergeSpecAndStatic(t *testing.T) {
 	defer ts.Close()
 
 	// 1. Spec endpoint /pets is untouched; comes from generator.
-	resp, err := http.Get(ts.URL + "/pets")
+	resp, err := http.Get(ts.URL + "/merged-svc/pets")
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// 2. Static override for /pets/{petId} returns the fixture body.
-	respO, err := http.Get(ts.URL + "/pets/42")
+	respO, err := http.Get(ts.URL + "/merged-svc/pets/42")
 	require.NoError(t, err)
 	defer func() { _ = respO.Body.Close() }()
 	assert.Equal(t, http.StatusOK, respO.StatusCode)
@@ -191,25 +192,27 @@ func TestIntegration_MergeSpecAndStatic(t *testing.T) {
 	assert.Contains(t, string(body), `"name":"fixture"`)
 
 	// 3. New endpoint /extra wasn't in the spec; comes from static.
-	respE, err := http.Get(ts.URL + "/extra")
+	respE, err := http.Get(ts.URL + "/merged-svc/extra")
 	require.NoError(t, err)
 	defer func() { _ = respE.Body.Close() }()
 	assert.Equal(t, http.StatusOK, respE.StatusCode)
 
-	// 4. The spec file itself is fetchable at its literal path.
-	respA, err := http.Get(ts.URL + "/openapi.yml")
+	// 4. The spec file is NOT re-served as one of its own endpoints.
+	// (It was the input; surfacing it as a regular endpoint would be
+	// confusing and noisy in the UI route list.)
+	respA, err := http.Get(ts.URL + "/merged-svc/openapi.yml")
 	require.NoError(t, err)
 	defer func() { _ = respA.Body.Close() }()
-	assert.Equal(t, http.StatusOK, respA.StatusCode)
+	assert.Equal(t, http.StatusNotFound, respA.StatusCode)
 }
 
 // TestIntegration_ImplicitGetStatic confirms the simpler convention
 // where `<path>/index.<ext>` (no method dir) implies GET, plus
 // `index.<ext>` at the service root serves the service's root URL.
-// The folder has no inside-name signal, so the service has empty Name
-// and mounts at /.
+// The folder has no spec/config signal, so the folder basename ("apisvc")
+// provides the service name and mount prefix.
 func TestIntegration_ImplicitGetStatic(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "any-cwd")
+	dir := filepath.Join(t.TempDir(), "apisvc")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.json"),
 		[]byte(`{"service":"root"}`), 0o644))
@@ -226,7 +229,7 @@ func TestIntegration_ImplicitGetStatic(t *testing.T) {
 	services, err := resolveServices([]string{dir})
 	require.NoError(t, err)
 	require.Len(t, services, 1)
-	assert.Empty(t, services[0].Name, "no inside signal → empty name → mounts at /")
+	assert.Equal(t, "apisvc", services[0].Name, "folder basename fallback supplies the name")
 
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
@@ -239,10 +242,10 @@ func TestIntegration_ImplicitGetStatic(t *testing.T) {
 	for _, c := range []struct {
 		method, path, wantSubstr string
 	}{
-		{"GET", "/", `"service":"root"`},
-		{"GET", "/v1/users", `"id":1`},
-		{"GET", "/v2/me", `"id":"me"`},
-		{"POST", "/v1/users", `"created":true`},
+		{"GET", "/apisvc/", `"service":"root"`},
+		{"GET", "/apisvc/v1/users", `"id":1`},
+		{"GET", "/apisvc/v2/me", `"id":"me"`},
+		{"POST", "/apisvc/v1/users", `"created":true`},
 	} {
 		req, _ := http.NewRequest(c.method, ts.URL+c.path, nil)
 		resp, err := http.DefaultClient.Do(req)
@@ -256,10 +259,14 @@ func TestIntegration_ImplicitGetStatic(t *testing.T) {
 
 // TestIntegration_ScannerSkipsNoisyDirs verifies that node_modules /
 // .git / dotted dirs inside a service folder don't surface stray
-// endpoints (and don't crash the scan). No inside name signal here,
-// so the service mounts at /.
+// endpoints (and don't crash the scan). A top-level `index.json`
+// anchors `scansvc/` as a single service so the implicit
+// services-root path stays out of the way.
 func TestIntegration_ScannerSkipsNoisyDirs(t *testing.T) {
-	dir := filepath.Join(t.TempDir(), "any-cwd")
+	dir := filepath.Join(t.TempDir(), "scansvc")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.json"),
+		[]byte(`{"service":"root"}`), 0o644))
 	require.NoError(t, os.MkdirAll(filepath.Join(dir, "v1", "get"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "v1", "get", "index.json"),
 		[]byte(`{"ok":true}`), 0o644))
@@ -273,7 +280,7 @@ func TestIntegration_ScannerSkipsNoisyDirs(t *testing.T) {
 	services, err := resolveServices([]string{dir})
 	require.NoError(t, err)
 	require.Len(t, services, 1)
-	assert.Empty(t, services[0].Name)
+	assert.Equal(t, "scansvc", services[0].Name)
 
 	router := testRouter(t)
 	_ = api.CreateServiceRoutes(router)
@@ -283,19 +290,69 @@ func TestIntegration_ScannerSkipsNoisyDirs(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	// Real endpoint is up at the root mount.
-	resp, err := http.Get(ts.URL + "/v1")
+	// Real endpoint is up under the service mount.
+	resp, err := http.Get(ts.URL + "/scansvc/v1")
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// Noise paths must NOT have been registered.
-	for _, p := range []string{"/node_modules/bogus", "/.git/bogus", "/_vendor/bogus"} {
+	for _, p := range []string{"/scansvc/node_modules/bogus", "/scansvc/.git/bogus", "/scansvc/_vendor/bogus"} {
 		r, err := http.Get(ts.URL + p)
 		require.NoError(t, err)
 		_ = r.Body.Close()
 		assert.Equal(t, http.StatusNotFound, r.StatusCode, "expected 404 for %s", p)
 	}
+}
+
+// TestIntegration_ImplicitServicesRoot verifies the "folder of services
+// without an explicit services/ wrapper" detection: a folder containing
+// only subdirectories (no top-level spec, no config.yml, no top-level
+// index.<ext>) is treated as a services-root, with each subdir becoming
+// its own service. Noise dirs (.git, node_modules, …) are skipped.
+func TestIntegration_ImplicitServicesRoot(t *testing.T) {
+	root := filepath.Join(t.TempDir(), "apis")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+
+	// Real service: apis/petstore/pets/post/index.json -> POST /petstore/pets
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "petstore", "pets", "post"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(root, "petstore", "pets", "post", "index.json"),
+		[]byte(`{"created":true}`), 0o644))
+
+	// Another service via openapi.yml: apis/orders/openapi.yml
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "orders"), 0o755))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(root, "orders", "openapi.yml"),
+		[]byte("openapi: 3.0.0\ninfo: {title: x, version: '1'}\npaths: {}\n"), 0o644))
+
+	// Noise subdir that must not become a service.
+	require.NoError(t, os.MkdirAll(filepath.Join(root, ".git", "objects"), 0o755))
+
+	services, err := resolveServices([]string{root})
+	require.NoError(t, err)
+
+	names := make([]string, 0, len(services))
+	for _, s := range services {
+		names = append(names, s.Name)
+	}
+	assert.ElementsMatch(t, []string{"petstore", "orders"}, names)
+
+	router := testRouter(t)
+	_ = api.CreateServiceRoutes(router)
+	handlers := make(map[string]*swappableHandler)
+	for _, svc := range services {
+		require.NoError(t, registerService(router, svc, nil, handlers, &sync.WaitGroup{}))
+	}
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	req, _ := http.NewRequest("POST", ts.URL+"/petstore/pets", nil)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
 
 func TestAnyServiceClaimsRoot(t *testing.T) {

@@ -868,6 +868,24 @@ func TestEndpointConfig_GetLatency(t *testing.T) {
 		assert.True(t, seen[50*time.Millisecond])
 		assert.True(t, seen[200*time.Millisecond])
 	})
+
+	t.Run("Returns 0 when percentiles don't reach 100", func(t *testing.T) {
+		// rand is 1..100; with the largest declared key at 50, half the
+		// rolls fall through and the function returns 0 (the implicit
+		// "no extra latency" remainder).
+		ep := &EndpointConfig{
+			latencies: []*KeyValue[int, time.Duration]{
+				{Key: 50, Value: 50 * time.Millisecond},
+			},
+		}
+
+		seen := make(map[time.Duration]bool)
+		for i := 0; i < 200; i++ {
+			seen[ep.GetLatency()] = true
+		}
+		assert.True(t, seen[50*time.Millisecond])
+		assert.True(t, seen[0], "expected at least one roll past the 50%% bucket")
+	})
 }
 
 func TestEndpointConfig_GetError(t *testing.T) {
@@ -1221,6 +1239,30 @@ func TestReplayConfig_WithDefaults(t *testing.T) {
 		rc := &ReplayConfig{TTL: 1 * time.Hour}
 		rc.WithDefaults()
 		assert.Equal(t, 1*time.Hour, rc.TTL)
+	})
+}
+
+func TestReplayMatch_AllFields(t *testing.T) {
+	t.Run("nil receiver returns nil", func(t *testing.T) {
+		var rm *ReplayMatch
+		assert.Nil(t, rm.AllFields())
+	})
+
+	t.Run("empty match returns empty slice", func(t *testing.T) {
+		rm := &ReplayMatch{}
+		assert.Equal(t, []string{}, rm.AllFields())
+	})
+
+	t.Run("concatenates path, body, query in order", func(t *testing.T) {
+		// Order matters because callers use the concatenation to build
+		// stable replay keys (a swap in input position would create a
+		// different bucket for what should be the same request).
+		rm := &ReplayMatch{
+			Path:  []string{"id"},
+			Body:  []string{"data.name", "data.email"},
+			Query: []string{"tenant", "region"},
+		}
+		assert.Equal(t, []string{"id", "data.name", "data.email", "tenant", "region"}, rm.AllFields())
 	})
 }
 

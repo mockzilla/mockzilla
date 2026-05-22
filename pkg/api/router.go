@@ -91,9 +91,9 @@ func NewRouter(options ...RouterOption) *Router {
 // The service config must have a Name field set.
 // The service mounts at cfg.Mount when set (allowing multi-segment
 // prefixes like "pets/v2"), otherwise at "/<cfg.Name>".
-// If a service with the same Name is already registered, the call is
-// ignored with a warning - without this guard, chi.Mount would panic
-// and crash the process.
+// If a service with the same Name OR the same mount prefix is already
+// registered, the call is ignored with a warning - without this guard,
+// chi.Mount would panic and crash the process.
 func (r *Router) RegisterService(
 	cfg *config.ServiceConfig,
 	handler Handler,
@@ -106,9 +106,9 @@ func (r *Router) RegisterService(
 // The handlerFactory receives the service DB and returns the handler.
 // The service mounts at cfg.Mount when set (allowing multi-segment
 // prefixes like "pets/v2"), otherwise at "/<cfg.Name>".
-// If a service with the same Name is already registered, the call is
-// ignored with a warning - without this guard, chi.Mount would panic
-// and crash the process.
+// If a service with the same Name OR the same mount prefix is already
+// registered, the call is ignored with a warning - without this guard,
+// chi.Mount would panic and crash the process.
 func (r *Router) RegisterHTTPHandler(
 	cfg *config.ServiceConfig,
 	handlerFactory func(db.DB) Handler,
@@ -157,6 +157,13 @@ func (r *Router) register(
 		return
 	}
 
+	prefix := ServicePrefix(cfg)
+	if existingName, taken := r.mountOwner(prefix); taken {
+		slog.Warn("Mount path already in use, skipping",
+			"name", cfg.Name, "mount", prefix, "existing", existingName)
+		return
+	}
+
 	options := &handlerOptions{}
 	for _, opt := range opts {
 		opt(options)
@@ -175,7 +182,6 @@ func (r *Router) register(
 	handler := handlerFactory(serviceDB)
 	mwParams := middleware.NewParams(cfg, serviceDB)
 
-	prefix := ServicePrefix(cfg)
 	registerSubRouter := func(subRouter chi.Router) {
 		// Resource resolver (must be before other middleware that read the resource path)
 		subRouter.Use(middleware.CreateResourceResolverMiddleware(mwParams))
@@ -233,6 +239,22 @@ func (r *Router) isServiceRegistered(name string) bool {
 	defer r.mu.RUnlock()
 	_, ok := r.services[name]
 	return ok
+}
+
+// mountOwner returns the name of the service already mounted at prefix,
+// or ("", false) when prefix is free. Used so a second service with a
+// different Name but a conflicting `mount:` override is rejected
+// before chi.Mount panics on the duplicate path.
+func (r *Router) mountOwner(prefix string) (string, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, item := range r.services {
+		if ServicePrefix(item.Config) == prefix {
+			return item.Name, true
+		}
+	}
+	return "", false
 }
 
 // HandlerOption configures service registration behavior.

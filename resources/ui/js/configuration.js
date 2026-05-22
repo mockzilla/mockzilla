@@ -20,9 +20,8 @@ export const show = (match) => {
     const service = name;
 
     navi.resetContents();
-    services.show();
-
-    navi.applySelection(`service-${service}`, 'selected-service');
+    navi.setActiveView('config');
+    services.show(service);
 
     let displayName = service;
     if (displayName === '.root') {
@@ -33,7 +32,9 @@ export const show = (match) => {
     config.contentTitleEl.innerHTML = `${displayName} configuration`;
 
     showTabs(service);
-    config.configurationContainer.style.display = 'block';
+    config.fixedServiceContainer.style.display = 'block';
+    document.getElementById('configuration-editor-wrap').style.display = '';
+    document.getElementById('resource-panel-title').style.display = 'none';
 
     const configUrl = `${config.baseUrl}/.config?service=${encodeURIComponent(service)}`;
 
@@ -43,7 +44,7 @@ export const show = (match) => {
             return res.text();
         })
         .then(text => {
-            const editor = commons.getCodeEditor('configuration-editor', 'yaml', {maxLines: Infinity});
+            const editor = commons.getCodeEditor('configuration-editor', 'yaml');
             editor.setValue(text);
             editor.clearSelection();
             editor.setReadOnly(true);

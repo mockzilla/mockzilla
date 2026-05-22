@@ -164,4 +164,102 @@ func TestServiceConfigHandler_get(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, "adyen/v71", got.Name)
 	})
+
+	t.Run("Fills validate.timeout default when Validate is nil", func(t *testing.T) {
+		// NewServiceConfig sets Validate, but a user-supplied YAML may
+		// omit the whole validate block. The handler should still emit
+		// the default timeout so the UI surfaces the effective value.
+		router := newTestRouter(t)
+
+		svcCfg := config.NewServiceConfig()
+		svcCfg.Validate = nil
+
+		service := &mockService{
+			name:   "test-service",
+			config: svcCfg,
+			routes: func(r chi.Router) {},
+		}
+		registerTestService(router, service)
+		_ = CreateServiceConfigRoutes(router)
+
+		req := httptest.NewRequest(http.MethodGet, "/.config?service=test-service", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var got config.ServiceConfig
+		err := yaml.Unmarshal(w.Body.Bytes(), &got)
+		assert.NoError(t, err)
+		if assert.NotNil(t, got.Validate) {
+			if assert.NotNil(t, got.Validate.Timeout) {
+				assert.Equal(t, config.DefaultValidationTimeout, *got.Validate.Timeout)
+			}
+		}
+
+		// Live config must not have been mutated.
+		assert.Nil(t, svcCfg.Validate)
+	})
+
+	t.Run("Fills validate.timeout default when Validate.Timeout is nil", func(t *testing.T) {
+		// Even when Validate is set, an unset Timeout should be surfaced
+		// as the resolved default in the served YAML.
+		router := newTestRouter(t)
+
+		svcCfg := config.NewServiceConfig()
+		// NewServiceConfig leaves Validate.Timeout nil
+
+		service := &mockService{
+			name:   "test-service",
+			config: svcCfg,
+			routes: func(r chi.Router) {},
+		}
+		registerTestService(router, service)
+		_ = CreateServiceConfigRoutes(router)
+
+		req := httptest.NewRequest(http.MethodGet, "/.config?service=test-service", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var got config.ServiceConfig
+		err := yaml.Unmarshal(w.Body.Bytes(), &got)
+		assert.NoError(t, err)
+		if assert.NotNil(t, got.Validate) && assert.NotNil(t, got.Validate.Timeout) {
+			assert.Equal(t, config.DefaultValidationTimeout, *got.Validate.Timeout)
+		}
+
+		// Live config must not have been mutated.
+		assert.Nil(t, svcCfg.Validate.Timeout)
+	})
+
+	t.Run("Preserves an explicit validate.timeout", func(t *testing.T) {
+		router := newTestRouter(t)
+
+		svcCfg := config.NewServiceConfig()
+		custom := 7 * time.Second
+		svcCfg.Validate.Timeout = &custom
+
+		service := &mockService{
+			name:   "test-service",
+			config: svcCfg,
+			routes: func(r chi.Router) {},
+		}
+		registerTestService(router, service)
+		_ = CreateServiceConfigRoutes(router)
+
+		req := httptest.NewRequest(http.MethodGet, "/.config?service=test-service", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var got config.ServiceConfig
+		err := yaml.Unmarshal(w.Body.Bytes(), &got)
+		assert.NoError(t, err)
+		if assert.NotNil(t, got.Validate) && assert.NotNil(t, got.Validate.Timeout) {
+			assert.Equal(t, 7*time.Second, *got.Validate.Timeout)
+		}
+	})
 }

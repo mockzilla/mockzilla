@@ -53,7 +53,23 @@ func (h *ServiceConfigHandler) get(w http.ResponseWriter, r *http.Request) {
 		cfg = config.NewServiceConfig()
 	}
 
-	data, err := yaml.Marshal(cfg)
+	// The UI shows the effective config, so fill in defaults that the
+	// runtime resolves implicitly (e.g. validate.timeout via TimeoutOrDefault).
+	// Shallow-copy so we don't mutate the live service config.
+	displayCfg := *cfg
+	if displayCfg.Validate == nil {
+		displayCfg.Validate = &config.ValidateConfig{}
+	} else {
+		v := *displayCfg.Validate
+		displayCfg.Validate = &v
+	}
+
+	if displayCfg.Validate.Timeout == nil {
+		t := displayCfg.Validate.TimeoutOrDefault()
+		displayCfg.Validate.Timeout = &t
+	}
+
+	data, err := yaml.Marshal(&displayCfg)
 	if err != nil {
 		http.Error(w, "Failed to marshal config", http.StatusInternalServerError)
 		return

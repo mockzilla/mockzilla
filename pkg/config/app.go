@@ -63,7 +63,7 @@ func NewDefaultAppConfig(baseDir string) *AppConfig {
 		Paths:             NewPaths(baseDir),
 		Editor: &EditorConfig{
 			Theme:     "chrome",
-			DarkTheme: "monokai",
+			DarkTheme: "cobalt",
 			FontSize:  14,
 		},
 		History: NewDefaultAppHistoryConfig(),

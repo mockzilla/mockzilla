@@ -11,7 +11,7 @@ export const getEditorTheme = () => {
     const key = isDarkMode() ? 'ace-dark-theme' : 'ace-light-theme';
     const saved = localStorage.getItem(key);
     if (saved) return saved;
-    return isDarkMode() ? (config.editor.darkTheme || 'monokai') : (config.editor.theme || 'chrome');
+    return isDarkMode() ? (config.editor.darkTheme || 'cobalt') : (config.editor.theme || 'chrome');
 }
 
 export const updateAllEditorThemes = () => {
@@ -61,7 +61,7 @@ export const showSuccessOrError = (text, success) => {
 export const showMessage = (text, alertType) => {
     config.messageCont.textContent = text;
     config.messageCont.className = `alert-${alertType}`
-    config.messageCont.style.display = 'block';
+    config.messageCont.style.display = 'inline-block';
     config.messageCont.style.opacity = '1';
 }
 

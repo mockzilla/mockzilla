@@ -2,6 +2,7 @@ package pack
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"io"
 	"os"
@@ -111,8 +112,9 @@ func TestPack_NameInferenceFromConfig(t *testing.T) {
 	assert.Equal(t, "/api/v1", m.Services[0].Mount)
 }
 
-func TestPack_RootMountedService(t *testing.T) {
-	dir := t.TempDir()
+func TestPack_FolderBasenameFallback(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "staticsvc")
+	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "index.json"),
 		[]byte(`{"ok":true}`), 0o644))
 
@@ -127,8 +129,10 @@ func TestPack_RootMountedService(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, m)
 	require.Len(t, m.Services, 1)
-	assert.Empty(t, m.Services[0].Name)
-	assert.Equal(t, "/", m.Services[0].Mount)
+	// No config.yml and no non-generic spec, so the folder basename is
+	// the last-resort name signal (mirrors the portable runtime).
+	assert.Equal(t, "staticsvc", m.Services[0].Name)
+	assert.Equal(t, "/staticsvc", m.Services[0].Mount)
 	assert.Equal(t, ModeStatic, m.Services[0].Mode)
 }
 
@@ -248,4 +252,44 @@ func tarEntries(t *testing.T, path string) []string {
 		names = append(names, hdr.Name)
 	}
 	return names
+}
+
+func TestWriteTo(t *testing.T) {
+	src := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(src, "openapi.yml"),
+		[]byte("openapi: 3.0.0\ninfo: {title: x, version: '1'}\npaths: {}\n"), 0o644))
+
+	m := &Manifest{
+		Format:    1,
+		Name:      "n",
+		CreatedAt: time.Unix(0, 0).UTC(),
+	}
+	var buf bytes.Buffer
+	require.NoError(t, WriteTo(&buf, m, src))
+	assert.NotZero(t, buf.Len())
+}
+
+func TestShouldSkipPackDir(t *testing.T) {
+	assert.False(t, shouldSkipPackDir(""))
+	assert.False(t, shouldSkipPackDir("."))
+	assert.False(t, shouldSkipPackDir("src"))
+	assert.True(t, shouldSkipPackDir(".git"))
+	assert.True(t, shouldSkipPackDir("_build"))
+	assert.True(t, shouldSkipPackDir("node_modules"))
+	assert.True(t, shouldSkipPackDir("vendor"))
+	assert.True(t, shouldSkipPackDir("target"))
+	assert.True(t, shouldSkipPackDir("dist"))
+}
+
+func TestDefaultCreatedBy(t *testing.T) {
+	assert.Equal(t, "explicit", defaultCreatedBy("explicit"))
+	assert.Equal(t, "mockzilla/unknown", defaultCreatedBy(""))
+}
+
+func TestInGitRepoFalse(t *testing.T) {
+	assert.False(t, inGitRepo(t.TempDir()))
+}
+
+func TestDetectGitSourceNotInRepo(t *testing.T) {
+	assert.Nil(t, detectGitSource(t.TempDir()))
 }

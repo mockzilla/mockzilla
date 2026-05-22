@@ -80,19 +80,27 @@ a:hover { color: var(--primary-dark); }
 
 #message {
     display: inline-block;
-    padding: 8px 16px;
+    padding: 6px 16px;
     border-radius: var(--radius-sm);
-    font-weight: 500;
+    font-weight: 600;
+    font-size: 16px;
+    color: white;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+    min-width: 60%;
+    max-width: 80%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
-#message.alert-success { background: rgba(255,255,255,0.2); color: white; }
-#message.alert-error { background: rgba(255,100,100,0.3); color: white; }
-#message.alert-warning { background: rgba(255,200,100,0.3); color: white; }
+#message.alert-success { background: #059669; }
+#message.alert-error { background: #ef4444; }
+#message.alert-warning { background: #fde047; color: #1a202c; }
 
 /* Main */
 .main {
     flex: 1;
     display: flex;
-    gap: 16px;
     padding: 16px;
     overflow: hidden;
     min-height: 0;
@@ -100,31 +108,14 @@ a:hover { color: var(--primary-dark); }
 
 /* Sidebar */
 .sidebar {
-    width: 240px;
+    width: var(--sidebar-width, 240px);
     flex-shrink: 0;
-    background: var(--card-bg);
-    border-radius: var(--radius);
-    box-shadow: var(--card-shadow);
-    padding: 12px 0;
-    overflow-y: auto;
+    min-width: 160px;
 }
+.sidebar .panel-body { padding: 0; }
 
 .sidebar a { color: var(--text); }
 .sidebar a:hover { color: var(--primary); }
-
-/* Service list */
-.service-list-header {
-    display: flex;
-    padding: 6px 8px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    border-bottom: 1px solid var(--border);
-}
-.service-list-header span:first-child { flex: 1; }
-.service-list-header span:last-child { flex-shrink: 0; }
 
 .service-list {
     list-style: none;
@@ -135,8 +126,8 @@ a:hover { color: var(--primary-dark); }
 .service-list li {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 6px 8px;
+    gap: 8px;
+    padding: 8px 16px;
     cursor: pointer;
     font-size: 13px;
     transition: background 0.15s;
@@ -163,19 +154,19 @@ a:hover { color: var(--primary-dark); }
 .star-toggle:hover { color: var(--primary); }
 .star-toggle.starred { color: var(--primary); }
 
-/* Content */
+/* Content - now just a layout container, panes are their own cards */
 .content {
     flex: 1;
-    background: var(--card-bg);
-    border-radius: var(--radius);
-    box-shadow: var(--card-shadow);
-    padding: 16px;
-    overflow-y: auto;
+    overflow: hidden;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
 }
 
-#container-title { margin: 0 0 16px 0; font-size: 16px; font-weight: 600; }
-#fixed-service-container { height: calc(100% - 40px); }
+.panel-header h3#container-title { margin: 0; font-size: 13px; font-weight: 600; white-space: nowrap; }
+
+#fixed-service-container { flex: 1; min-height: 0; }
 
 /* Content Panels - 2 column layout with resizer */
 .content-panels {
@@ -186,9 +177,9 @@ a:hover { color: var(--primary-dark); }
 .panel {
     display: flex;
     flex-direction: column;
-    background: var(--hover-bg);
-    border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
     overflow: hidden;
 }
 
@@ -202,6 +193,11 @@ a:hover { color: var(--primary-dark); }
     flex: 1;
     min-width: 200px;
 }
+
+/* Configuration view occupies the LEFT pane only; hide the right pane and the inter-pane resizer. */
+.content-panels.view-config .panel-results,
+.content-panels.view-config > .panel-resizer { display: none; }
+.content-panels.view-config .panel-resources { width: 100%; }
 
 .panel-resizer {
     width: 16px;
@@ -232,7 +228,9 @@ a:hover { color: var(--primary-dark); }
 }
 
 .panel-header {
-    padding: 12px 16px;
+    padding: 0 16px;
+    height: 48px;
+    flex-shrink: 0;
     border-bottom: 1px solid var(--border);
     background: var(--card-bg);
     display: flex;
@@ -282,7 +280,7 @@ a:hover { color: var(--primary-dark); }
 #fixed-service-table-list td:nth-child(2) { text-align: center; }
 
 #fixed-service-table-body tr { cursor: pointer; }
-#fixed-service-table-body tr:hover { background: var(--selected-bg); }
+#fixed-service-table-body tr:hover { background: var(--hover-bg); }
 #fixed-service-table-body tr.selected-resource { background: var(--selected-bg); }
 #fixed-service-table-body tr.selected-resource .fixed-resource-path { color: var(--primary); }
 
@@ -300,6 +298,41 @@ a:hover { color: var(--primary-dark); }
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    position: relative;
+}
+
+/* Static-override badge: pinned to the right edge of the path cell so
+   the path keeps the full row width for truncation. Positioned
+   absolutely so the table-cell layout stays intact (display:flex on a
+   <td> would break it). */
+.static-badge {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 6px 1px 5px;
+    border-radius: 4px;
+    color: #8b5cf6;
+    background: rgba(139, 92, 246, 0.12);
+    line-height: 1.4;
+    pointer-events: auto;
+}
+.static-badge svg {
+    width: 10px;
+    height: 10px;
+    flex: 0 0 auto;
+}
+/* Reserve horizontal space so the absolutely-positioned badge never
+   overlaps the path text. Targets only rows that actually carry a badge. */
+.fixed-resource-path:has(.static-badge) > span:first-child {
+    padding-right: 64px;
 }
 
 /* Inputs */
@@ -369,14 +402,22 @@ button:hover { background: var(--primary-dark); }
     cursor: pointer;
 }
 .config-override-row label {
-    min-width: 100px;
+    width: 160px;
     font-size: 13px;
     flex-shrink: 0;
     cursor: pointer;
 }
-.config-override-row input[type="text"],
-.config-override-row select {
+.config-override-row input[type="text"] {
     flex: 1;
+    min-width: 0;
+    color: var(--text);
+    background: var(--input-bg);
+}
+.config-override-row select,
+.config-override-row input#override-latency-value,
+.config-override-row input#override-validate-timeout-value {
+    flex: 0 0 auto;
+    width: 90px;
     min-width: 0;
     color: var(--text);
     background: var(--input-bg);
@@ -462,6 +503,7 @@ pre, .code {
 }
 
 .accordion-content { position: relative; }
+.tab-pane { position: relative; }
 .copy-btn {
     position: absolute;
     top: 8px;
@@ -478,8 +520,88 @@ pre, .code {
     opacity: 0;
     transition: opacity 0.15s;
 }
-.accordion-content:hover .copy-btn { opacity: 0.7; }
+.accordion-content:hover .copy-btn,
+.tab-pane:hover .copy-btn { opacity: 0.7; }
 .copy-btn:hover { background: var(--primary-dark); opacity: 1; }
+
+/* Resource panel sub-tabs (separate row below panel-header) */
+.panel-tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 12px;
+    background: var(--card-bg);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-height: 38px;
+    align-items: stretch;
+}
+.panel-tabs-spacer { /* placeholder strip; keeps panel bodies aligned across cards */ padding: 4px 12px; }
+
+/* Empty-state hint shown in right pane body when no resource/entry is selected */
+.empty-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* Configuration editor: wrap gives the editor a relative parent so the copy button can sit at top-right */
+.config-editor-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+.config-editor-wrap:hover .copy-btn { opacity: 0.7; }
+
+.filter-input {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--hover-bg);
+    color: var(--text);
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    transition: border-color 0.15s, background 0.15s;
+}
+.filter-input:hover { border-color: var(--text-muted); }
+.filter-input:focus { outline: none; background: var(--card-bg); border-color: var(--primary); }
+.filter-input::placeholder { color: var(--text-muted); }
+
+.resource-filter-row { margin-bottom: 8px; }
+.content-panels.view-history .resource-filter-row,
+.content-panels.view-config .resource-filter-row { display: none; }
+
+.resource-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+}
+.resource-tab:hover { color: var(--text); background: var(--hover-bg); }
+.resource-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+}
+.resource-tab .response-status-badge { margin-left: 6px; }
+
+.tab-pane { display: none; }
+.tab-pane.active { display: block; height: 100%; }
+
+/* Editor-based tab-panes also need the body to flex so the editor fills available height */
+#generator-container, #history-detail { height: 100%; }
 
 /* Resource edit table */
 .resource-edit-table { width: 100%; }
@@ -551,6 +673,26 @@ pre, .code {
 }
 .response-headers-table tr:last-child td { border-bottom: none; }
 
+/* Details (history summary) table - similar layout, but labels are muted, not link-blue */
+.history-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.history-summary-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    word-break: break-all;
+}
+.history-summary-table td:first-child {
+    white-space: nowrap;
+    color: var(--text-muted);
+    font-weight: 500;
+    width: 1%;
+    padding-right: 20px;
+}
+.history-summary-table tr:last-child td { border-bottom: none; }
+
 /* Theme toggle */
 .theme-toggle {
     cursor: pointer;
@@ -562,32 +704,35 @@ pre, .code {
 }
 .theme-toggle:hover { background: rgba(255,255,255,0.2); }
 
-/* Service tabs */
+/* Service tabs (section tabs inside page-bar) */
 .service-tabs {
     display: flex;
     gap: 0;
-    margin-bottom: 16px;
-    border-bottom: 2px solid var(--border);
+    align-self: stretch;
+    align-items: center;
 }
 
 .service-tab {
-    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    height: 100%;
     font-size: 13px;
     font-weight: 600;
     color: var(--text-muted);
     text-decoration: none;
     border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    transition: color 0.15s, border-color 0.15s;
+    margin-bottom: -1px;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.service-tab:hover { color: var(--text); }
+.service-tab:hover { color: var(--text); background: var(--hover-bg); }
 .service-tab.active {
     color: var(--primary);
     border-bottom-color: var(--primary);
 }
 
 /* History container */
-#history-container { height: calc(100% - 80px); }
+#history-container { flex: 1; min-height: 0; }
 
 /* History table */
 #history-table-list {
@@ -617,7 +762,7 @@ pre, .code {
 #history-table-list td:nth-child(2) { text-align: center; }
 
 #history-table-body tr { cursor: pointer; }
-#history-table-body tr:hover { background: var(--selected-bg); }
+#history-table-body tr:hover { background: var(--hover-bg); }
 #history-table-body tr.selected-resource { background: var(--selected-bg); }
 
 /* Status code colors */
@@ -655,6 +800,7 @@ pre, .code {
 .response-status-badge.status-3xx { color: #3b82f6; background: rgba(59, 130, 246, 0.12); }
 .response-status-badge.status-4xx { color: #f59e0b; background: rgba(245, 158, 11, 0.12); }
 .response-status-badge.status-5xx { color: #ef4444; background: rgba(239, 68, 68, 0.12); }
+.response-status-badge:empty { display: none; }
 
 /* Scrollbars */
 * {

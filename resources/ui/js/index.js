@@ -50,33 +50,34 @@ async function onLoad() {
     commons.initAceThemeSelect();
 
     // Panel resizers - each container gets its own stored split
-    const initResizer = (panelsEl, resizerEl, storageKey) => {
-        if (!panelsEl || !resizerEl) return;
+    const initResizer = (containerEl, resizerEl, leftSelector, cssVar, storageKey) => {
+        if (!containerEl || !resizerEl) return;
 
         const savedSplit = localStorage.getItem(storageKey);
         if (savedSplit) {
-            panelsEl.style.setProperty('--resources-width', savedSplit + '%');
+            containerEl.style.setProperty(cssVar, savedSplit + '%');
         }
 
         resizerEl.addEventListener('mousedown', (e) => {
             e.preventDefault();
             resizerEl.classList.add('dragging');
-            panelsEl.classList.add('resizing');
+            containerEl.classList.add('resizing');
 
             const onMouseMove = (e) => {
-                const rect = panelsEl.getBoundingClientRect();
+                const rect = containerEl.getBoundingClientRect();
                 const pct = ((e.clientX - rect.left) / rect.width) * 100;
-                const clamped = Math.min(Math.max(pct, 20), 80);
-                panelsEl.style.setProperty('--resources-width', clamped + '%');
+                const clamped = Math.min(Math.max(pct, 10), 80);
+                containerEl.style.setProperty(cssVar, clamped + '%');
             };
 
             const onMouseUp = () => {
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
                 resizerEl.classList.remove('dragging');
-                panelsEl.classList.remove('resizing');
-                const leftPanel = panelsEl.querySelector('.panel-resources');
-                const pct = (leftPanel.offsetWidth / panelsEl.offsetWidth) * 100;
+                containerEl.classList.remove('resizing');
+                const leftPanel = containerEl.querySelector(leftSelector);
+                if (!leftPanel) return;
+                const pct = (leftPanel.offsetWidth / containerEl.offsetWidth) * 100;
                 localStorage.setItem(storageKey, pct.toFixed(1));
             };
 
@@ -85,10 +86,13 @@ async function onLoad() {
         });
     };
 
-    const allPanels = document.querySelectorAll('.content-panels');
-    const allResizers = document.querySelectorAll('.panel-resizer');
-    initResizer(allPanels[0], allResizers[0], 'panel-split');
-    initResizer(allPanels[1], allResizers[1], 'panel-split-history');
+    const contentPanels = document.querySelector('.content-panels');
+    const panelResizer = contentPanels?.querySelector('.panel-resizer');
+    initResizer(contentPanels, panelResizer, '.panel-resources', '--resources-width', 'panel-split');
+
+    const mainEl = document.querySelector('.main');
+    const sidebarResizer = document.getElementById('sidebar-resizer');
+    initResizer(mainEl, sidebarResizer, '.sidebar', '--sidebar-width', 'sidebar-split');
 
     // Copy buttons
     document.addEventListener('click', (e) => {
@@ -114,31 +118,78 @@ async function onLoad() {
         });
     });
 
-    const ACCORDION_STORAGE_KEY = 'accordion-states';
-    const getAccordionStates = () => {
-        try { return JSON.parse(localStorage.getItem(ACCORDION_STORAGE_KEY)) || {}; }
-        catch { return {}; }
+    // Generic horizontal tab strip setup. Used for both #resource-tabs and
+    // #history-tabs. Persists the active tab per group; auto-scrolls the
+    // active tab into view when the strip becomes visible or resizes.
+    const setupTabGroup = (tabsId, panesContainerId, storageKey, defaultTab) => {
+        const tabStrip = document.getElementById(tabsId);
+        const panesContainer = document.getElementById(panesContainerId);
+        if (!tabStrip || !panesContainer) return;
+        const tabs = tabStrip.querySelectorAll('.resource-tab');
+        const panes = panesContainer.querySelectorAll('.tab-pane');
+
+        const scrollIntoView = (el) => {
+            if (!el) return;
+            const stripRect = tabStrip.getBoundingClientRect();
+            if (stripRect.width === 0) return;
+            const elRect = el.getBoundingClientRect();
+            if (elRect.left < stripRect.left) {
+                tabStrip.scrollLeft += elRect.left - stripRect.left;
+            } else if (elRect.right > stripRect.right) {
+                tabStrip.scrollLeft += elRect.right - stripRect.right;
+            }
+        };
+
+        const activate = (name) => {
+            let matched = null;
+            let activePane = null;
+            tabs.forEach(t => {
+                const isActive = t.dataset.tab === name;
+                t.classList.toggle('active', isActive);
+                if (isActive) matched = t;
+            });
+            panes.forEach(p => {
+                const isActive = p.dataset.tab === name;
+                p.classList.toggle('active', isActive);
+                if (isActive) activePane = p;
+            });
+            if (activePane && window.ace) {
+                // ACE editors cache layout dimensions and don't recompute when
+                // their container goes from display:none to visible. Force a
+                // resize so editors fill the now-visible pane.
+                activePane.querySelectorAll('.ace_editor').forEach(el => {
+                    const ed = window.ace.edit(el);
+                    if (ed) requestAnimationFrame(() => ed.resize(true));
+                });
+            }
+            if (matched) {
+                requestAnimationFrame(() => scrollIntoView(matched));
+                setTimeout(() => scrollIntoView(matched), 100);
+                setTimeout(() => scrollIntoView(matched), 500);
+            }
+            return !!matched;
+        };
+
+        new ResizeObserver(() => {
+            const active = tabStrip.querySelector('.resource-tab.active');
+            if (active) scrollIntoView(active);
+        }).observe(tabStrip);
+
+        const saved = localStorage.getItem(storageKey);
+        if (!saved || !activate(saved)) activate(defaultTab);
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                const name = tab.dataset.tab;
+                activate(name);
+                localStorage.setItem(storageKey, name);
+            });
+        });
     };
 
-    const accordionHeaders = document.querySelectorAll('.accordion-header');
-    const savedStates = getAccordionStates();
-
-    accordionHeaders.forEach(accordionHeader => {
-        if (accordionHeader.id === 'history-summary-header') return;
-        const key = accordionHeader.textContent.trim();
-        const accordionContent = accordionHeader.closest('.accordion').querySelector('.accordion-content');
-
-        if (key in savedStates) {
-            accordionContent.classList.toggle('active', savedStates[key]);
-        }
-
-        accordionHeader.addEventListener('click', () => {
-            accordionContent.classList.toggle('active');
-            const states = getAccordionStates();
-            states[key] = accordionContent.classList.contains('active');
-            localStorage.setItem(ACCORDION_STORAGE_KEY, JSON.stringify(states));
-        });
-    });
+    setupTabGroup('resource-tabs', 'generator-container', 'resource-tab', 'response');
+    setupTabGroup('history-tabs', 'history-detail', 'history-tab', 'response');
 }
 
 window.addEventListener('hashchange', _ => {

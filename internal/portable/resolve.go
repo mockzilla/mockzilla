@@ -159,12 +159,16 @@ func resolveOne(arg string) ([]Service, error) {
 	return nil, fmt.Errorf("unrecognised input: %s", arg)
 }
 
-// resolveDir handles the recognised directory shapes, in order:
+// resolveDir handles the recognized directory shapes, in order:
 //  0. `.mockzilla.json` manifest at the root: build services from declared entries.
-//  1. `services/<name>/` subdir: multi-service from that subtree.
-//  2. dir with `config.yml`, static endpoints, or exactly one top-level spec:
+//  1. `services/<name>/` subdir: multi-service from that subtree (explicit).
+//  2. Implicit services-root: dir with no top-level service-signal files
+//     (no config.yml, no spec, no top-level index.<ext>) and at least one
+//     non-noise subdirectory. Each subdir becomes a service. Lets users
+//     skip the explicit `services/` wrapper for "folder of services" layouts.
+//  3. dir with `config.yml`, static endpoints, or exactly one top-level spec:
 //     single-service folder named after the dir basename.
-//  3. multiple top-level spec files: flat-root mode, one service per spec basename.
+//  4. multiple top-level spec files: flat-root mode, one service per spec basename.
 //     An optional `context.yml` at the root applies to every service.
 func resolveDir(dir string) ([]Service, error) {
 	if services, err := resolveFromManifest(dir); err != nil {
@@ -179,8 +183,13 @@ func resolveDir(dir string) ([]Service, error) {
 	}
 
 	hasConfigFile := fileExists(filepath.Join(dir, configFile))
-	hasStatic := cmdapi.HasStaticEndpoints(dir)
 	specs := findAllSpecsInDir(dir)
+
+	if isImplicitServicesRoot(dir, hasConfigFile, specs) {
+		return resolveServicesRoot(dir)
+	}
+
+	hasStatic := cmdapi.HasStaticEndpoints(dir)
 
 	// "This folder IS one service" signals: explicit config, static
 	// endpoints, or just a single top-level spec. Any of these means
@@ -201,6 +210,7 @@ func resolveDir(dir string) ([]Service, error) {
 			"no services in %s (expected services/ subdir, a top-level spec, "+
 				"a config.yml, or static endpoints)", dir)
 	}
+
 	out := make([]Service, 0, len(specs))
 	for _, specPath := range specs {
 		out = append(out, Service{
@@ -223,6 +233,11 @@ func resolveServicesRoot(root string) ([]Service, error) {
 		if !e.IsDir() {
 			continue
 		}
+
+		if cmdapi.ShouldSkipDir(e.Name()) {
+			continue
+		}
+
 		svcDir := filepath.Join(root, e.Name())
 		svc, err := resolveServiceDir(svcDir, e.Name())
 		if err != nil {
@@ -232,6 +247,91 @@ func resolveServicesRoot(root string) ([]Service, error) {
 		out = append(out, svc)
 	}
 	return out, nil
+}
+
+// isImplicitServicesRoot detects a "folder of services" layout where the
+// user skipped the explicit `services/` wrapper. The dir qualifies when
+// it has no top-level service-signal files (no config.yml, no spec, no
+// `index.<ext>`) and contains at least one non-noise subdirectory. Each
+// such subdirectory will be resolved as its own service.
+//
+// The no-top-level-files rule is what disambiguates this from the
+// single-service-with-deep-endpoints case: as soon as the user drops
+// any top-level file (an `openapi.yml`, a `config.yml`, or even a bare
+// `index.json` at the root), we read that as "this dir IS the service"
+// and don't walk subdirs as services.
+func isImplicitServicesRoot(dir string, hasConfigFile bool, specs []string) bool {
+	if hasConfigFile || len(specs) > 0 {
+		return false
+	}
+	if hasTopLevelIndexFile(dir) {
+		return false
+	}
+	return hasServiceCandidateSubdir(dir)
+}
+
+// hasTopLevelIndexFile reports whether the dir has an `index.<ext>` file
+// directly at its top level (a static endpoint for the service root).
+// Used as a "this dir IS a service" signal.
+func hasTopLevelIndexFile(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		stem := strings.TrimSuffix(name, filepath.Ext(name))
+		if stem != "index" {
+			continue
+		}
+		if cmdapi.GetContentType(filepath.Ext(name)) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// excludeSpecAssetRoute drops the auto-generated `GET /<spec-basename>`
+// route that scanStaticFiles adds for the spec file itself, so the spec
+// doesn't show up as one of its own endpoints in the merged service.
+func excludeSpecAssetRoute(routes []cmdapi.Route, specPath string) []cmdapi.Route {
+	if specPath == "" {
+		return routes
+	}
+	skipPath := "/" + filepath.Base(specPath)
+	out := make([]cmdapi.Route, 0, len(routes))
+
+	for _, r := range routes {
+		if r.Path == skipPath && strings.EqualFold(r.Method, "GET") {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
+}
+
+// hasServiceCandidateSubdir reports whether the dir contains at least one
+// subdirectory that isn't filtered as noise (.git, node_modules, …).
+func hasServiceCandidateSubdir(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if cmdapi.ShouldSkipDir(e.Name()) {
+			continue
+		}
+		return true
+	}
+	return false
 }
 
 // resolveServiceDir resolves a single service folder into a Service. Three modes:
@@ -273,6 +373,13 @@ func resolveServiceDir(dir, name string) (Service, error) {
 		if err != nil {
 			return Service{}, fmt.Errorf("reading spec: %w", err)
 		}
+
+		// The static scan also picks up the spec file itself as a
+		// top-level literal asset (e.g. `GET /openapi.yml`). Including
+		// that in the merged operation list would surface the spec as
+		// a regular endpoint in the UI - chicken-and-egg, since those
+		// endpoints were derived from this file. Drop it before merging.
+		routes = excludeSpecAssetRoute(routes, specPath)
 		built, err = cmdapi.MergeStaticIntoSpec(specBytes, routes)
 		if err != nil {
 			return Service{}, fmt.Errorf("merging static into spec: %w", err)
@@ -339,6 +446,7 @@ func serviceFromManifestEntry(archiveDir string, entry pack.ServiceEntry) (Servi
 			ConfigDir: svcDir,
 		}, nil
 	}
+
 	// Static / merge modes need a synthesized or overlaid spec.
 	// resolveServiceDir already handles both; let it run on the folder
 	// the manifest pointed at, using the manifest-supplied name (skips
@@ -366,10 +474,13 @@ func writeTempSpec(name string, body []byte) (string, error) {
 // sorted alphabetically. Reserved names (config.yml, context.yml, app.yml,
 // `index.<ext>`) are excluded.
 
-// inferServiceName picks a name for a single-folder invocation by looking inside
-// the folder (never the folder's own basename). In order:
+// inferServiceName picks a name for a single-folder invocation. In order:
 //  1. The `name:` field of a top-level config.yml.
 //  2. The basename of a single non-generic spec file (anything but `openapi.*`).
+//  3. The folder's own basename, as a last-resort fallback so multi-arg
+//     invocations like `mockzilla a.yml b.yml ./other` mount the folder
+//     at `/other` instead of at `/`. Cwd-shaped args (`.`, `./`, `..`)
+//     are skipped here so they keep falling through to empty.
 //
 // Empty string is a first-class state: the service mounts at `/` and the UI
 // surfaces it as `.root` (api.RootServiceName).
@@ -387,7 +498,19 @@ func inferServiceName(dir string, hasConfigFile bool) string {
 		}
 		return stem
 	}
-	return ""
+	return folderBasename(dir)
+}
+
+// folderBasename returns the folder's own basename when it's a useful name,
+// or empty string when the arg points at the current/parent dir or the
+// filesystem root. Used by inferServiceName as the last fallback.
+func folderBasename(dir string) string {
+	base := filepath.Base(filepath.Clean(dir))
+	switch base {
+	case ".", "..", string(filepath.Separator):
+		return ""
+	}
+	return base
 }
 
 // readConfigName parses just the `name:` field out of a service
@@ -413,6 +536,7 @@ func findAllSpecsInDir(dir string) []string {
 		return nil
 	}
 	var candidates []string
+
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -430,6 +554,7 @@ func findAllSpecsInDir(dir string) []string {
 		}
 		candidates = append(candidates, filepath.Join(dir, name))
 	}
+
 	sort.Strings(candidates)
 	return candidates
 }
@@ -447,6 +572,7 @@ func findSpecInDir(dir string) string {
 		slog.Warn("Multiple spec candidates in folder; using first",
 			"dir", dir, "chosen", candidates[0], "others", candidates[1:])
 	}
+
 	return candidates[0]
 }
 
@@ -508,14 +634,17 @@ func serviceNameFromURL(rawURL, downloadedPath string) string {
 	if !genericSpecBases[strings.ToLower(base)] {
 		return base
 	}
+
 	u, err := url.Parse(rawURL)
 	if err != nil || u.Host == "" {
 		return base
 	}
+
 	host := strings.TrimPrefix(u.Host, "www.")
 	if i := strings.IndexByte(host, ':'); i >= 0 {
 		host = host[:i] // strip :port
 	}
+
 	return host
 }
 
@@ -627,14 +756,18 @@ func fetchURL(rawURL string) ([]byte, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("fetching: %w", err)
 	}
+
 	defer func() { _ = resp.Body.Close() }()
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("HTTP %d from %s", resp.StatusCode, rawURL)
 	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, "", fmt.Errorf("reading body: %w", err)
 	}
+
 	return body, resp.Header.Get("Content-Type"), nil
 }
 
@@ -697,7 +830,9 @@ func downloadAndExtract(rawURL string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("fetching: %w", err)
 	}
+
 	defer func() { _ = resp.Body.Close() }()
+
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("HTTP %d from %s", resp.StatusCode, rawURL)
 	}
@@ -706,6 +841,7 @@ func downloadAndExtract(rawURL string) (string, error) {
 	if err := os.MkdirAll(tmp, 0o755); err != nil {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}
+
 	path := filepath.Join(tmp, name)
 	f, err := os.Create(path)
 	if err != nil {

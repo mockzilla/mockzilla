@@ -48,9 +48,11 @@ var skippedDirNames = map[string]bool{
 	"dist":         true,
 }
 
-// shouldSkipDir reports whether a subdirectory of a scanned tree should
-// be ignored: tooling caches, hidden dirs, and the usual noise.
-func shouldSkipDir(name string) bool {
+// ShouldSkipDir reports whether a subdirectory of a scanned tree should
+// be ignored: tooling caches, hidden dirs, and the usual noise. Exposed
+// for portable-mode discovery, which uses the same noise filter when
+// auto-detecting an implicit services-root layout.
+func ShouldSkipDir(name string) bool {
 	if name == "" || name == "." {
 		return false
 	}
@@ -81,7 +83,7 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 			if path == staticDir {
 				return nil
 			}
-			if shouldSkipDir(info.Name()) {
+			if ShouldSkipDir(info.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -186,7 +188,7 @@ func HasStaticEndpoints(dir string) bool {
 			if path == dir {
 				return nil
 			}
-			if shouldSkipDir(info.Name()) {
+			if ShouldSkipDir(info.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -199,6 +201,7 @@ func HasStaticEndpoints(dir string) bool {
 		if GetContentType(filepath.Ext(filename)) == "" {
 			return nil
 		}
+
 		// A top-level `index.<ext>` is also a static endpoint
 		// (mounted at the service root). Anywhere deeper, the file is
 		// always a static endpoint regardless of whether the parent

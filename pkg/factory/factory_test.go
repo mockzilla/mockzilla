@@ -2,6 +2,7 @@ package factory
 
 import (
 	"embed"
+	"log/slog"
 	"net/http/httptest"
 	"path/filepath"
 	"testing"
@@ -69,6 +70,46 @@ func TestFactory_Operations(t *testing.T) {
 
 	ops := f.Operations()
 	assert.Len(ops, 3) // listPets, createPet, getPet
+}
+
+func TestFactory_Document(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("returns parsed document", func(t *testing.T) {
+		spec := loadTestSpec(t, "factory-test.yml")
+		f, err := NewFactory(spec)
+		assert.NoError(err)
+
+		doc, err := f.Document()
+		assert.NoError(err)
+		assert.NotNil(doc)
+	})
+
+	t.Run("caches the document across calls", func(t *testing.T) {
+		// docOnce makes Document idempotent, so two calls return the same
+		// instance and an identical error.
+		spec := loadTestSpec(t, "factory-test.yml")
+		f, err := NewFactory(spec)
+		assert.NoError(err)
+
+		doc1, err1 := f.Document()
+		doc2, err2 := f.Document()
+		assert.NoError(err1)
+		assert.NoError(err2)
+		assert.Same(doc1, doc2)
+	})
+
+	t.Run("respects a custom logger", func(t *testing.T) {
+		// WithLogger routes libopenapi's spec-parse warnings through the
+		// provided logger; exercising the non-default-logger branch.
+		spec := loadTestSpec(t, "factory-test.yml")
+		f, err := NewFactory(spec, WithLogger(slog.Default()))
+		assert.NoError(err)
+
+		doc, err := f.Document()
+		assert.NoError(err)
+		assert.NotNil(doc)
+	})
 }
 
 func TestFactory_Response(t *testing.T) {

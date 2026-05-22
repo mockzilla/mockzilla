@@ -13,13 +13,13 @@
                 darkTheme: "{{.AppConfig.Editor.DarkTheme}}",
                 fontSize: "{{.AppConfig.Editor.FontSize}}",
             },
-            disableConfigUI: {{.AppConfig.DisableConfigUI}},
             version: "{{.Version}}",
+            disableConfigUI: {{.AppConfig.DisableConfigUI}},
         }
         console.log(`loaded appConfig:`, appConfig)
     </script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
-    {{if .Contents.Styles}}{{.Contents.Styles}}{{else}}<link rel="icon" type="image/x-icon" href="{{.AppConfig.AssetsURL}}favicon.ico">{{end}}
+    {{if .Contents.Styles}}{{.Contents.Styles}}{{else}}<link rel="icon" type="image/svg+xml" href="{{.AppConfig.AssetsURL}}icons/favicon.svg">{{end}}
     <link type="text/css" rel="stylesheet" href="{{.AppConfig.AssetsURL}}css/console.css?v={{.Version}}"/>
     <link type="text/css" rel="stylesheet" href="{{.AppConfig.AssetsURL}}css/overwrite.css?v={{.Version}}"/>
     <script type="importmap">
@@ -54,31 +54,41 @@
     </header>{{end}}
 
     <div class="main">
-        <aside class="sidebar">
-            <div id="services-link"></div>
-            <div id="service-list-header" class="service-list-header" style="display: none;">
-                <span>Service</span>
-                <span>#</span>
+        <aside class="sidebar panel">
+            <div class="panel-header">
+                <h4>Service</h4>
+                <span id="service-list-count-header" class="service-count" style="display:none;">#</span>
             </div>
-            <ul id="service-list" class="service-list" style="display: none;"></ul>
+            <div class="panel-body">
+                <div id="services-link"></div>
+                <ul id="service-list" class="service-list" style="display: none;"></ul>
+            </div>
         </aside>
 
+        <div class="panel-resizer" id="sidebar-resizer"><div class="panel-resizer-handle"></div></div>
+
         <div class="content">
-            <h3 id="container-title"></h3>
-            <div id="service-tabs" class="service-tabs" style="display: none;">
-                <a id="tab-resources" class="service-tab" href="#">Resources</a>
-                <a id="tab-history" class="service-tab" href="#">History</a>
-                <a id="tab-configuration" class="service-tab" href="#">Configuration</a>
-            </div>
             <div id="home-contents" style="display: none;">{{.Contents.Home}}</div>
 
             <div id="fixed-service-container" style="display: none;">
                 <div class="content-panels">
                     <div class="panel panel-resources">
                         <div class="panel-header">
-                            <h4>Resources</h4>
+                            <h3 id="container-title"></h3>
+                            <div id="history-actions" class="history-actions" style="display: none;">
+                                <span id="history-refresh" class="history-action-btn" title="Refresh"><i class="fa-solid fa-rotate-right"></i></span>
+                                <span id="history-clear" class="history-action-btn" title="Clear history"><i class="fa-solid fa-trash-can"></i></span>
+                            </div>
+                        </div>
+                        <div id="service-tabs" class="service-tabs panel-tabs" style="display: none;">
+                            <a id="tab-resources" class="service-tab" href="#">Resources</a>
+                            <a id="tab-history" class="service-tab" href="#">History</a>
+                            <a id="tab-configuration" class="service-tab" href="#">Configuration</a>
                         </div>
                         <div class="panel-body">
+                            <div class="resource-filter-row">
+                                <input type="text" id="resource-filter" class="filter-input" placeholder="Filter resources…" autocomplete="off">
+                            </div>
                             <table id="fixed-service-table-list">
                                 <thead>
                                 <tr>
@@ -89,6 +99,23 @@
                                 </thead>
                                 <tbody id="fixed-service-table-body"></tbody>
                             </table>
+                            <table id="history-table-list" style="display: none;">
+                                <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Method</th>
+                                    <th>Path</th>
+                                    <th>Status</th>
+                                    <th>Duration</th>
+                                    <th>Time</th>
+                                </tr>
+                                </thead>
+                                <tbody id="history-table-body"></tbody>
+                            </table>
+                            <div id="configuration-editor-wrap" class="config-editor-wrap" style="display:none;">
+                                <button class="copy-btn" data-copy-target="configuration-editor" title="Copy to clipboard">Copy</button>
+                                <div id="configuration-editor" style="width:100%; height:100%;"></div>
+                            </div>
                         </div>
                     </div>
 
@@ -98,6 +125,7 @@
                         <div class="panel-header">
                             <span id="refresh" title="Refresh" style="display:none;"><i class="fa-solid fa-rotate-right"></i></span>
                             <h4 id="resource-panel-title">Select a resource</h4>
+                            <h4 id="history-detail-title" style="display:none;">Select an entry</h4>
                             <div id="preset-controls" style="display:none;">
                                 <label for="preset-select" id="preset-label">Preset:</label>
                                 <select id="preset-select"></select>
@@ -105,7 +133,27 @@
                                 <span id="preset-delete" title="Delete preset"><i class="fa-solid fa-trash-can"></i></span>
                             </div>
                         </div>
+                        <div class="panel-tabs" id="resource-tabs" style="display:none;">
+                            <a class="resource-tab" data-tab="replacements" href="#">Replacements</a>
+                            <a class="resource-tab" data-tab="overrides" href="#">Overrides</a>
+                            <a class="resource-tab" data-tab="headers" href="#">Headers</a>
+                            <a class="resource-tab" data-tab="curl" href="#">cURL</a>
+                            <a class="resource-tab" data-tab="request" href="#">Request</a>
+                            <a class="resource-tab" data-tab="response" href="#">
+                                Response<span id="response-status-badge" class="response-status-badge"></span>
+                            </a>
+                            <a class="resource-tab" data-tab="resp-headers" href="#">Resp. Headers</a>
+                        </div>
+                        <div class="panel-tabs" id="history-tabs" style="display:none;">
+                            <a class="resource-tab" data-tab="details" href="#">Details</a>
+                            <a class="resource-tab" data-tab="headers" href="#">Req. Headers</a>
+                            <a class="resource-tab" data-tab="request" href="#">Request</a>
+                            <a class="resource-tab" data-tab="response" href="#">Response</a>
+                            <a class="resource-tab" data-tab="resp-headers" href="#">Resp. Headers</a>
+                        </div>
                         <div class="panel-body">
+                            <div id="right-pane-hint" class="empty-hint">Select a resource from the list</div>
+
                             <div id="resource-edit-container" style="display: none;">
                                 <table class="resource-edit-table">
                                     <tr>
@@ -152,113 +200,97 @@
                             </div>
 
                             <div id="generator-container" style="display: none;">
-                                <div class="accordion">
-                                    <div class="accordion-header">Context Replacements</div>
-                                    <div class="accordion-content">
-                                        <div id="context-replacements" style="width:100%;height:200px;"></div>
+                                <div class="tab-pane" data-tab="replacements">
+                                    <div id="context-replacements" style="width:100%;height:100%;"></div>
+                                </div>
+
+                                <div class="tab-pane" data-tab="overrides">
+                                    <div class="config-override-row">
+                                        <input type="checkbox" id="override-upstream-enabled">
+                                        <label for="override-upstream-enabled">Upstream URL</label>
+                                        <input type="text" id="override-upstream-url" placeholder="empty = disable upstream">
+                                    </div>
+                                    <div class="config-override-row">
+                                        <input type="checkbox" id="override-cache-enabled">
+                                        <label for="override-cache-enabled">Cache Requests</label>
+                                        <select id="override-cache-value">
+                                            <option value="true">true</option>
+                                            <option value="false">false</option>
+                                        </select>
+                                    </div>
+                                    <div class="config-override-row">
+                                        <input type="checkbox" id="override-latency-enabled">
+                                        <label for="override-latency-enabled">Latency</label>
+                                        <input type="text" id="override-latency-value" placeholder="e.g. 100ms, 2s">
+                                    </div>
+                                    <div class="config-override-row">
+                                        <input type="checkbox" id="override-replay-enabled">
+                                        <label for="override-replay-enabled">Replay</label>
+                                        <input type="text" id="override-replay-value" placeholder="empty = use config; e.g. body:field1;query:field2">
+                                    </div>
+                                    <div class="config-override-row">
+                                        <input type="checkbox" id="override-validate-request-enabled">
+                                        <label for="override-validate-request-enabled">Validate Request</label>
+                                        <select id="override-validate-request-value">
+                                            <option value="true">true</option>
+                                            <option value="false">false</option>
+                                        </select>
+                                    </div>
+                                    <div class="config-override-row">
+                                        <input type="checkbox" id="override-validate-response-enabled">
+                                        <label for="override-validate-response-enabled">Validate Response</label>
+                                        <select id="override-validate-response-value">
+                                            <option value="true">true</option>
+                                            <option value="false">false</option>
+                                        </select>
+                                    </div>
+                                    <div class="config-override-row">
+                                        <input type="checkbox" id="override-validate-verbose-enabled">
+                                        <label for="override-validate-verbose-enabled">Validate Verbose</label>
+                                        <select id="override-validate-verbose-value">
+                                            <option value="true">true</option>
+                                            <option value="false">false</option>
+                                        </select>
+                                    </div>
+                                    <div class="config-override-row">
+                                        <input type="checkbox" id="override-validate-timeout-enabled">
+                                        <label for="override-validate-timeout-enabled">Validate Timeout</label>
+                                        <input type="text" id="override-validate-timeout-value" placeholder="e.g. 5s" value="1s">
                                     </div>
                                 </div>
 
-                                <div class="accordion">
-                                    <div class="accordion-header">Config Overrides</div>
-                                    <div class="accordion-content">
-                                        <div class="config-override-row">
-                                            <input type="checkbox" id="override-upstream-enabled">
-                                            <label for="override-upstream-enabled">Upstream URL</label>
-                                            <input type="text" id="override-upstream-url" placeholder="empty = disable upstream">
-                                        </div>
-                                        <div class="config-override-row">
-                                            <input type="checkbox" id="override-cache-enabled">
-                                            <label for="override-cache-enabled">Cache Requests</label>
-                                            <select id="override-cache-value">
-                                                <option value="true">true</option>
-                                                <option value="false">false</option>
-                                            </select>
-                                        </div>
-                                        <div class="config-override-row">
-                                            <input type="checkbox" id="override-latency-enabled">
-                                            <label for="override-latency-enabled">Latency</label>
-                                            <input type="text" id="override-latency-value" placeholder="e.g. 100ms, 2s">
-                                        </div>
-                                        <div class="config-override-row">
-                                            <input type="checkbox" id="override-replay-enabled">
-                                            <label for="override-replay-enabled">Replay</label>
-                                            <input type="text" id="override-replay-value" placeholder="empty = use config; e.g. body:field1;query:field2">
-                                        </div>
-                                        <div class="config-override-row">
-                                            <input type="checkbox" id="override-validate-request-enabled">
-                                            <label for="override-validate-request-enabled">Validate Request</label>
-                                            <select id="override-validate-request-value">
-                                                <option value="true">true</option>
-                                                <option value="false">false</option>
-                                            </select>
-                                        </div>
-                                        <div class="config-override-row">
-                                            <input type="checkbox" id="override-validate-response-enabled">
-                                            <label for="override-validate-response-enabled">Validate Response</label>
-                                            <select id="override-validate-response-value">
-                                                <option value="true">true</option>
-                                                <option value="false">false</option>
-                                            </select>
-                                        </div>
-                                        <div class="config-override-row">
-                                            <input type="checkbox" id="override-validate-verbose-enabled">
-                                            <label for="override-validate-verbose-enabled">Validate Verbose</label>
-                                            <select id="override-validate-verbose-value">
-                                                <option value="true">true</option>
-                                                <option value="false">false</option>
-                                            </select>
-                                        </div>
-                                        <div class="config-override-row">
-                                            <input type="checkbox" id="override-validate-timeout-enabled">
-                                            <label for="override-validate-timeout-enabled">Validate Timeout</label>
-                                            <input type="text" id="override-validate-timeout-value" placeholder="e.g. 5s" value="1s" style="width: 6rem;">
-                                        </div>
-                                    </div>
+                                <div class="tab-pane" data-tab="headers">
+                                    <div id="custom-headers-rows"></div>
+                                    <button type="button" id="custom-header-add" class="btn-add">+ Add Header</button>
                                 </div>
 
-                                <div class="accordion">
-                                    <div class="accordion-header">Custom Headers</div>
-                                    <div class="accordion-content">
-                                        <div id="custom-headers-rows"></div>
-                                        <button type="button" id="custom-header-add" class="btn-add">+ Add Header</button>
-                                    </div>
+                                <div class="tab-pane" data-tab="curl">
+                                    <button class="copy-btn" data-copy-target="curl" title="Copy to clipboard">Copy</button>
+                                    <pre class="code" id="example-curl"></pre>
                                 </div>
 
-                                <div class="accordion">
-                                    <div class="accordion-header">cURL</div>
-                                    <div class="accordion-content">
-                                        <button class="copy-btn" data-copy-target="curl" title="Copy to clipboard">Copy</button>
-                                        <pre class="code" id="example-curl"></pre>
+                                <div class="tab-pane" data-tab="request">
+                                    <div id="generated-results-container">
+                                        <div id="request-path-container" style="display:none;">
+                                            <b>Path:</b>
+                                            <pre class="code" id="request-path"></pre>
+                                        </div>
                                     </div>
-                                </div>
-
-                                <div id="generated-results-container">
-                                    <div id="request-path-container" style="display:none;">
-                                        <b>Path:</b>
-                                        <pre class="code" id="request-path"></pre>
-                                    </div>
-                                </div>
-
-                                <div id="request-body-container" class="accordion">
-                                    <div class="accordion-header">Request Payload</div>
-                                    <div class="accordion-content active">
+                                    <div id="request-body-container" style="height:100%;">
                                         <button class="copy-btn" data-copy-target="request-body" title="Copy to clipboard">Copy</button>
-                                        <div id="request-body" style="width:100%;"></div>
+                                        <div id="request-body" style="width:100%;height:100%;"></div>
                                     </div>
                                 </div>
 
-                                <div id="response-body-container" class="accordion">
-                                    <div class="accordion-header">Response <span id="response-status-badge" class="response-status-badge"></span></div>
-                                    <div class="accordion-content active">
+                                <div class="tab-pane" data-tab="response">
+                                    <div id="response-body-container" style="height:100%;">
                                         <button class="copy-btn" data-copy-target="response-body" title="Copy to clipboard">Copy</button>
-                                        <div id="response-body" style="width:100%;"></div>
+                                        <div id="response-body" style="width:100%;height:100%;"></div>
                                     </div>
                                 </div>
 
-                                <div id="response-headers-container" class="accordion" style="display:none;">
-                                    <div class="accordion-header">Response Headers</div>
-                                    <div class="accordion-content">
+                                <div class="tab-pane" data-tab="resp-headers">
+                                    <div id="response-headers-container" style="display:none;">
                                         <table id="response-headers-table" class="response-headers-table">
                                             <thead>
                                             <tr>
@@ -272,93 +304,38 @@
                                 </div>
                             </div>
 
-                            <div id="resource-result" style="height:300px;"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                            <div id="resource-result" style="display:none;"></div>
 
-            <div id="history-container" style="display: none;">
-                <div class="content-panels">
-                    <div class="panel panel-resources">
-                        <div class="panel-header">
-                            <h4>History</h4>
-                            <div class="history-actions">
-                                <span id="history-refresh" class="history-action-btn" title="Refresh"><i class="fa-solid fa-rotate-right"></i></span>
-                                <span id="history-clear" class="history-action-btn" title="Clear history"><i class="fa-solid fa-trash-can"></i></span>
-                            </div>
-                        </div>
-                        <div class="panel-body">
-                            <table id="history-table-list">
-                                <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>Method</th>
-                                    <th>Path</th>
-                                    <th>Status</th>
-                                    <th>Duration</th>
-                                    <th>Time</th>
-                                </tr>
-                                </thead>
-                                <tbody id="history-table-body"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <div class="panel-resizer"><div class="panel-resizer-handle"></div></div>
-
-                    <div class="panel panel-results">
-                        <div class="panel-header">
-                            <h4 id="history-detail-title">Select an entry</h4>
-                        </div>
-                        <div class="panel-body">
                             <div id="history-detail" style="display: none;">
-                                <div class="accordion">
-                                    <div class="accordion-header" id="history-summary-header"></div>
-                                    <div class="accordion-content" id="history-summary-content"></div>
+                                <div class="tab-pane" data-tab="details">
+                                    <div id="history-summary-content"></div>
                                 </div>
 
-                                <div class="accordion">
-                                    <div class="accordion-header">Request Headers</div>
-                                    <div class="accordion-content">
-                                        <table class="response-headers-table">
-                                            <thead><tr><th>Header</th><th>Value</th></tr></thead>
-                                            <tbody id="history-req-headers-body"></tbody>
-                                        </table>
-                                    </div>
+                                <div class="tab-pane" data-tab="headers">
+                                    <table class="response-headers-table">
+                                        <thead><tr><th>Header</th><th>Value</th></tr></thead>
+                                        <tbody id="history-req-headers-body"></tbody>
+                                    </table>
                                 </div>
 
-                                <div id="history-req-body-container" class="accordion" style="display:none;">
-                                    <div class="accordion-header">Request Body</div>
-                                    <div class="accordion-content active">
-                                        <div id="history-req-body" style="width:100%;"></div>
-                                    </div>
+                                <div class="tab-pane" data-tab="request" id="history-req-body-container">
+                                    <div id="history-req-body" style="width:100%;height:100%;"></div>
                                 </div>
 
-                                <div class="accordion">
-                                    <div class="accordion-header">Response Headers</div>
-                                    <div class="accordion-content">
-                                        <table class="response-headers-table">
-                                            <thead><tr><th>Header</th><th>Value</th></tr></thead>
-                                            <tbody id="history-resp-headers-body"></tbody>
-                                        </table>
-                                    </div>
+                                <div class="tab-pane" data-tab="resp-headers">
+                                    <table class="response-headers-table">
+                                        <thead><tr><th>Header</th><th>Value</th></tr></thead>
+                                        <tbody id="history-resp-headers-body"></tbody>
+                                    </table>
                                 </div>
 
-                                <div id="history-resp-body-container" class="accordion">
-                                    <div class="accordion-header">Response Body</div>
-                                    <div class="accordion-content active">
-                                        <div id="history-resp-body" style="width:100%;"></div>
-                                    </div>
+                                <div class="tab-pane" data-tab="response" id="history-resp-body-container">
+                                    <div id="history-resp-body" style="width:100%;height:100%;"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <div id="configuration-container" style="display: none;">
-                <div id="configuration-editor" style="width:100%;height:600px;"></div>
             </div>
 
             <iframe id="iframe-contents" src="" style="display:none;"></iframe>

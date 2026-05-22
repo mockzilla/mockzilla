@@ -70,6 +70,8 @@ const showTabs = (service) => {
 const showDetail = (entry) => {
     const detail = document.getElementById('history-detail');
     detail.style.display = 'block';
+    const hint = document.getElementById('right-pane-hint');
+    if (hint) hint.style.display = 'none';
 
     const req = entry.request;
     const resp = entry.response;
@@ -78,21 +80,7 @@ const showDetail = (entry) => {
     const panelTitle = document.getElementById('history-detail-title');
     panelTitle.textContent = req ? decodeURIComponent(req.url) : 'Select an entry';
 
-    // Details accordion
-    const summaryHeader = document.getElementById('history-summary-header');
-    summaryHeader.textContent = 'Details';
-
     const summaryContent = document.getElementById('history-summary-content');
-    summaryContent.classList.remove('active');
-    summaryHeader.classList.remove('expanded');
-
-    if (!summaryHeader.hasAttribute('data-wired')) {
-        summaryHeader.setAttribute('data-wired', '1');
-        summaryHeader.addEventListener('click', () => {
-            summaryContent.classList.toggle('active');
-            summaryHeader.classList.toggle('expanded');
-        });
-    }
 
     const tbody = document.createElement('tbody');
     if (resp) {
@@ -122,7 +110,7 @@ const showDetail = (entry) => {
     }
 
     const table = document.createElement('table');
-    table.className = 'response-headers-table';
+    table.className = 'history-summary-table';
     table.appendChild(tbody);
     summaryContent.innerHTML = '';
     summaryContent.appendChild(table);
@@ -146,16 +134,17 @@ const showDetail = (entry) => {
     }
 
     // Request body
-    const reqBodyContainer = document.getElementById('history-req-body-container');
     if (req && req.body && req.body.length > 0) {
-        reqBodyContainer.style.display = 'block';
         const {text, mode} = decodeBody(req.body);
-        const editor = commons.getCodeEditor('history-req-body', mode, {maxLines: Infinity});
+        const editor = commons.getCodeEditor('history-req-body', mode);
         editor.setValue(text);
         editor.clearSelection();
         editor.setReadOnly(true);
     } else {
-        reqBodyContainer.style.display = 'none';
+        const editor = commons.getCodeEditor('history-req-body', 'text');
+        editor.setValue('(no request body)');
+        editor.clearSelection();
+        editor.setReadOnly(true);
     }
 
     // Response headers
@@ -177,16 +166,17 @@ const showDetail = (entry) => {
     }
 
     // Response body
-    const respBodyContainer = document.getElementById('history-resp-body-container');
     if (resp && resp.body && resp.body.length > 0) {
-        respBodyContainer.style.display = 'block';
         const {text, mode} = decodeBody(resp.body);
-        const editor = commons.getCodeEditor('history-resp-body', mode, {maxLines: Infinity});
+        const editor = commons.getCodeEditor('history-resp-body', mode);
         editor.setValue(text);
         editor.clearSelection();
         editor.setReadOnly(true);
     } else {
-        respBodyContainer.style.display = 'none';
+        const editor = commons.getCodeEditor('history-resp-body', 'text');
+        editor.setValue('(no response body)');
+        editor.clearSelection();
+        editor.setReadOnly(true);
     }
 };
 
@@ -281,9 +271,8 @@ export const show = (match) => {
     const service = name;
 
     navi.resetContents();
-    services.show();
-
-    navi.applySelection(`service-${service}`, 'selected-service');
+    navi.setActiveView('history');
+    services.show(service);
 
     let displayName = service;
     if (displayName === '.root') {
@@ -294,7 +283,12 @@ export const show = (match) => {
     config.contentTitleEl.innerHTML = `${displayName} history`;
 
     showTabs(service);
-    config.historyContainer.style.display = 'block';
+    config.fixedServiceContainer.style.display = 'block';
+    document.getElementById('history-table-list').style.display = '';
+    document.getElementById('history-actions').style.display = 'flex';
+    document.getElementById('resource-panel-title').style.display = 'none';
+    document.getElementById('history-detail-title').style.display = '';
+    document.getElementById('history-tabs').style.display = 'flex';
 
     fetchAndRender(service);
 
