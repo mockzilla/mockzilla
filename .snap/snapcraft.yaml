@@ -9,7 +9,7 @@ description: |
   See https://mockzilla.github.io/mockzilla/ for full documentation.
 license: MIT
 grade: stable
-confinement: classic
+confinement: strict
 source-code: https://github.com/mockzilla/mockzilla
 issues: https://github.com/mockzilla/mockzilla/issues
 website: https://mockzilla.github.io/mockzilla/
@@ -38,3 +38,8 @@ parts:
 apps:
   mockzilla:
     command: bin/mockzilla
+    plugs:
+      - network
+      - network-bind
+      - home
+      - removable-media
