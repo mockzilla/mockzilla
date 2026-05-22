@@ -641,3 +641,35 @@ func TestAllAmbiguousOneOfSVE(t *testing.T) {
 		assert.False(t, allAmbiguousOneOfSVE(allNone))
 	})
 }
+
+func TestIsValidatorTimeout(t *testing.T) {
+	t.Run("nil slice is not a timeout", func(t *testing.T) {
+		assert.False(t, isValidatorTimeout(nil))
+	})
+	t.Run("regular failure is not a timeout", func(t *testing.T) {
+		assert.False(t, isValidatorTimeout([]*errors.ValidationError{
+			{ValidationType: "schema"},
+		}))
+	})
+	t.Run("synthetic timeout error is detected", func(t *testing.T) {
+		assert.True(t, isValidatorTimeout([]*errors.ValidationError{
+			{ValidationType: "timeout"},
+		}))
+	})
+	t.Run("mixed - any timeout entry trips the check", func(t *testing.T) {
+		assert.True(t, isValidatorTimeout([]*errors.ValidationError{
+			{ValidationType: "schema"},
+			{ValidationType: "timeout"},
+		}))
+	})
+}
+
+func TestTimeoutValidationError(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
+	e := timeoutValidationError(req, "response")
+	assert.Equal(t, "timeout", e.ValidationType)
+	assert.Equal(t, "response", e.ValidationSubType)
+	assert.Equal(t, http.MethodGet, e.RequestMethod)
+	assert.Equal(t, "/foo", e.RequestPath)
+	assert.Contains(t, e.Message, validationTimeout.String())
+}

@@ -11,12 +11,22 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	validator "github.com/pb33f/libopenapi-validator"
 	"github.com/pb33f/libopenapi-validator/errors"
 	"go.yaml.in/yaml/v4"
 )
+
+// validationTimeout bounds a single response-validation call. libopenapi-validator
+// inlines the response schema before checking the body, and pathological specs
+// (deeply self-referential allOf compositions, mutually-recursive components)
+// trigger exponential rendering that never returns within a request lifetime.
+// On timeout we skip validation for that request rather than block the response.
+// The orphaned validator goroutine keeps running; it's a leak per pathological
+// route but bounded by the spec, not the request rate.
+const validationTimeout = 1 * time.Second
 
 // ValidatorSource yields the validator for the current request; nil disables validation.
 // Portable mode uses this to hot-swap validators after a spec reload.
@@ -66,6 +76,11 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 								"method", req.Method,
 								"path", req.URL.Path,
 								"reason", validationErrs[0].Reason)
+						case isValidatorTimeout(validationErrs):
+							RequestLog(log, req).Warn("Request validator exceeded timeout; skipping request validation",
+								"method", req.Method,
+								"path", req.URL.Path,
+								"timeout", validationTimeout)
 						case allPathMissing(validationErrs):
 							// 404 is the downstream handler's job, not ours.
 						default:
@@ -112,6 +127,15 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 					"method", req.Method,
 					"path", req.URL.Path,
 					"reason", validationErrs[0].Reason)
+				writeThrough(w, rw)
+				return
+			}
+
+			if isValidatorTimeout(validationErrs) {
+				RequestLog(log, req).Warn("Response validator exceeded timeout; skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"timeout", validationTimeout)
 				writeThrough(w, rw)
 				return
 			}
@@ -240,23 +264,71 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 // safeValidateRequest recovers panics from libopenapi-validator as a synthetic
 // ValidationError so the handler stays up.
 func safeValidateRequest(v validator.Validator, req *http.Request) (ok bool, errs []*errors.ValidationError) {
-	defer func() {
-		if r := recover(); r != nil {
-			ok = false
-			errs = []*errors.ValidationError{panicValidationError(r, debug.Stack(), req, "request")}
-		}
+	type result struct {
+		ok   bool
+		errs []*errors.ValidationError
+	}
+
+	done := make(chan result, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- result{false, []*errors.ValidationError{panicValidationError(r, debug.Stack(), req, "request")}}
+			}
+		}()
+		o, e := v.ValidateHttpRequestSync(req)
+		done <- result{o, e}
 	}()
-	return v.ValidateHttpRequestSync(req)
+
+	select {
+	case r := <-done:
+		return r.ok, r.errs
+	case <-time.After(validationTimeout):
+		return false, []*errors.ValidationError{timeoutValidationError(req, "request")}
+	}
 }
 
 func safeValidateResponse(v validator.Validator, req *http.Request, resp *http.Response) (ok bool, errs []*errors.ValidationError) {
-	defer func() {
-		if r := recover(); r != nil {
-			ok = false
-			errs = []*errors.ValidationError{panicValidationError(r, debug.Stack(), req, "response")}
-		}
+	type result struct {
+		ok   bool
+		errs []*errors.ValidationError
+	}
+	done := make(chan result, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- result{false, []*errors.ValidationError{panicValidationError(r, debug.Stack(), req, "response")}}
+			}
+		}()
+		o, e := v.ValidateHttpResponse(req, resp)
+		done <- result{o, e}
 	}()
-	return v.ValidateHttpResponse(req, resp)
+	select {
+	case r := <-done:
+		return r.ok, r.errs
+	case <-time.After(validationTimeout):
+		return false, []*errors.ValidationError{timeoutValidationError(req, "response")}
+	}
+}
+
+func timeoutValidationError(req *http.Request, kind string) *errors.ValidationError {
+	return &errors.ValidationError{
+		Message:           "validator exceeded " + validationTimeout.String() + " during " + kind + " validation",
+		Reason:            "schema rendering or evaluation took too long (likely a pathologically recursive composition)",
+		ValidationType:    "timeout",
+		ValidationSubType: kind,
+		RequestPath:       req.URL.Path,
+		RequestMethod:     req.Method,
+	}
+}
+
+func isValidatorTimeout(errs []*errors.ValidationError) bool {
+	for _, e := range errs {
+		if e.ValidationType == "timeout" {
+			return true
+		}
+	}
+	return false
 }
 
 func panicValidationError(r any, stack []byte, req *http.Request, kind string) *errors.ValidationError {
