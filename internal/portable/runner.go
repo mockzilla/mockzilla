@@ -501,31 +501,39 @@ func registerService(
 	var regOpts []api.HandlerOption
 	validationOn := svcCfg.Validate.RequestEnabled() || svcCfg.Validate.ResponseEnabled()
 
-	sw := &swappableHandler{handler: h}
+	sw := &swappableHandler{
+		handler:       h,
+		buildFn:       func() (validator.Validator, error) { return buildValidator(h) },
+		validatorOnce: &sync.Once{},
+	}
 	handlers[svc.Name] = sw
 
-	if validationOn {
-		mw := func(p *middleware.Params) func(http.Handler) http.Handler {
-			return middleware.CreateValidationMiddleware(p, sw.Validator, sw.MatchPath)
-		}
-		regOpts = append(regOpts, api.WithMiddleware(
-			[]func(*middleware.Params) func(http.Handler) http.Handler{mw},
-		))
+	// Attach the validation middleware unconditionally. It's a cheap
+	// no-op when no per-request side wants validation, but staying
+	// attached lets X-Mockzilla-Validate-* headers opt into validation
+	// for services that booted with it disabled. The validator itself
+	// is built lazily by EnsureValidator on the first such request.
+	mw := func(p *middleware.Params) func(http.Handler) http.Handler {
+		return middleware.CreateValidationMiddleware(p, sw.ensureValidator, sw.MatchPath)
+	}
+	regOpts = append(regOpts, api.WithMiddleware(
+		[]func(*middleware.Params) func(http.Handler) http.Handler{mw},
+	))
 
-		// Build the validator in the background.
+	if validationOn {
+		// Eager background build so services that boot with validation on
+		// don't pay the build cost on the first request.
 		validatorWG.Add(1)
 		go func() {
 			defer validatorWG.Done()
 			start := time.Now()
-			built, err := buildValidator(h)
-			if err != nil {
+			built := sw.EnsureValidator()
+			if built == nil {
 				slog.Warn("validator construction failed; service will run without validation",
 					"service", svc.Name,
-					"elapsed", time.Since(start),
-					"error", err)
+					"elapsed", time.Since(start))
 				return
 			}
-			sw.setValidator(built)
 			slog.Info("Validator ready", "service", svc.Name, "elapsed", time.Since(start))
 		}()
 	}

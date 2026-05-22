@@ -611,7 +611,7 @@ func materializeBatch(specs []string) (*batchMaterialization, error) {
 	// so on-demand parsing would just defer the same work behind first
 	// requests. Eager also surfaces spec-parse failures at boot, which
 	// the orchestrator wants visible as a per-spec failure.
-	cfgBody := []byte("spec:\n  lazyLoad: false\nvalidate:\n  request: true\n  response: true\n")
+	cfgBody := []byte("spec:\n  lazyLoad: false\nvalidate:\n  request: true\n  response: true\n  verbose: true\n")
 
 	specToSvc := make(map[string]string, len(specs))
 	for i, spec := range specs {

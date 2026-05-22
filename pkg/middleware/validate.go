@@ -29,8 +29,10 @@ import (
 const validationTimeout = 1 * time.Second
 
 // ValidatorSource yields the validator for the current request; nil disables validation.
-// Portable mode uses this to hot-swap validators after a spec reload.
-type ValidatorSource func() validator.Validator
+// Portable mode uses this to hot-swap validators after a spec reload. The ensure flag
+// asks the source to lazy-build if it hasn't already - used when a per-request
+// override turns on validation for a service that booted with it off.
+type ValidatorSource func(ensure bool) validator.Validator
 
 // SpecPathLookup resolves a prefix-stripped request path/method to the spec path.
 type SpecPathLookup func(reqPath, method string) (specPath string, ok bool)
@@ -43,15 +45,24 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			v := source()
-			if v == nil {
+			cfg := params.GetServiceConfig(req)
+			validateReq := cfg != nil && cfg.Validate.RequestEnabled()
+			validateResp := cfg != nil && cfg.Validate.ResponseEnabled()
+
+			// Cheap no-op path: neither side wants validation, so skip
+			// the validator fetch entirely. Keeps the middleware free
+			// for services that boot with validation disabled and
+			// never see an override header.
+			if !validateReq && !validateResp {
 				next.ServeHTTP(w, req)
 				return
 			}
 
-			cfg := params.GetServiceConfig(req)
-			validateReq := cfg == nil || cfg.Validate.RequestEnabled()
-			validateResp := cfg == nil || cfg.Validate.ResponseEnabled()
+			v := source(true)
+			if v == nil {
+				next.ServeHTTP(w, req)
+				return
+			}
 
 			validatorReq := requestForValidator(req, cfg)
 
@@ -84,7 +95,7 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 						case allPathMissing(validationErrs):
 							// 404 is the downstream handler's job, not ours.
 						default:
-							writeValidationError(w, http.StatusBadRequest, "request validation failed", validationErrs)
+							writeValidationError(w, http.StatusBadRequest, "request validation failed", validationErrs, cfg.Validate.VerboseEnabled())
 							return
 						}
 					}
@@ -256,7 +267,7 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 				"method", req.Method,
 				"path", req.URL.Path,
 				"errors", len(validationErrs))
-			writeValidationError(w, http.StatusInternalServerError, "response validation failed", validationErrs)
+			writeValidationError(w, http.StatusInternalServerError, "response validation failed", validationErrs, cfg.Validate.VerboseEnabled())
 		})
 	}
 }
@@ -972,11 +983,49 @@ type validationErrorPayload struct {
 	Details []*errors.ValidationError `json:"details,omitempty"`
 }
 
-func writeValidationError(w http.ResponseWriter, status int, message string, validationErrs []*errors.ValidationError) {
+func writeValidationError(w http.ResponseWriter, status int, message string, validationErrs []*errors.ValidationError, verbose bool) {
+	if !verbose {
+		validationErrs = slimValidationErrors(validationErrs)
+	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(validationErrorPayload{
 		Error:   message,
 		Details: validationErrs,
 	})
+}
+
+// slimValidationErrors clones the input with ReferenceSchema and
+// ReferenceObject blanked on every SchemaValidationFailure. Those two
+// fields carry the full offending schema YAML and the entire submitted
+// payload, which is invaluable for debugging but bloats client error
+// responses by orders of magnitude. Verbose mode keeps them intact.
+// Returns a fresh slice so the caller's *ValidationError pointers are
+// safe to log elsewhere with full detail.
+func slimValidationErrors(in []*errors.ValidationError) []*errors.ValidationError {
+	if len(in) == 0 {
+		return in
+	}
+	out := make([]*errors.ValidationError, len(in))
+	for i, ve := range in {
+		if ve == nil {
+			continue
+		}
+		clone := *ve
+		if len(ve.SchemaValidationErrors) > 0 {
+			sves := make([]*errors.SchemaValidationFailure, len(ve.SchemaValidationErrors))
+			for j, sve := range ve.SchemaValidationErrors {
+				if sve == nil {
+					continue
+				}
+				sveClone := *sve
+				sveClone.ReferenceSchema = ""
+				sveClone.ReferenceObject = ""
+				sves[j] = &sveClone
+			}
+			clone.SchemaValidationErrors = sves
+		}
+		out[i] = &clone
+	}
+	return out
 }

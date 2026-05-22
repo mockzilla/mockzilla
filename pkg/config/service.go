@@ -57,6 +57,12 @@ type ServiceConfig struct {
 type ValidateConfig struct {
 	Request  *bool `yaml:"request,omitempty"`
 	Response *bool `yaml:"response,omitempty"`
+	// Verbose keeps libopenapi-validator's bulky ReferenceSchema and
+	// ReferenceObject fields in the client-facing error payload. Default
+	// (false) strips them so clients get a slim error with just the
+	// actionable bits (reason, path, location, line/column). Tests and
+	// debugging sessions set it true to see the full context.
+	Verbose *bool `yaml:"verbose,omitempty"`
 }
 
 // RequestEnabled reports whether request validation is enabled. Defaults to false.
@@ -69,8 +75,15 @@ func (v *ValidateConfig) ResponseEnabled() bool {
 	return v != nil && v.Response != nil && *v.Response
 }
 
+// VerboseEnabled reports whether full validator context is kept in the
+// response payload. Defaults to false (slim).
+func (v *ValidateConfig) VerboseEnabled() bool {
+	return v != nil && v.Verbose != nil && *v.Verbose
+}
+
 // NewServiceConfig creates a new ServiceConfig with default values.
 func NewServiceConfig() *ServiceConfig {
+	off := false
 	return &ServiceConfig{
 		Errors:      make(map[string]int),
 		Latencies:   make(map[string]time.Duration),
@@ -78,6 +91,7 @@ func NewServiceConfig() *ServiceConfig {
 		History:     NewHistoryConfig(),
 		SpecOptions: NewSpecOptions(),
 		Extra:       make(map[string]any),
+		Validate:    &ValidateConfig{Request: &off, Response: &off, Verbose: &off},
 	}
 }
 
@@ -111,6 +125,10 @@ func (s *ServiceConfig) WithDefaults() *ServiceConfig {
 
 	if s.SpecOptions == nil {
 		s.SpecOptions = defaults.SpecOptions
+	}
+
+	if s.Validate == nil {
+		s.Validate = defaults.Validate
 	}
 
 	// Fill nil map fields

@@ -145,9 +145,11 @@ func (h *handler) handleRequest(w http.ResponseWriter, r *http.Request) {
 // atomically; the validation middleware reads through Validator() so it
 // always sees the validator built from the most recent spec.
 type swappableHandler struct {
-	mu        sync.RWMutex
-	handler   *handler
-	validator validator.Validator
+	mu            sync.RWMutex
+	handler       *handler
+	validator     validator.Validator
+	buildFn       func() (validator.Validator, error)
+	validatorOnce *sync.Once
 }
 
 // Validator returns the currently active validator for this service, or
@@ -156,6 +158,36 @@ func (s *swappableHandler) Validator() validator.Validator {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.validator
+}
+
+// EnsureValidator lazy-builds the validator on first call and caches it.
+// Returns nil if buildFn is unset or the build failed. Safe under
+// concurrent first-callers via sync.Once - all goroutines see the same
+// cached result. Per-request validation overrides call this so a service
+// that booted with validation off can still validate when an X-Mockzilla-
+// Validate-* header opts in.
+func (s *swappableHandler) EnsureValidator() validator.Validator {
+	if v := s.Validator(); v != nil {
+		return v
+	}
+
+	s.mu.RLock()
+	once := s.validatorOnce
+	build := s.buildFn
+	s.mu.RUnlock()
+	if once == nil || build == nil {
+		return nil
+	}
+
+	once.Do(func() {
+		built, err := build()
+		if err != nil {
+			slog.Warn("Lazy validator construction failed; request will skip validation", "error", err)
+			return
+		}
+		s.setValidator(built)
+	})
+	return s.Validator()
 }
 
 // MatchPath resolves a concrete request path and method to the spec path
@@ -185,6 +217,16 @@ func (s *swappableHandler) Generate(w http.ResponseWriter, r *http.Request) {
 	s.handler.Generate(w, r)
 }
 
+// ensureValidator adapts EnsureValidator/Validator to the middleware's
+// ValidatorSource signature: ensure=true triggers the sync-once build,
+// ensure=false returns whatever's already loaded (nil if nothing yet).
+func (s *swappableHandler) ensureValidator(ensure bool) validator.Validator {
+	if ensure {
+		return s.EnsureValidator()
+	}
+	return s.Validator()
+}
+
 // handleRequest delegates to the current handler's handleRequest.
 func (s *swappableHandler) handleRequest(w http.ResponseWriter, r *http.Request) {
 	s.mu.RLock()
@@ -192,11 +234,17 @@ func (s *swappableHandler) handleRequest(w http.ResponseWriter, r *http.Request)
 	s.handler.handleRequest(w, r)
 }
 
-func (s *swappableHandler) swap(h *handler, v validator.Validator) {
+func (s *swappableHandler) swap(h *handler, v validator.Validator, build func() (validator.Validator, error)) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.handler = h
 	s.validator = v
+	s.buildFn = build
+
+	// Reset the lazy-build guard so a request that opts into validation
+	// after this reload rebuilds against the new spec, not the previous
+	// cached miss.
+	s.validatorOnce = &sync.Once{}
 }
 
 // setValidator swaps just the validator in place. Callers race with

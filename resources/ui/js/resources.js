@@ -104,6 +104,33 @@ const getConfigOverrideHeaders = () => {
         headers['X-Mockzilla-Replay'] = replayValue ? replayValue.value : '';
     }
 
+    // Validate Request override
+    const validateReqEnabled = document.getElementById('override-validate-request-enabled');
+    if (validateReqEnabled && validateReqEnabled.checked) {
+        const validateReqValue = document.getElementById('override-validate-request-value');
+        if (validateReqValue) {
+            headers['X-Mockzilla-Validate-Request'] = validateReqValue.value;
+        }
+    }
+
+    // Validate Response override
+    const validateRespEnabled = document.getElementById('override-validate-response-enabled');
+    if (validateRespEnabled && validateRespEnabled.checked) {
+        const validateRespValue = document.getElementById('override-validate-response-value');
+        if (validateRespValue) {
+            headers['X-Mockzilla-Validate-Response'] = validateRespValue.value;
+        }
+    }
+
+    // Validate Verbose override
+    const validateVerboseEnabled = document.getElementById('override-validate-verbose-enabled');
+    if (validateVerboseEnabled && validateVerboseEnabled.checked) {
+        const validateVerboseValue = document.getElementById('override-validate-verbose-value');
+        if (validateVerboseValue) {
+            headers['X-Mockzilla-Validate-Verbose'] = validateVerboseValue.value;
+        }
+    }
+
     return headers;
 };
 
@@ -323,8 +350,6 @@ export const generateResult = (service, ix, path, method) => {
                 reqView.setReadOnly(true);
             }
 
-            const curlBlock = document.getElementById('example-curl');
-
             // The server-reported prefix is the source of truth, including
             // when `--mount` overrides a root-named service. joinServiceUrl
             // collapses the "/" prefix (root mount) and any trailing slash
@@ -332,32 +357,18 @@ export const generateResult = (service, ix, path, method) => {
             const lookupName = service === '.root' ? '' : service;
             const rawPrefix = services.getServicePrefix(lookupName) ?? (service === '.root' ? '' : `/${service}`);
             const fullUrl = joinServiceUrl(config.baseUrl, rawPrefix, reqPath);
-            curlBlock.textContent = `curl --request ${method.toUpperCase()} \\\n'${fullUrl}'`;
-            if (reqContentType) {
-                curlBlock.textContent += ` \\\n--header 'Content-Type: ${reqContentType}'`
-            }
 
-            // Add generated headers to cURL (skip Content-Type as it's already added above)
-            for (const [headerName, headerValue] of Object.entries(reqHeaders)) {
-                if (headerName.toLowerCase() === 'content-type') continue;
-                curlBlock.textContent += ` \\\n--header '${headerName}: ${headerValue}'`;
-            }
-
-            // Add custom headers to cURL
-            if (hasCustomHeaders) {
-                for (const [headerName, headerValue] of Object.entries(customHeaders)) {
-                    curlBlock.textContent += ` \\\n--header '${headerName}: ${headerValue}'`;
-                }
-            }
-
-            // Add request body to cURL
-            if (reqBodyString && method.toLowerCase() !== 'get') {
-                curlBlock.textContent += ` \\\n--data '${reqBodyString.replace(/'/g, "\\'")}'`;
-            }
-            const exampleCurl = res.request?.examples?.curl;
-            if (exampleCurl) {
-                curlBlock.textContent += ` \\\n${exampleCurl}`;
-            }
+            // Stash everything renderCurl needs so override/custom-header
+            // changes can re-render without re-fetching the payload.
+            lastCurlState = {
+                method,
+                fullUrl,
+                reqContentType,
+                reqBodyString,
+                generatedHeaders: reqHeaders,
+                exampleCurl: res.request?.examples?.curl,
+            };
+            renderCurl(lastCurlState);
 
             // Make actual API call to get response
             if (reqPath) {
@@ -475,3 +486,67 @@ export const generateResult = (service, ix, path, method) => {
 
 document.getElementById('custom-header-add')
     .addEventListener('click', () => addCustomHeaderRow(true, '', '', true));
+
+// Last rendered cURL state. Stored so override/custom-header changes can
+// re-render the block without re-fetching the generated payload. Cleared
+// implicitly when a new endpoint is generated (state is overwritten).
+let lastCurlState = null;
+
+// renderCurl writes the cURL block from a base state (URL, method,
+// content-type, generated body) plus the live values of custom and
+// override headers. Called both from generateResult and from change
+// listeners so the cURL stays in lockstep with override toggles.
+const renderCurl = (state) => {
+    if (!state) return;
+    const block = document.getElementById('example-curl');
+    if (!block) return;
+
+    let text = `curl --request ${state.method.toUpperCase()} \\\n'${state.fullUrl}'`;
+    if (state.reqContentType) {
+        text += ` \\\n--header 'Content-Type: ${state.reqContentType}'`;
+    }
+    for (const [name, value] of Object.entries(state.generatedHeaders || {})) {
+        if (name.toLowerCase() === 'content-type') continue;
+        text += ` \\\n--header '${name}: ${value}'`;
+    }
+    for (const [name, value] of Object.entries(getCustomHeaders())) {
+        text += ` \\\n--header '${name}: ${value}'`;
+    }
+    for (const [name, value] of Object.entries(getConfigOverrideHeaders())) {
+        text += ` \\\n--header '${name}: ${value}'`;
+    }
+    if (state.reqBodyString && state.method.toLowerCase() !== 'get') {
+        text += ` \\\n--data '${state.reqBodyString.replace(/'/g, "\\'")}'`;
+    }
+    if (state.exampleCurl) {
+        text += ` \\\n${state.exampleCurl}`;
+    }
+    block.textContent = text;
+};
+
+// Wire live-update listeners. Config override controls are static IDs;
+// custom headers are dynamic so we delegate to the rows container so new
+// rows (added after page load) also trigger re-renders.
+const wireCurlLiveUpdate = () => {
+    const overrideIds = [
+        'override-upstream-enabled', 'override-upstream-url',
+        'override-cache-enabled', 'override-cache-value',
+        'override-latency-enabled', 'override-latency-value',
+        'override-replay-enabled', 'override-replay-value',
+        'override-validate-request-enabled', 'override-validate-request-value',
+        'override-validate-response-enabled', 'override-validate-response-value',
+        'override-validate-verbose-enabled', 'override-validate-verbose-value',
+    ];
+    const refresh = () => renderCurl(lastCurlState);
+    for (const id of overrideIds) {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', refresh);
+    }
+    const customRows = document.getElementById('custom-headers-rows');
+    if (customRows) {
+        customRows.addEventListener('input', refresh);
+        // catch row removal too: DOM mutation triggers a refresh
+        new MutationObserver(refresh).observe(customRows, { childList: true });
+    }
+};
+wireCurlLiveUpdate();

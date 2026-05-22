@@ -157,7 +157,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &config.ServiceConfig{Name: "test", Validate: tc.cfg}
 			params := newTestParams(cfg)
-			mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
+			mw := CreateValidationMiddleware(params, func(bool) validator.Validator { return v }, nil)
 
 			req := httptest.NewRequest(http.MethodPost, "/pets", strings.NewReader(tc.reqBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -175,7 +175,7 @@ func TestCreateValidationMiddleware_NilValidator(t *testing.T) {
 	// Source returning nil means validation is silently skipped: a bad
 	// spec at startup shouldn't make every request fail.
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return nil }, nil)
+	mw := CreateValidationMiddleware(params, func(bool) validator.Validator { return nil }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTeapot)
@@ -195,7 +195,7 @@ func TestCreateValidationMiddleware_RequestBodyForwarded(t *testing.T) {
 	// still see the original bytes intact.
 	v := newValidatorFromSpec(t, validateTestSpec)
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
+	mw := CreateValidationMiddleware(params, func(bool) validator.Validator { return v }, nil)
 
 	var got []byte
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +223,7 @@ func TestCreateValidationMiddleware_NonSuccessResponseSkipsValidation(t *testing
 	// than wrap them in another 500.
 	v := newValidatorFromSpec(t, validateTestSpec)
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
+	mw := CreateValidationMiddleware(params, func(bool) validator.Validator { return v }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -250,7 +250,7 @@ func TestValidationErrorPayload_Encoding(t *testing.T) {
 		Name:     "test",
 		Validate: &config.ValidateConfig{Request: &boolTrue},
 	})
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
+	mw := CreateValidationMiddleware(params, func(bool) validator.Validator { return v }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be reached on request failure")
@@ -661,6 +661,51 @@ func TestIsValidatorTimeout(t *testing.T) {
 			{ValidationType: "schema"},
 			{ValidationType: "timeout"},
 		}))
+	})
+}
+
+func TestSlimValidationErrors(t *testing.T) {
+	t.Run("nil and empty input pass through", func(t *testing.T) {
+		assert.Nil(t, slimValidationErrors(nil))
+		assert.Empty(t, slimValidationErrors([]*errors.ValidationError{}))
+	})
+
+	t.Run("blanks ReferenceSchema and ReferenceObject without mutating input", func(t *testing.T) {
+		in := []*errors.ValidationError{
+			{
+				Message: "request validation failed",
+				SchemaValidationErrors: []*errors.SchemaValidationFailure{
+					{
+						Reason:          "got number, want string",
+						KeywordLocation: "/properties/tags/items/properties/name/type",
+						ReferenceSchema: "type: object\nproperties: ...",
+						ReferenceObject: `{"tags":[{"name":1}]}`,
+					},
+				},
+			},
+		}
+		out := slimValidationErrors(in)
+		require.Len(t, out, 1)
+		require.Len(t, out[0].SchemaValidationErrors, 1)
+
+		// Slimmed copy
+		assert.Empty(t, out[0].SchemaValidationErrors[0].ReferenceSchema)
+		assert.Empty(t, out[0].SchemaValidationErrors[0].ReferenceObject)
+		// Actionable fields preserved
+		assert.Equal(t, "got number, want string", out[0].SchemaValidationErrors[0].Reason)
+		assert.Equal(t, "/properties/tags/items/properties/name/type", out[0].SchemaValidationErrors[0].KeywordLocation)
+		// Original untouched (caller can still log full detail)
+		assert.NotEmpty(t, in[0].SchemaValidationErrors[0].ReferenceSchema)
+		assert.NotEmpty(t, in[0].SchemaValidationErrors[0].ReferenceObject)
+	})
+
+	t.Run("nil SchemaValidationErrors entries don't panic", func(t *testing.T) {
+		in := []*errors.ValidationError{
+			{SchemaValidationErrors: []*errors.SchemaValidationFailure{nil}},
+		}
+		out := slimValidationErrors(in)
+		require.Len(t, out, 1)
+		assert.Nil(t, out[0].SchemaValidationErrors[0])
 	})
 }
 

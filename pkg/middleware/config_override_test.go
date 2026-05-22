@@ -155,6 +155,52 @@ func TestApplyOverrides(t *testing.T) {
 		assert.NotNil(result.Upstream)
 		assert.Equal("http://new.com", result.Upstream.URL)
 	})
+
+	t.Run("overrides Validate-Request true on service with no Validate config", func(t *testing.T) {
+		original := &config.ServiceConfig{}
+		result := applyOverrides(original, []configOverride{
+			{key: headerValidateRequest, value: "true"},
+		})
+		assert.NotNil(result.Validate)
+		assert.True(result.Validate.RequestEnabled())
+		// Original untouched
+		assert.Nil(original.Validate)
+	})
+
+	t.Run("overrides Validate-Response false on service that booted with it on", func(t *testing.T) {
+		on := true
+		original := &config.ServiceConfig{
+			Validate: &config.ValidateConfig{Request: &on, Response: &on},
+		}
+		result := applyOverrides(original, []configOverride{
+			{key: headerValidateResponse, value: "false"},
+		})
+		assert.True(result.Validate.RequestEnabled())
+		assert.False(result.Validate.ResponseEnabled())
+		// Original Response still true (deep copy)
+		assert.True(original.Validate.ResponseEnabled())
+	})
+
+	t.Run("invalid validate bool ignored", func(t *testing.T) {
+		on := true
+		original := &config.ServiceConfig{
+			Validate: &config.ValidateConfig{Request: &on},
+		}
+		result := applyOverrides(original, []configOverride{
+			{key: headerValidateRequest, value: "garbage"},
+		})
+		assert.True(result.Validate.RequestEnabled())
+	})
+
+	t.Run("overrides Validate-Verbose true", func(t *testing.T) {
+		original := &config.ServiceConfig{}
+		result := applyOverrides(original, []configOverride{
+			{key: headerValidateVerbose, value: "true"},
+		})
+		assert.NotNil(result.Validate)
+		assert.True(result.Validate.VerboseEnabled())
+		assert.Nil(original.Validate)
+	})
 }
 
 func TestCreateConfigOverrideMiddleware(t *testing.T) {

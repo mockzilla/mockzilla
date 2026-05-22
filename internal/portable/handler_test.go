@@ -16,9 +16,12 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
+	validator "github.com/pb33f/libopenapi-validator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type validatorAlias = validator.Validator
 
 //go:embed testdata/**
 var testDataFS embed.FS
@@ -238,7 +241,7 @@ func TestSwappableHandler(t *testing.T) {
 		h2, err := newHandler(specBytes)
 		require.NoError(t, err)
 
-		sw.swap(h2, nil)
+		sw.swap(h2, nil, nil)
 		assert.Equal(t, h2.Routes(), sw.Routes())
 	})
 
@@ -249,6 +252,54 @@ func TestSwappableHandler(t *testing.T) {
 
 	t.Run("MatchPath delegates", func(t *testing.T) {
 		_, _ = sw.MatchPath("/pets", "GET")
+	})
+}
+
+func TestSwappableHandler_EnsureValidator(t *testing.T) {
+	specBytes := loadTestSpec(t, "petstore.yml")
+	h, err := newHandler(specBytes)
+	require.NoError(t, err)
+
+	t.Run("builds once and caches", func(t *testing.T) {
+		var calls int32
+		var mu sync.Mutex
+		sw := &swappableHandler{
+			handler: h,
+			buildFn: func() (vlocal validatorAlias, _ error) {
+				mu.Lock()
+				calls++
+				mu.Unlock()
+				return buildValidator(h)
+			},
+			validatorOnce: &sync.Once{},
+		}
+		v1 := sw.EnsureValidator()
+		v2 := sw.EnsureValidator()
+		assert.NotNil(t, v1)
+		assert.Same(t, v1, v2)
+		mu.Lock()
+		assert.EqualValues(t, 1, calls)
+		mu.Unlock()
+	})
+
+	t.Run("returns nil when buildFn unset", func(t *testing.T) {
+		sw := &swappableHandler{handler: h, validatorOnce: &sync.Once{}}
+		assert.Nil(t, sw.EnsureValidator())
+	})
+
+	t.Run("ensureValidator adapter respects ensure flag", func(t *testing.T) {
+		sw := &swappableHandler{
+			handler:       h,
+			buildFn:       func() (validatorAlias, error) { return buildValidator(h) },
+			validatorOnce: &sync.Once{},
+		}
+		// ensure=false: no build, returns nil
+		assert.Nil(t, sw.ensureValidator(false))
+		// ensure=true: builds
+		v := sw.ensureValidator(true)
+		assert.NotNil(t, v)
+		// ensure=false now returns the cached one
+		assert.Same(t, v, sw.ensureValidator(false))
 	})
 }
 
