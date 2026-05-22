@@ -12,7 +12,7 @@ grade: stable
 confinement: strict
 source-code: https://github.com/mockzilla/mockzilla
 issues: https://github.com/mockzilla/mockzilla/issues
-website: https://mockzilla.github.io/mockzilla/
+website: https://mockzilla.org
 
 architectures:
   - build-on: amd64
