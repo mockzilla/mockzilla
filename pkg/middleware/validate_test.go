@@ -667,13 +667,22 @@ func TestIsValidatorTimeout(t *testing.T) {
 func TestSlimValidationErrors(t *testing.T) {
 	t.Run("nil and empty input pass through", func(t *testing.T) {
 		assert.Nil(t, slimValidationErrors(nil))
-		assert.Empty(t, slimValidationErrors([]*errors.ValidationError{}))
+		assert.Nil(t, slimValidationErrors([]*errors.ValidationError{}))
 	})
 
-	t.Run("blanks ReferenceSchema and ReferenceObject without mutating input", func(t *testing.T) {
+	t.Run("keeps reason + nested errors, blanks ReferenceSchema/Object, drops envelope", func(t *testing.T) {
 		in := []*errors.ValidationError{
 			{
-				Message: "request validation failed",
+				Message:           "POST request body for '/pet' failed to validate schema",
+				Reason:            "The request body is defined as an object. However, it does not meet the schema requirements",
+				ValidationType:    "requestBody",
+				ValidationSubType: "schema",
+				HowToFix:          "Ensure that the object being submitted, matches the schema correctly",
+				RequestPath:       "/pet",
+				SpecPath:          "/pet",
+				RequestMethod:     "POST",
+				SpecLine:          693,
+				SpecCol:           7,
 				SchemaValidationErrors: []*errors.SchemaValidationFailure{
 					{
 						Reason:          "got number, want string",
@@ -686,17 +695,19 @@ func TestSlimValidationErrors(t *testing.T) {
 		}
 		out := slimValidationErrors(in)
 		require.Len(t, out, 1)
-		require.Len(t, out[0].SchemaValidationErrors, 1)
-
-		// Slimmed copy
-		assert.Empty(t, out[0].SchemaValidationErrors[0].ReferenceSchema)
-		assert.Empty(t, out[0].SchemaValidationErrors[0].ReferenceObject)
-		// Actionable fields preserved
-		assert.Equal(t, "got number, want string", out[0].SchemaValidationErrors[0].Reason)
-		assert.Equal(t, "/properties/tags/items/properties/name/type", out[0].SchemaValidationErrors[0].KeywordLocation)
-		// Original untouched (caller can still log full detail)
+		// Envelope reason kept; everything else dropped (no field in slim item).
+		assert.Equal(t, in[0].Reason, out[0].Reason)
+		require.Len(t, out[0].ValidationErrors, 1)
+		// Bulky reference fields blanked
+		assert.Empty(t, out[0].ValidationErrors[0].ReferenceSchema)
+		assert.Empty(t, out[0].ValidationErrors[0].ReferenceObject)
+		// Actionable per-error details preserved
+		assert.Equal(t, "got number, want string", out[0].ValidationErrors[0].Reason)
+		assert.Equal(t, "/properties/tags/items/properties/name/type", out[0].ValidationErrors[0].KeywordLocation)
+		// Original ValidationError untouched (caller can still log full detail)
 		assert.NotEmpty(t, in[0].SchemaValidationErrors[0].ReferenceSchema)
 		assert.NotEmpty(t, in[0].SchemaValidationErrors[0].ReferenceObject)
+		assert.NotEmpty(t, in[0].HowToFix)
 	})
 
 	t.Run("nil SchemaValidationErrors entries don't panic", func(t *testing.T) {
@@ -705,7 +716,39 @@ func TestSlimValidationErrors(t *testing.T) {
 		}
 		out := slimValidationErrors(in)
 		require.Len(t, out, 1)
-		assert.Nil(t, out[0].SchemaValidationErrors[0])
+		assert.Nil(t, out[0].ValidationErrors[0])
+	})
+
+	t.Run("slim JSON contains only error/details + reason/validationErrors", func(t *testing.T) {
+		in := []*errors.ValidationError{
+			{
+				Message:           "ignored envelope text",
+				Reason:            "got number, want string",
+				ValidationType:    "requestBody",
+				ValidationSubType: "schema",
+				HowToFix:          "fix it",
+				RequestPath:       "/pet",
+				SpecPath:          "/pet",
+				RequestMethod:     "POST",
+				SpecLine:          693,
+				SpecCol:           7,
+				SchemaValidationErrors: []*errors.SchemaValidationFailure{
+					{Reason: "inner", KeywordLocation: "/x/type"},
+				},
+			},
+		}
+		payload := slimValidationErrorPayload{Error: "request validation failed", Details: slimValidationErrors(in)}
+		b, err := json.Marshal(payload)
+		require.NoError(t, err)
+		s := string(b)
+		// Slim wire shape: only top-level fields the user asked for.
+		assert.Contains(t, s, `"reason":"got number, want string"`)
+		assert.Contains(t, s, `"validationErrors":[{"reason":"inner"`)
+		assert.NotContains(t, s, `"howToFix"`)
+		assert.NotContains(t, s, `"validationType"`)
+		assert.NotContains(t, s, `"validationSubType"`)
+		assert.NotContains(t, s, `"specLine"`)
+		assert.NotContains(t, s, `"requestMethod"`)
 	})
 }
 

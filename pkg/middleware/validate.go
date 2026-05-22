@@ -984,34 +984,54 @@ type validationErrorPayload struct {
 }
 
 func writeValidationError(w http.ResponseWriter, status int, message string, validationErrs []*errors.ValidationError, verbose bool) {
-	if !verbose {
-		validationErrs = slimValidationErrors(validationErrs)
-	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(validationErrorPayload{
+	if verbose {
+		_ = json.NewEncoder(w).Encode(validationErrorPayload{
+			Error:   message,
+			Details: validationErrs,
+		})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(slimValidationErrorPayload{
 		Error:   message,
-		Details: validationErrs,
+		Details: slimValidationErrors(validationErrs),
 	})
 }
 
-// slimValidationErrors clones the input with ReferenceSchema and
-// ReferenceObject blanked on every SchemaValidationFailure. Those two
-// fields carry the full offending schema YAML and the entire submitted
-// payload, which is invaluable for debugging but bloats client error
-// responses by orders of magnitude. Verbose mode keeps them intact.
-// Returns a fresh slice so the caller's *ValidationError pointers are
-// safe to log elsewhere with full detail.
-func slimValidationErrors(in []*errors.ValidationError) []*errors.ValidationError {
+// Slim payload shape returned in non-verbose mode. Drops every
+// libopenapi-validator-supplied envelope field (message, howToFix,
+// validationType/SubType, requestPath, specPath, requestMethod, line/col,
+// parameterName) and keeps only the per-failure reason plus the nested
+// schema-validation details that name what actually broke. Verbose mode
+// keeps the full envelope for debugging.
+type slimValidationErrorPayload struct {
+	Error   string               `json:"error"`
+	Details []slimValidationItem `json:"details,omitempty"`
+}
+
+type slimValidationItem struct {
+	Reason           string                              `json:"reason,omitempty"`
+	ValidationErrors []*errors.SchemaValidationFailure   `json:"validationErrors,omitempty"`
+}
+
+// slimValidationErrors maps each ValidationError to its slim form:
+// reason + per-failure list with ReferenceSchema/ReferenceObject blanked
+// on every SchemaValidationFailure. Those two fields are the full
+// offending schema YAML and the entire submitted payload - invaluable
+// for debugging but easily megabytes per response. Returns a fresh
+// slice so the caller's *ValidationError pointers are safe to log
+// elsewhere with full detail.
+func slimValidationErrors(in []*errors.ValidationError) []slimValidationItem {
 	if len(in) == 0 {
-		return in
+		return nil
 	}
-	out := make([]*errors.ValidationError, len(in))
+	out := make([]slimValidationItem, len(in))
 	for i, ve := range in {
 		if ve == nil {
 			continue
 		}
-		clone := *ve
+		item := slimValidationItem{Reason: ve.Reason}
 		if len(ve.SchemaValidationErrors) > 0 {
 			sves := make([]*errors.SchemaValidationFailure, len(ve.SchemaValidationErrors))
 			for j, sve := range ve.SchemaValidationErrors {
@@ -1023,9 +1043,9 @@ func slimValidationErrors(in []*errors.ValidationError) []*errors.ValidationErro
 				sveClone.ReferenceObject = ""
 				sves[j] = &sveClone
 			}
-			clone.SchemaValidationErrors = sves
+			item.ValidationErrors = sves
 		}
-		out[i] = &clone
+		out[i] = item
 	}
 	return out
 }

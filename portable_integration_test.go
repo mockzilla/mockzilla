@@ -470,6 +470,8 @@ func (s *portableStats) printSummary(totalSpecs int) {
 	fmt.Fprintf(os.Stderr, "OK: %d   Failures: %d\n", totalOK, totalFails)
 	fmt.Fprintln(os.Stderr, "========================================")
 	fmt.Fprintln(os.Stderr)
+	fmt.Fprint(os.Stderr, validationSummary())
+	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "=== Services Summary ===")
 
 	s.mu.Lock()
@@ -859,4 +861,144 @@ func excludeMarkedSpecs(specs []string) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+// Validation-middleware activity counters. Populated by countingHandler
+// from the slog Warn messages the middleware emits on every skip /
+// panic / timeout. Only buckets the middleware actually logs are
+// represented (request-side allPathMissing and 400-failures are silent
+// in the middleware, so they have no counters here).
+var (
+	vcReqPanic   atomic.Int64
+	vcReqTimeout atomic.Int64
+
+	vcRespPanic           atomic.Int64
+	vcRespTimeout         atomic.Int64
+	vcRespSkipSchemaRend  atomic.Int64
+	vcRespSkipAmbigOneOf  atomic.Int64
+	vcRespSkipPathMissing atomic.Int64
+	vcRespSkipJSRegex     atomic.Int64
+	vcRespSkipPattern     atomic.Int64
+	vcRespSkipUnsat       atomic.Int64
+	vcRespSkipConfTypes   atomic.Int64
+	vcRespSkipCTParams    atomic.Int64
+	vcRespSkipWildcardCT  atomic.Int64
+	vcRespSkipStatusCode  atomic.Int64
+	vcRespSkipRouterPath  atomic.Int64
+	vcRespFailed          atomic.Int64
+)
+
+func resetValidationCounters() {
+	for _, c := range []*atomic.Int64{
+		&vcReqPanic, &vcReqTimeout,
+		&vcRespPanic, &vcRespTimeout, &vcRespSkipSchemaRend, &vcRespSkipAmbigOneOf,
+		&vcRespSkipPathMissing, &vcRespSkipJSRegex, &vcRespSkipPattern, &vcRespSkipUnsat,
+		&vcRespSkipConfTypes, &vcRespSkipCTParams, &vcRespSkipWildcardCT,
+		&vcRespSkipStatusCode, &vcRespSkipRouterPath, &vcRespFailed,
+	} {
+		c.Store(0)
+	}
+}
+
+// countingHandler bumps validation counters by pattern-matching the
+// middleware's Warn message prefixes, then forwards to the base handler
+// (which is Discard in tests). Keeps prod code untouched; the messages
+// it matches are the ones the middleware already logs for operators.
+type countingHandler struct {
+	base slog.Handler
+}
+
+func (h *countingHandler) Enabled(_ context.Context, level slog.Level) bool {
+	// Accept Warn so we see middleware decisions; pass everything else
+	// through to the base handler's own level decision.
+	if level >= slog.LevelWarn {
+		return true
+	}
+	return h.base.Enabled(context.Background(), level)
+}
+
+func (h *countingHandler) Handle(ctx context.Context, r slog.Record) error {
+	if r.Level == slog.LevelWarn {
+		switch {
+		case strings.HasPrefix(r.Message, "Request validator panicked"):
+			vcReqPanic.Add(1)
+		case strings.HasPrefix(r.Message, "Request validator exceeded timeout"):
+			vcReqTimeout.Add(1)
+		case strings.HasPrefix(r.Message, "Response validator panicked"):
+			vcRespPanic.Add(1)
+		case strings.HasPrefix(r.Message, "Response validator exceeded timeout"):
+			vcRespTimeout.Add(1)
+		case strings.HasPrefix(r.Message, "Validator schema render failed"):
+			vcRespSkipSchemaRend.Add(1)
+		case strings.HasPrefix(r.Message, "oneOf variants overlap"):
+			vcRespSkipAmbigOneOf.Add(1)
+		case strings.HasPrefix(r.Message, "Spec path not found by validator"):
+			vcRespSkipPathMissing.Add(1)
+		case strings.HasPrefix(r.Message, "Spec pattern uses JS regex literal"):
+			vcRespSkipJSRegex.Add(1)
+		case strings.HasPrefix(r.Message, "Spec pattern is prose"):
+			vcRespSkipPattern.Add(1)
+		case strings.HasPrefix(r.Message, "Spec schema is unsatisfiable"):
+			vcRespSkipUnsat.Add(1)
+		case strings.HasPrefix(r.Message, "Spec allOf has conflicting branch types"):
+			vcRespSkipConfTypes.Add(1)
+		case strings.HasPrefix(r.Message, "Spec content type only differs"):
+			vcRespSkipCTParams.Add(1)
+		case strings.HasPrefix(r.Message, "Spec declares wildcard"):
+			vcRespSkipWildcardCT.Add(1)
+		case strings.HasPrefix(r.Message, "Response status code not declared"):
+			vcRespSkipStatusCode.Add(1)
+		case strings.HasPrefix(r.Message, "libopenapi-validator matched a different spec path"):
+			vcRespSkipRouterPath.Add(1)
+		case strings.HasPrefix(r.Message, "Response validation failed"):
+			vcRespFailed.Add(1)
+		}
+	}
+	return h.base.Handle(ctx, r)
+}
+
+func (h *countingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &countingHandler{base: h.base.WithAttrs(attrs)}
+}
+
+func (h *countingHandler) WithGroup(name string) slog.Handler {
+	return &countingHandler{base: h.base.WithGroup(name)}
+}
+
+// validationSummary returns a multi-line block of validation-middleware
+// activity totals. Zero-everything when validation never ran (e.g.
+// config disabled for the run).
+func validationSummary() string {
+	respSkipTotal := vcRespSkipSchemaRend.Load() + vcRespSkipAmbigOneOf.Load() +
+		vcRespSkipPathMissing.Load() + vcRespSkipJSRegex.Load() + vcRespSkipPattern.Load() +
+		vcRespSkipUnsat.Load() + vcRespSkipConfTypes.Load() + vcRespSkipCTParams.Load() +
+		vcRespSkipWildcardCT.Load() + vcRespSkipStatusCode.Load() + vcRespSkipRouterPath.Load()
+
+	var b strings.Builder
+	fmt.Fprintln(&b, "=== Validation Activity ===")
+	fmt.Fprintf(&b, "  request:  panic=%-3d  timeout=%-3d\n",
+		vcReqPanic.Load(), vcReqTimeout.Load())
+	fmt.Fprintf(&b, "  response: failed(500)=%-5d  panic=%-3d  timeout=%-3d  skip-heuristic=%-3d\n",
+		vcRespFailed.Load(), vcRespPanic.Load(), vcRespTimeout.Load(), respSkipTotal)
+	if respSkipTotal > 0 {
+		fmt.Fprintln(&b, "  response skip breakdown:")
+		printIfNonzero(&b, "    schema-render-fail   ", vcRespSkipSchemaRend.Load())
+		printIfNonzero(&b, "    ambiguous-oneOf      ", vcRespSkipAmbigOneOf.Load())
+		printIfNonzero(&b, "    path-missing         ", vcRespSkipPathMissing.Load())
+		printIfNonzero(&b, "    js-regex-literal     ", vcRespSkipJSRegex.Load())
+		printIfNonzero(&b, "    prose-pattern        ", vcRespSkipPattern.Load())
+		printIfNonzero(&b, "    unsatisfiable-schema ", vcRespSkipUnsat.Load())
+		printIfNonzero(&b, "    conflicting-allOf    ", vcRespSkipConfTypes.Load())
+		printIfNonzero(&b, "    content-type-params  ", vcRespSkipCTParams.Load())
+		printIfNonzero(&b, "    wildcard-content-type", vcRespSkipWildcardCT.Load())
+		printIfNonzero(&b, "    status-code-missing  ", vcRespSkipStatusCode.Load())
+		printIfNonzero(&b, "    router-path-mismatch ", vcRespSkipRouterPath.Load())
+	}
+	return b.String()
+}
+
+func printIfNonzero(b *strings.Builder, label string, v int64) {
+	if v > 0 {
+		fmt.Fprintf(b, "%s %d\n", label, v)
+	}
 }
