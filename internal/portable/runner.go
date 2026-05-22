@@ -543,7 +543,13 @@ func registerService(
 	}
 
 	router.RegisterService(svcCfg, sw, regOpts...)
-	slog.Info("Registered service", "name", svc.Name, "mount", api.ServicePrefix(svcCfg))
+
+	// The router silently skips on name/mount collisions; check the
+	// registry to avoid logging a successful registration for a
+	// service that was actually dropped.
+	if _, ok := router.GetServices()[svc.Name]; ok {
+		slog.Info("Registered service", "name", svc.Name, "mount", api.ServicePrefix(svcCfg))
+	}
 	return nil
 }
 

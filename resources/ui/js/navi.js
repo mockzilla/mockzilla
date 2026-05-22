@@ -187,6 +187,21 @@ export const applySelection = (targetEl, selectionClassName) => {
     row.classList.add(selectionClassName);
 }
 
+export const setActiveView = (view) => {
+    const cp = document.querySelector('.content-panels');
+    if (!cp) return;
+    cp.classList.remove('view-resources', 'view-history', 'view-config');
+    if (view) cp.classList.add(`view-${view}`);
+
+    const hint = document.getElementById('right-pane-hint');
+    if (hint) {
+        if (view === 'history') hint.textContent = 'Select an entry from the list';
+        else if (view === 'resources') hint.textContent = 'Select a resource from the list';
+        else hint.textContent = '';
+        hint.style.display = view === 'resources' || view === 'history' ? '' : 'none';
+    }
+};
+
 export const resetContents = () => {
     console.log(`reset contents`);
     config.homeContents.style.display = 'none';
@@ -194,20 +209,41 @@ export const resetContents = () => {
     config.iframeContents.src = '';
     config.iframeContents.style.display = 'none';
 
-    config.generatorCont.style.display = 'none';
-
     if (config.serviceList) config.serviceList.style.display = 'none';
 
+    // LEFT pane: hide swappable bodies and clear stale data
+    document.getElementById('fixed-service-table-list').style.display = 'none';
     document.getElementById('fixed-service-table-body').innerHTML = '';
-    document.getElementById('resource-result').innerHTML = '';
+    document.getElementById('history-table-list').style.display = 'none';
+    document.getElementById('history-table-body').innerHTML = '';
+    // Hide the wrap; the inner #configuration-editor must keep display:''
+    // so ace can size it. Setting display:none on the editor element directly
+    // sticks even after the wrap becomes visible, leaving an invisible editor.
+    const _cfgWrap = document.getElementById('configuration-editor-wrap');
+    if (_cfgWrap) _cfgWrap.style.display = 'none';
+    document.getElementById('history-actions').style.display = 'none';
+
+    // RIGHT pane: hide swappable bodies, reset titles
+    config.generatorCont.style.display = 'none';
     document.getElementById('resource-edit-container').style.display = 'none';
-    config.resourceRefreshBtn.style.display = 'none';
+    document.getElementById('history-detail').style.display = 'none';
+    document.getElementById('resource-result').innerHTML = '';
     document.getElementById('resource-panel-title').textContent = 'Select a resource';
+    document.getElementById('resource-panel-title').style.display = '';
+    document.getElementById('history-detail-title').style.display = 'none';
+    document.getElementById('history-detail-title').textContent = 'Select an entry';
+    config.resourceRefreshBtn.style.display = 'none';
+    const presetCtl = document.getElementById('preset-controls');
+    if (presetCtl) presetCtl.style.display = 'none';
+    const tabs = document.getElementById('resource-tabs');
+    if (tabs) tabs.style.display = 'none';
+    const hTabs = document.getElementById('history-tabs');
+    if (hTabs) hTabs.style.display = 'none';
+    const cfgWrap = document.getElementById('configuration-editor-wrap');
+    if (cfgWrap) cfgWrap.style.display = 'none';
+    const hint = document.getElementById('right-pane-hint');
+    if (hint) hint.style.display = 'none';
 
     config.fixedServiceContainer.style.display = 'none';
-    config.historyContainer.style.display = 'none';
-    config.configurationContainer.style.display = 'none';
     config.serviceTabs.style.display = 'none';
-    document.getElementById('history-detail').style.display = 'none';
-    document.getElementById('history-table-body').innerHTML = '';
 }

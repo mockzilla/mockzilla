@@ -34,9 +34,10 @@ func newHandler(specBytes []byte, opts ...factory.FactoryOption) (*handler, erro
 	routes := make(api.RouteDescriptions, 0, len(ops))
 	for _, op := range ops {
 		routes = append(routes, &api.RouteDescription{
-			ID:     op.ID,
-			Method: op.Method,
-			Path:   op.Path,
+			ID:       op.ID,
+			Method:   op.Method,
+			Path:     op.Path,
+			IsStatic: op.IsStatic,
 		})
 	}
 	routes.Sort()

@@ -148,6 +148,10 @@ type RouteDescription struct {
 	Method      string `json:"method"`
 	Path        string `json:"path"`
 	ContentType string `json:"contentType"`
+
+	// IsStatic is true when the response body is overridden by a static
+	// file overlay (an `index.<ext>` next to the spec).
+	IsStatic bool `json:"isStatic,omitempty"`
 }
 
 // RouteDescriptions is a slice of RouteDescription.

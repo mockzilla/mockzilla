@@ -21,14 +21,17 @@ func ReadManifest(r io.Reader) (*Manifest, error) {
 	if err := dec.Decode(&m); err != nil {
 		return nil, fmt.Errorf("decoding manifest: %w", err)
 	}
+
 	if m.Format > CurrentFormat {
 		return nil, fmt.Errorf(
 			"manifest format %d is newer than this build understands (max %d); upgrade mockzilla",
 			m.Format, CurrentFormat)
 	}
+
 	if m.Format <= 0 {
 		return nil, errors.New("manifest format must be a positive integer")
 	}
+
 	return &m, nil
 }
 
@@ -44,7 +47,9 @@ func LoadManifestFromDir(dir string) (*Manifest, error) {
 		}
 		return nil, fmt.Errorf("opening manifest: %w", err)
 	}
+
 	defer func() { _ = f.Close() }()
+
 	return ReadManifest(f)
 }
 
@@ -55,7 +60,9 @@ func PeekManifest(archivePath string) (*Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening archive: %w", err)
 	}
+
 	defer func() { _ = f.Close() }()
+
 	return PeekManifestFromReader(f)
 }
 
@@ -79,6 +86,7 @@ func PeekManifestFromReader(r io.Reader) (*Manifest, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading tar: %w", err)
 	}
+
 	// Manifest must be the first entry. If we see anything else first,
 	// the archive doesn't carry one.
 	if hdr.Name != ManifestFilename {

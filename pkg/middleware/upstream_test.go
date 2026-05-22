@@ -780,3 +780,26 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 	})
 
 }
+
+func TestGetUpstreamError(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("returns empty string when no upstream error is set", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		assert.Equal("", GetUpstreamError(req))
+	})
+
+	t.Run("returns the stored upstream error string", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		ctx := context.WithValue(req.Context(), upstreamErrorKey, "dial tcp: refused")
+		req = req.WithContext(ctx)
+		assert.Equal("dial tcp: refused", GetUpstreamError(req))
+	})
+
+	t.Run("returns empty when key holds a non-string value", func(t *testing.T) {
+		req := httptest.NewRequest("GET", "/", nil)
+		ctx := context.WithValue(req.Context(), upstreamErrorKey, 42)
+		req = req.WithContext(ctx)
+		assert.Equal("", GetUpstreamError(req))
+	})
+}

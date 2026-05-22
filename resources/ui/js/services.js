@@ -111,7 +111,8 @@ const renderServices = (services, selected) => {
         list.appendChild(li);
     }
 
-    document.getElementById('service-list-header').style.display = 'flex';
+    const countHdr = document.getElementById('service-list-count-header');
+    if (countHdr) countHdr.style.display = '';
     config.serviceList.style.display = 'block';
     if (selected !== ``) {
         navi.applySelection(`service-${selected}`, 'selected-service');

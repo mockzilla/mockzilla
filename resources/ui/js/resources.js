@@ -143,6 +143,14 @@ const getConfigOverrideHeaders = () => {
     return headers;
 };
 
+const buildStaticBadge = () => {
+    const badge = document.createElement('span');
+    badge.className = 'static-badge';
+    badge.title = 'Response served from a static file overlay, not the OpenAPI generator';
+    badge.innerHTML = `<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8.5 1.5a.5.5 0 0 0-1 0v.793L5.354 4.439a.5.5 0 0 0-.146.354v3.207l-2.061 2.06A.5.5 0 0 0 3 10.207V11h4.5v3.5a.5.5 0 0 0 1 0V11H13v-.793a.5.5 0 0 0-.146-.354L10.793 7.793V4.793a.5.5 0 0 0-.147-.354L8.5 2.293V1.5Z"/></svg><span>static</span>`;
+    return badge;
+};
+
 export const show = match => {
     const {name} = match.params;
     const service = name;
@@ -188,7 +196,8 @@ export const show = match => {
     }
 
     navi.resetContents();
-    services.show();
+    navi.setActiveView('resources');
+    services.show(service);
 
     let displayName = service;
     if (displayName === `.root`) {
@@ -222,7 +231,7 @@ export const show = match => {
             let i = 0;
             const mapped = {};
 
-            for (const { method, path, contentType } of endpoints) {
+            for (const { method, path, contentType, isStatic } of endpoints) {
                 const num = i + 1;
                 const row = document.createElement('tr');
                 row.id = `resource-${num}`;
@@ -240,15 +249,21 @@ export const show = match => {
                 row.appendChild(methodCell);
 
                 const pathCell = document.createElement('td');
-                pathCell.innerHTML = `<span>${path}</span>`;
                 pathCell.className = `fixed-resource-path`;
                 pathCell.title = path;
+                const pathSpan = document.createElement('span');
+                pathSpan.textContent = path;
+                pathCell.appendChild(pathSpan);
+                if (isStatic) {
+                    pathCell.appendChild(buildStaticBadge());
+                }
                 row.appendChild(pathCell);
 
                 table.appendChild(row);
                 i += 1;
             }
             config.fixedServiceContainer.style.display = 'block';
+            document.getElementById('fixed-service-table-list').style.display = '';
 
             // If ix is present, generate the resource
             if (ix !== null && ix !== undefined) {
@@ -263,6 +278,10 @@ export const generateResult = (service, ix, path, method) => {
         config.generatorCont.style.display = 'block';
         config.resourceRefreshBtn.onclick = () => generateResult(service, ix, path, method);
         config.resourceRefreshBtn.style.display = 'inline';
+        const tabs = document.getElementById('resource-tabs');
+        if (tabs) tabs.style.display = 'flex';
+        const hint = document.getElementById('right-pane-hint');
+        if (hint) hint.style.display = 'none';
     }
     commons.hideMessage();
     presets.initIfNeeded();
@@ -353,7 +372,7 @@ export const generateResult = (service, ix, path, method) => {
                 document.getElementById('request-body-container').style.display = 'block';
                 // Use 'text' mode for non-JSON content types
                 const editorMode = reqContentType === 'application/json' ? 'json' : 'text';
-                const reqView = commons.getCodeEditor(`request-body`, editorMode, {maxLines: Infinity});
+                const reqView = commons.getCodeEditor(`request-body`, editorMode);
                 reqView.setValue(formattedBody);
                 reqView.clearSelection();
                 reqView.setReadOnly(true);
@@ -460,7 +479,7 @@ export const generateResult = (service, ix, path, method) => {
                     document.getElementById('response-body-container').style.display = 'block';
                     const respContentType = responseData.contentType || '';
                     const respEditorMode = respContentType.includes('application/json') ? 'json' : 'text';
-                    const responseView = commons.getCodeEditor(`response-body`, respEditorMode, {maxLines: Infinity});
+                    const responseView = commons.getCodeEditor(`response-body`, respEditorMode);
                     responseView.setValue(formattedResponse);
                     responseView.clearSelection();
                     responseView.setReadOnly(true);
@@ -483,7 +502,7 @@ export const generateResult = (service, ix, path, method) => {
                 })
                 .catch(error => {
                     console.error('API call failed:', error);
-                    const responseView = commons.getCodeEditor(`response-body`, `json`, {maxLines: Infinity});
+                    const responseView = commons.getCodeEditor(`response-body`, `json`);
                     responseView.setValue(`Error: ${error.message}`);
                     responseView.clearSelection();
                     responseView.setReadOnly(true);
@@ -560,3 +579,16 @@ const wireCurlLiveUpdate = () => {
     }
 };
 wireCurlLiveUpdate();
+
+// Resource filter — hides table rows whose method or path doesn't match.
+const resourceFilter = document.getElementById('resource-filter');
+if (resourceFilter) {
+    resourceFilter.addEventListener('input', () => {
+        const q = resourceFilter.value.toLowerCase().trim();
+        document.querySelectorAll('#fixed-service-table-body tr').forEach(row => {
+            const method = row.querySelector('.fixed-resource-method')?.textContent.toLowerCase() || '';
+            const path = row.querySelector('.fixed-resource-path span')?.textContent.toLowerCase() || '';
+            row.style.display = !q || method.includes(q) || path.includes(q) ? '' : 'none';
+        });
+    });
+}

@@ -6,6 +6,12 @@ type RouteInfo struct {
 	ID     string
 	Method string
 	Path   string
+
+	// IsStatic is true when at least one of this operation's responses
+	// carries an `x-static-response` extension, i.e. the response body
+	// comes from a static file overlay rather than the generator. The
+	// UI uses this to badge overridden endpoints.
+	IsStatic bool
 }
 
 // Operation represents an OpenAPI operation (endpoint).

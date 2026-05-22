@@ -25,8 +25,10 @@ var specExts = []string{".yml", ".yaml", ".json"}
 // archive).
 //
 // Mirrors `internal/portable`'s runtime discovery so a packed archive yields the
-// same service set as a raw directory invocation. Three shapes:
-//   - `services/<name>/` subtree: one entry per child folder.
+// same service set as a raw directory invocation. Four shapes:
+//   - `services/<name>/` subtree: one entry per child folder (explicit).
+//   - Implicit services-root: no top-level service-signal files but at
+//     least one non-noise subdir; each subdir becomes a service.
 //   - `config.yml`, static endpoints, or one root-level spec: single-service folder,
 //     named from `config.yml`'s `name:` or a non-generic spec basename.
 //   - Multiple top-level spec files: flat-root mode, one service per spec basename.
@@ -45,8 +47,13 @@ func Discover(srcDir string) ([]ServiceEntry, error) {
 	}
 
 	hasConfig := fileExists(filepath.Join(srcDir, configFile))
-	hasStatic := cmdapi.HasStaticEndpoints(srcDir)
 	specs := findAllSpecsInDir(srcDir)
+
+	if isImplicitServicesRoot(srcDir, hasConfig, specs) {
+		return discoverServicesRoot(srcDir, srcDir)
+	}
+
+	hasStatic := cmdapi.HasStaticEndpoints(srcDir)
 
 	if hasConfig || hasStatic || len(specs) == 1 {
 		entry, err := serviceEntryFromDir(srcDir, srcDir, "", inferServiceName(srcDir, hasConfig))
@@ -88,6 +95,9 @@ func discoverServicesRoot(srcDir, servicesRootDir string) ([]ServiceEntry, error
 	var out []ServiceEntry
 	for _, e := range entries {
 		if !e.IsDir() {
+			continue
+		}
+		if cmdapi.ShouldSkipDir(e.Name()) {
 			continue
 		}
 		svcDir := filepath.Join(servicesRootDir, e.Name())
@@ -239,6 +249,61 @@ func mountFromName(name string) string {
 	return "/" + name
 }
 
+// isImplicitServicesRoot mirrors the runtime detector in
+// internal/portable/resolve.go. Keep the two in sync so `mockzilla pack
+// ./foo/` and `mockzilla ./foo/` discover the same set of services.
+func isImplicitServicesRoot(dir string, hasConfigFile bool, specs []string) bool {
+	if hasConfigFile || len(specs) > 0 {
+		return false
+	}
+	if hasTopLevelIndexFile(dir) {
+		return false
+	}
+	return hasServiceCandidateSubdir(dir)
+}
+
+func hasTopLevelIndexFile(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		stem := strings.TrimSuffix(name, filepath.Ext(name))
+		if stem != "index" {
+			continue
+		}
+		if cmdapi.GetContentType(filepath.Ext(name)) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func hasServiceCandidateSubdir(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if cmdapi.ShouldSkipDir(e.Name()) {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+// inferServiceName mirrors the portable runtime's name inference so that
+// `mockzilla pack ./foo/` and `mockzilla ./foo/` agree on the service
+// name (and therefore the mount URL). See
+// internal/portable/resolve.go:inferServiceName.
 func inferServiceName(dir string, hasConfigFile bool) string {
 	if hasConfigFile {
 		if name := readConfigName(dir); name != "" {
@@ -253,7 +318,12 @@ func inferServiceName(dir string, hasConfigFile bool) string {
 		}
 		return stem
 	}
-	return ""
+	base := filepath.Base(filepath.Clean(dir))
+	switch base {
+	case ".", "..", string(filepath.Separator):
+		return ""
+	}
+	return base
 }
 
 func readConfigName(dir string) string {

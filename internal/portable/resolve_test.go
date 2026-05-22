@@ -122,7 +122,7 @@ func TestResolveOne_URL(t *testing.T) {
 }
 
 func TestResolveDir_SingleService(t *testing.T) {
-	t.Run("dir with only canonical openapi.yml gets empty name (mounts at root)", func(t *testing.T) {
+	t.Run("dir with only canonical openapi.yml falls back to folder basename", func(t *testing.T) {
 		root := t.TempDir()
 		dir := filepath.Join(root, "pets")
 		require.NoError(t, os.Mkdir(dir, 0o755))
@@ -131,10 +131,9 @@ func TestResolveDir_SingleService(t *testing.T) {
 		services, err := resolveDir(dir)
 		require.NoError(t, err)
 		require.Len(t, services, 1)
-		// `openapi.yml` is a generic filename and no config.yml is
-		// present, so no inside-the-folder signal supplies a name.
-		// The folder's own basename is intentionally NOT used.
-		assert.Empty(t, services[0].Name)
+		// `openapi.yml` is generic and no config.yml is present, so
+		// inferServiceName falls back to the folder basename.
+		assert.Equal(t, "pets", services[0].Name)
 		assert.Equal(t, dir, services[0].ConfigDir)
 	})
 
@@ -164,7 +163,29 @@ func TestResolveDir_SingleService(t *testing.T) {
 		assert.Equal(t, "payments", services[0].Name)
 	})
 
-	t.Run("dir with only flat static gets empty name (mounts at root)", func(t *testing.T) {
+	t.Run("dir with top-level index.<ext> + flat static is single service", func(t *testing.T) {
+		// A top-level index.<ext> anchors the folder as one service
+		// (rather than tripping the implicit services-root path,
+		// where each subdir would become its own service).
+		dir := filepath.Join(t.TempDir(), "anything")
+		require.NoError(t, os.MkdirAll(dir, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "index.json"),
+			[]byte(`{"root":true}`), 0o644))
+		usersGet := filepath.Join(dir, "users", "get")
+		require.NoError(t, os.MkdirAll(usersGet, 0o755))
+		require.NoError(t, os.WriteFile(filepath.Join(usersGet, "index.json"), []byte(`{"id":1}`), 0o644))
+
+		services, err := resolveDir(dir)
+		require.NoError(t, err)
+		require.Len(t, services, 1)
+		assert.Equal(t, "anything", services[0].Name)
+		assert.NotEmpty(t, services[0].SpecPath)
+		assert.Equal(t, dir, services[0].StaticDir)
+	})
+
+	t.Run("dir with only subdir static endpoints flips to implicit services-root", func(t *testing.T) {
+		// No top-level file signal + nested static endpoints =>
+		// container of services, each subdir becomes a service.
 		dir := filepath.Join(t.TempDir(), "anything")
 		usersGet := filepath.Join(dir, "users", "get")
 		require.NoError(t, os.MkdirAll(usersGet, 0o755))
@@ -173,12 +194,10 @@ func TestResolveDir_SingleService(t *testing.T) {
 		services, err := resolveDir(dir)
 		require.NoError(t, err)
 		require.Len(t, services, 1)
-		assert.Empty(t, services[0].Name)
-		assert.NotEmpty(t, services[0].SpecPath)
-		assert.Equal(t, dir, services[0].StaticDir)
+		assert.Equal(t, "users", services[0].Name)
 	})
 
-	t.Run("merge mode (generic spec + static) gets empty name", func(t *testing.T) {
+	t.Run("merge mode (generic spec + static) falls back to folder basename", func(t *testing.T) {
 		dir := filepath.Join(t.TempDir(), "anything")
 		require.NoError(t, os.MkdirAll(dir, 0o755))
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "openapi.yml"),
@@ -191,7 +210,7 @@ func TestResolveDir_SingleService(t *testing.T) {
 		services, err := resolveDir(dir)
 		require.NoError(t, err)
 		require.Len(t, services, 1)
-		assert.Empty(t, services[0].Name)
+		assert.Equal(t, "anything", services[0].Name)
 		assert.NotContains(t, services[0].SpecPath, dir)
 		assert.Contains(t, services[0].SpecPath, "mockzilla-portable")
 		assert.Equal(t, dir, services[0].StaticDir)

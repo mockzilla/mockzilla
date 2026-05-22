@@ -329,6 +329,46 @@ func TestRouter_RegisterService_DuplicateNameIsIgnored(t *testing.T) {
 	assert.Equal(t, "first", w.Body.String())
 }
 
+func TestRouter_RegisterService_DuplicateMountIsIgnored(t *testing.T) {
+	router := newTestRouter(t)
+
+	cfg1 := config.NewServiceConfig()
+	cfg1.Name = "first"
+	cfg1.Mount = "/petstore"
+	first := &mockService{
+		name:   "first",
+		config: cfg1,
+		routes: func(r chi.Router) {
+			r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte("first"))
+			})
+		},
+	}
+
+	cfg2 := config.NewServiceConfig()
+	cfg2.Name = "second"
+	cfg2.Mount = "/petstore"
+	second := &mockService{
+		name:   "second",
+		config: cfg2,
+		routes: func(r chi.Router) {
+			r.Get("/ping", func(w http.ResponseWriter, _ *http.Request) {
+				_, _ = w.Write([]byte("second"))
+			})
+		},
+	}
+
+	router.RegisterService(cfg1, first)
+	assert.NotPanics(t, func() { router.RegisterService(cfg2, second) },
+		"second registration at the same mount must be skipped, not panic chi")
+
+	req := httptest.NewRequest(http.MethodGet, "/petstore/ping", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	assert.Equal(t, "first", w.Body.String(),
+		"original service keeps the mount; second was dropped")
+}
+
 func TestRouter_RegisterHTTPHandler_DuplicateNameIsIgnored(t *testing.T) {
 	router := newTestRouter(t)
 
