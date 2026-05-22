@@ -151,6 +151,7 @@ func BuildBatchServer(sandboxDir string, info *BatchServerInfo) error {
 
 	cmd := exec.Command("go", "build", "-o", serverBin, ".")
 	cmd.Dir = info.ServerDir
+	cmd.Env = append(os.Environ(), sandboxGoEnv(sandboxDir)...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

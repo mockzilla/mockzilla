@@ -39,6 +39,10 @@ const getDefaultState = () => ({
         cache: { enabled: false, value: 'true' },
         latency: { enabled: false, value: '' },
         replay: { enabled: false, value: '' },
+        validateRequest: { enabled: false, value: 'true' },
+        validateResponse: { enabled: false, value: 'true' },
+        validateVerbose: { enabled: false, value: 'true' },
+        validateTimeout: { enabled: false, value: '1s' },
     },
 });
 
@@ -79,6 +83,22 @@ const getCurrentState = () => {
                 enabled: document.getElementById('override-replay-enabled').checked,
                 value: document.getElementById('override-replay-value').value,
             },
+            validateRequest: {
+                enabled: document.getElementById('override-validate-request-enabled').checked,
+                value: document.getElementById('override-validate-request-value').value,
+            },
+            validateResponse: {
+                enabled: document.getElementById('override-validate-response-enabled').checked,
+                value: document.getElementById('override-validate-response-value').value,
+            },
+            validateVerbose: {
+                enabled: document.getElementById('override-validate-verbose-enabled').checked,
+                value: document.getElementById('override-validate-verbose-value').value,
+            },
+            validateTimeout: {
+                enabled: document.getElementById('override-validate-timeout-enabled').checked,
+                value: document.getElementById('override-validate-timeout-value').value,
+            },
         },
     };
 };
@@ -114,6 +134,10 @@ const applyState = (state) => {
     setOverride('override-cache-enabled', 'override-cache-value', ov.cache);
     setOverride('override-latency-enabled', 'override-latency-value', ov.latency);
     setOverride('override-replay-enabled', 'override-replay-value', ov.replay);
+    setOverride('override-validate-request-enabled', 'override-validate-request-value', ov.validateRequest);
+    setOverride('override-validate-response-enabled', 'override-validate-response-value', ov.validateResponse);
+    setOverride('override-validate-verbose-enabled', 'override-validate-verbose-value', ov.validateVerbose);
+    setOverride('override-validate-timeout-enabled', 'override-validate-timeout-value', ov.validateTimeout);
 };
 
 const populateDropdown = () => {
@@ -172,6 +196,10 @@ const setupAutoSave = () => {
         'override-cache-enabled', 'override-cache-value',
         'override-latency-enabled', 'override-latency-value',
         'override-replay-enabled', 'override-replay-value',
+        'override-validate-request-enabled', 'override-validate-request-value',
+        'override-validate-response-enabled', 'override-validate-response-value',
+        'override-validate-verbose-enabled', 'override-validate-verbose-value',
+        'override-validate-timeout-enabled', 'override-validate-timeout-value',
     ];
     for (const id of ids) {
         const el = document.getElementById(id);

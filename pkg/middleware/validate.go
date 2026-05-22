@@ -11,6 +11,7 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	validator "github.com/pb33f/libopenapi-validator"
@@ -18,9 +19,15 @@ import (
 	"go.yaml.in/yaml/v4"
 )
 
+// Default lives in pkg/config so the timeout fallback is a single
+// source of truth shared with TimeoutOrDefault. Per-request cfg may
+// override via validate.timeout / X-Mockzilla-Validate-Timeout.
+
 // ValidatorSource yields the validator for the current request; nil disables validation.
-// Portable mode uses this to hot-swap validators after a spec reload.
-type ValidatorSource func() validator.Validator
+// Portable mode uses this to hot-swap validators after a spec reload. The ensure flag
+// asks the source to lazy-build if it hasn't already - used when a per-request
+// override turns on validation for a service that booted with it off.
+type ValidatorSource func(ensure bool) validator.Validator
 
 // SpecPathLookup resolves a prefix-stripped request path/method to the spec path.
 type SpecPathLookup func(reqPath, method string) (specPath string, ok bool)
@@ -33,17 +40,32 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			v := source()
+			cfg := params.GetServiceConfig(req)
+			validateReq := cfg != nil && cfg.Validate.RequestEnabled()
+			validateResp := cfg != nil && cfg.Validate.ResponseEnabled()
+
+			// Cheap no-op path: neither side wants validation, so skip
+			// the validator fetch entirely. Keeps the middleware free
+			// for services that boot with validation disabled and
+			// never see an override header.
+			if !validateReq && !validateResp {
+				next.ServeHTTP(w, req)
+				return
+			}
+
+			v := source(true)
 			if v == nil {
 				next.ServeHTTP(w, req)
 				return
 			}
 
-			cfg := params.GetServiceConfig(req)
-			validateReq := cfg == nil || cfg.Validate.RequestEnabled()
-			validateResp := cfg == nil || cfg.Validate.ResponseEnabled()
-
 			validatorReq := requestForValidator(req, cfg)
+			validationTimeout := cfg.Validate.TimeoutOrDefault()
+
+			if requestPathHasEmptySegments(validatorReq.URL.Path) {
+				next.ServeHTTP(w, req)
+				return
+			}
 
 			if lookup != nil {
 				if specPath, ok := lookup(validatorReq.URL.Path, validatorReq.Method); ok && validatorCannotLookup(specPath) {
@@ -59,17 +81,22 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 				} else {
 					req.Body = restore
 					validatorReq.Body = io.NopCloser(bytes.NewReader(body))
-					if ok, validationErrs := safeValidateRequest(v, validatorReq); !ok {
+					if ok, validationErrs := safeValidateRequest(v, validatorReq, validationTimeout); !ok {
 						switch {
 						case isValidatorPanic(validationErrs):
 							RequestLog(log, req).Warn("Request validator panicked; skipping request validation",
 								"method", req.Method,
 								"path", req.URL.Path,
 								"reason", validationErrs[0].Reason)
+						case isValidatorTimeout(validationErrs):
+							RequestLog(log, req).Warn("Request validator exceeded timeout; skipping request validation",
+								"method", req.Method,
+								"path", req.URL.Path,
+								"timeout", validationTimeout)
 						case allPathMissing(validationErrs):
 							// 404 is the downstream handler's job, not ours.
 						default:
-							writeValidationError(w, http.StatusBadRequest, "request validation failed", validationErrs)
+							writeValidationError(w, http.StatusBadRequest, "request validation failed", validationErrs, cfg.Validate.VerboseEnabled())
 							return
 						}
 					}
@@ -101,7 +128,7 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 				Body:       io.NopCloser(bytes.NewReader(rw.body.Bytes())),
 			}
 
-			ok, validationErrs := safeValidateResponse(v, validatorReq, resp)
+			ok, validationErrs := safeValidateResponse(v, validatorReq, resp, validationTimeout)
 			if ok {
 				writeThrough(w, rw)
 				return
@@ -112,6 +139,15 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 					"method", req.Method,
 					"path", req.URL.Path,
 					"reason", validationErrs[0].Reason)
+				writeThrough(w, rw)
+				return
+			}
+
+			if isValidatorTimeout(validationErrs) {
+				RequestLog(log, req).Warn("Response validator exceeded timeout; skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"timeout", validationTimeout)
 				writeThrough(w, rw)
 				return
 			}
@@ -163,6 +199,15 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 
 			if allUnsatisfiableSchema(validationErrs) {
 				RequestLog(log, req).Warn("Spec schema is unsatisfiable (required name missing from properties + additionalProperties:false); skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"errors", len(validationErrs))
+				writeThrough(w, rw)
+				return
+			}
+
+			if allConflictingAllOfTypes(validationErrs) {
+				RequestLog(log, req).Warn("Spec allOf has conflicting branch types (e.g. allOf: [{type:object},{type:array}]); skipping response validation",
 					"method", req.Method,
 					"path", req.URL.Path,
 					"errors", len(validationErrs))
@@ -223,31 +268,79 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 				"method", req.Method,
 				"path", req.URL.Path,
 				"errors", len(validationErrs))
-			writeValidationError(w, http.StatusInternalServerError, "response validation failed", validationErrs)
+			writeValidationError(w, http.StatusInternalServerError, "response validation failed", validationErrs, cfg.Validate.VerboseEnabled())
 		})
 	}
 }
 
 // safeValidateRequest recovers panics from libopenapi-validator as a synthetic
 // ValidationError so the handler stays up.
-func safeValidateRequest(v validator.Validator, req *http.Request) (ok bool, errs []*errors.ValidationError) {
-	defer func() {
-		if r := recover(); r != nil {
-			ok = false
-			errs = []*errors.ValidationError{panicValidationError(r, debug.Stack(), req, "request")}
-		}
+func safeValidateRequest(v validator.Validator, req *http.Request, timeout time.Duration) (ok bool, errs []*errors.ValidationError) {
+	type result struct {
+		ok   bool
+		errs []*errors.ValidationError
+	}
+
+	done := make(chan result, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- result{false, []*errors.ValidationError{panicValidationError(r, debug.Stack(), req, "request")}}
+			}
+		}()
+		o, e := v.ValidateHttpRequestSync(req)
+		done <- result{o, e}
 	}()
-	return v.ValidateHttpRequestSync(req)
+
+	select {
+	case r := <-done:
+		return r.ok, r.errs
+	case <-time.After(timeout):
+		return false, []*errors.ValidationError{timeoutValidationError(req, "request", timeout)}
+	}
 }
 
-func safeValidateResponse(v validator.Validator, req *http.Request, resp *http.Response) (ok bool, errs []*errors.ValidationError) {
-	defer func() {
-		if r := recover(); r != nil {
-			ok = false
-			errs = []*errors.ValidationError{panicValidationError(r, debug.Stack(), req, "response")}
-		}
+func safeValidateResponse(v validator.Validator, req *http.Request, resp *http.Response, timeout time.Duration) (ok bool, errs []*errors.ValidationError) {
+	type result struct {
+		ok   bool
+		errs []*errors.ValidationError
+	}
+	done := make(chan result, 1)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				done <- result{false, []*errors.ValidationError{panicValidationError(r, debug.Stack(), req, "response")}}
+			}
+		}()
+		o, e := v.ValidateHttpResponse(req, resp)
+		done <- result{o, e}
 	}()
-	return v.ValidateHttpResponse(req, resp)
+	select {
+	case r := <-done:
+		return r.ok, r.errs
+	case <-time.After(timeout):
+		return false, []*errors.ValidationError{timeoutValidationError(req, "response", timeout)}
+	}
+}
+
+func timeoutValidationError(req *http.Request, kind string, timeout time.Duration) *errors.ValidationError {
+	return &errors.ValidationError{
+		Message:           "validator exceeded " + timeout.String() + " during " + kind + " validation",
+		Reason:            "schema rendering or evaluation took too long (likely a pathologically recursive composition)",
+		ValidationType:    "timeout",
+		ValidationSubType: kind,
+		RequestPath:       req.URL.Path,
+		RequestMethod:     req.Method,
+	}
+}
+
+func isValidatorTimeout(errs []*errors.ValidationError) bool {
+	for _, e := range errs {
+		if e.ValidationType == "timeout" {
+			return true
+		}
+	}
+	return false
 }
 
 func panicValidationError(r any, stack []byte, req *http.Request, kind string) *errors.ValidationError {
@@ -324,6 +417,15 @@ func stripPrefix(p, prefix string) string {
 		return p
 	}
 	return stripped
+}
+
+// requestPathHasEmptySegments reports paths that contain consecutive `/`
+// anywhere. libopenapi-validator's path matcher splits on `/` and
+// indexes the resulting segments without guarding the empty-string
+// case, so an empty segment crashes its preflight before our
+// safeValidate* recover can catch the panic.
+func requestPathHasEmptySegments(p string) bool {
+	return strings.Contains(p, "//")
 }
 
 // validatorCannotLookup reports paths libopenapi-validator's FindPath mishandles:
@@ -546,6 +648,104 @@ func reasonIsDescriptivePattern(reason string) bool {
 	return strings.Contains(pattern, ", ")
 }
 
+// allConflictingAllOfTypes reports failures where every error is a type
+// mismatch against an `allOf` branch whose siblings declare different
+// scalar types - the canonical unsatisfiable shape is `allOf: [{type:
+// object}, {type: array}]`. The generator can produce one or the other
+// but never both, and the validator dutifully reports whichever branch
+// the generated value isn't. Treated as "validation skipped" rather
+// than surfacing as a 500.
+func allConflictingAllOfTypes(errs []*errors.ValidationError) bool {
+	if len(errs) == 0 {
+		return false
+	}
+	for _, e := range errs {
+		if len(e.SchemaValidationErrors) == 0 {
+			return false
+		}
+		for _, sve := range e.SchemaValidationErrors {
+			if sve == nil {
+				return false
+			}
+			if !schemaFailureIsConflictingAllOfTypes(sve.ReferenceSchema, sve.KeywordLocation, sve.Reason) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func schemaFailureIsConflictingAllOfTypes(referenceSchema, keywordLocation, reason string) bool {
+	if referenceSchema == "" {
+		return false
+	}
+	if !strings.Contains(reason, "want ") || !strings.Contains(reason, "got ") {
+		return false
+	}
+
+	// Only confident when the failing keyword is the branch's `type`;
+	// other allOf failures (required, schema, etc.) have their own
+	// dedicated heuristics or warrant real diagnostic output.
+	if !strings.HasSuffix(keywordLocation, "/type") {
+		return false
+	}
+
+	var root any
+	if err := yaml.Unmarshal([]byte(referenceSchema), &root); err != nil {
+		return false
+	}
+	return containsAllOfTypeConflict(root)
+}
+
+// containsAllOfTypeConflict walks a parsed schema and returns true when
+// any `allOf` branch list contains two or more branches that declare
+// different non-empty scalar `type` values. Walks both objects and
+// arrays so allOf nested under properties/items/additionalProperties is
+// reached.
+func containsAllOfTypeConflict(node any) bool {
+	switch v := node.(type) {
+	case map[string]any:
+		if allOf, ok := v["allOf"].([]any); ok {
+			seen := map[string]bool{}
+			for _, branch := range allOf {
+				b, ok := branch.(map[string]any)
+				if !ok {
+					continue
+				}
+
+				switch t := b["type"].(type) {
+				case string:
+					if t != "" && t != "null" {
+						seen[t] = true
+					}
+				case []any:
+					for _, x := range t {
+						if s, ok := x.(string); ok && s != "" && s != "null" {
+							seen[s] = true
+						}
+					}
+				}
+			}
+			if len(seen) > 1 {
+				return true
+			}
+		}
+
+		for _, child := range v {
+			if containsAllOfTypeConflict(child) {
+				return true
+			}
+		}
+	case []any:
+		for _, item := range v {
+			if containsAllOfTypeConflict(item) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // allUnsatisfiableSchema reports internally inconsistent schemas: a `required` name
 // that isn't in `properties` combined with `additionalProperties: false`.
 func allUnsatisfiableSchema(errs []*errors.ValidationError) bool {
@@ -671,17 +871,79 @@ func allAmbiguousOneOf(errs []*errors.ValidationError) bool {
 	if len(errs) == 0 {
 		return false
 	}
+
+	// Two acceptable shapes:
+	//   1. every SVE is itself an ambiguous-oneOf reason - sibling
+	//      fields both have ambiguous oneOfs at unrelated paths.
+	//   2. at least one SVE is ambiguous AND all SVEs share a prefix
+	//      through /anyOf or /oneOf - parent ambiguity plus child
+	//      explanations from the same composition chain.
+	// Distinguishes "swallowable ambiguity" from "ambiguous + an
+	// unrelated real failure".
 	for _, e := range errs {
 		if len(e.SchemaValidationErrors) == 0 {
 			return false
 		}
-		for _, sve := range e.SchemaValidationErrors {
-			if !isAmbiguousOneOfReason(sve.Reason) {
-				return false
-			}
+		if allAmbiguousOneOfSVE(e.SchemaValidationErrors) {
+			continue
+		}
+		if !anyAmbiguousOneOf(e.SchemaValidationErrors) {
+			return false
+		}
+		if !errorsShareCompositionRoot(e.SchemaValidationErrors) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func allAmbiguousOneOfSVE(sves []*errors.SchemaValidationFailure) bool {
+	for _, sve := range sves {
+		if !isAmbiguousOneOfReason(sve.Reason) {
+			return false
 		}
 	}
 	return true
+}
+
+func anyAmbiguousOneOf(sves []*errors.SchemaValidationFailure) bool {
+	for _, sve := range sves {
+		if isAmbiguousOneOfReason(sve.Reason) {
+			return true
+		}
+	}
+	return false
+}
+
+func errorsShareCompositionRoot(sves []*errors.SchemaValidationFailure) bool {
+	if len(sves) <= 1 {
+		return true
+	}
+
+	prefix := sves[0].KeywordLocation
+	for _, sve := range sves[1:] {
+		prefix = commonPathPrefix(prefix, sve.KeywordLocation)
+		if prefix == "" {
+			return false
+		}
+	}
+
+	return strings.Contains(prefix, "/anyOf") || strings.Contains(prefix, "/oneOf")
+}
+
+func commonPathPrefix(a, b string) string {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+
+	for i := 0; i < n; i++ {
+		if a[i] != b[i] {
+			return a[:i]
+		}
+	}
+	return a[:n]
 }
 
 func isAmbiguousOneOfReason(reason string) bool {
@@ -731,11 +993,69 @@ type validationErrorPayload struct {
 	Details []*errors.ValidationError `json:"details,omitempty"`
 }
 
-func writeValidationError(w http.ResponseWriter, status int, message string, validationErrs []*errors.ValidationError) {
+func writeValidationError(w http.ResponseWriter, status int, message string, validationErrs []*errors.ValidationError, verbose bool) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(validationErrorPayload{
+	if verbose {
+		_ = json.NewEncoder(w).Encode(validationErrorPayload{
+			Error:   message,
+			Details: validationErrs,
+		})
+		return
+	}
+	_ = json.NewEncoder(w).Encode(slimValidationErrorPayload{
 		Error:   message,
-		Details: validationErrs,
+		Details: slimValidationErrors(validationErrs),
 	})
+}
+
+// Slim payload shape returned in non-verbose mode. Drops every
+// libopenapi-validator-supplied envelope field (message, howToFix,
+// validationType/SubType, requestPath, specPath, requestMethod, line/col,
+// parameterName) and keeps only the per-failure reason plus the nested
+// schema-validation details that name what actually broke. Verbose mode
+// keeps the full envelope for debugging.
+type slimValidationErrorPayload struct {
+	Error   string               `json:"error"`
+	Details []slimValidationItem `json:"details,omitempty"`
+}
+
+type slimValidationItem struct {
+	Reason           string                            `json:"reason,omitempty"`
+	ValidationErrors []*errors.SchemaValidationFailure `json:"validationErrors,omitempty"`
+}
+
+// slimValidationErrors maps each ValidationError to its slim form:
+// reason + per-failure list with ReferenceSchema/ReferenceObject blanked
+// on every SchemaValidationFailure. Those two fields are the full
+// offending schema YAML and the entire submitted payload - invaluable
+// for debugging but easily megabytes per response. Returns a fresh
+// slice so the caller's *ValidationError pointers are safe to log
+// elsewhere with full detail.
+func slimValidationErrors(in []*errors.ValidationError) []slimValidationItem {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]slimValidationItem, len(in))
+	for i, ve := range in {
+		if ve == nil {
+			continue
+		}
+		item := slimValidationItem{Reason: ve.Reason}
+		if len(ve.SchemaValidationErrors) > 0 {
+			sves := make([]*errors.SchemaValidationFailure, len(ve.SchemaValidationErrors))
+			for j, sve := range ve.SchemaValidationErrors {
+				if sve == nil {
+					continue
+				}
+				sveClone := *sve
+				sveClone.ReferenceSchema = ""
+				sveClone.ReferenceObject = ""
+				sves[j] = &sveClone
+			}
+			item.ValidationErrors = sves
+		}
+		out[i] = item
+	}
+	return out
 }

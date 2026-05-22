@@ -18,11 +18,15 @@ const (
 	headerPrefix = "X-Mockzilla-"
 
 	// Supported header names (without prefix, canonicalized form)
-	headerCacheRequests   = "Cache-Requests"
-	headerLatency         = "Latency"
-	headerUpstreamURL     = "Upstream-Url"
-	headerUpstreamHeaders = "Upstream-Headers"
-	headerSource          = "Source"
+	headerCacheRequests    = "Cache-Requests"
+	headerLatency          = "Latency"
+	headerUpstreamURL      = "Upstream-Url"
+	headerUpstreamHeaders  = "Upstream-Headers"
+	headerSource           = "Source"
+	headerValidateRequest  = "Validate-Request"
+	headerValidateResponse = "Validate-Response"
+	headerValidateVerbose  = "Validate-Verbose"
+	headerValidateTimeout  = "Validate-Timeout"
 )
 
 const sourceUI = "ui"
@@ -139,6 +143,14 @@ func applyOverrides(original *config.ServiceConfig, overrides []configOverride) 
 		cfg.Upstream = &upstreamCopy
 	}
 
+	// Always deep-copy Validate even if nil so a per-request override
+	// can write into a fresh struct without mutating the service-level
+	// config or leaving the override invisible.
+	if original.Validate != nil {
+		validateCopy := *original.Validate
+		cfg.Validate = &validateCopy
+	}
+
 	for _, o := range overrides {
 		applyOverride(&cfg, o)
 	}
@@ -171,6 +183,38 @@ func applyOverride(cfg *config.ServiceConfig, o configOverride) {
 				cfg.Upstream = &config.UpstreamConfig{}
 			}
 			cfg.Upstream.URL = o.value
+		}
+
+	case headerValidateRequest:
+		if b, err := strconv.ParseBool(o.value); err == nil {
+			if cfg.Validate == nil {
+				cfg.Validate = &config.ValidateConfig{}
+			}
+			cfg.Validate.Request = &b
+		}
+
+	case headerValidateResponse:
+		if b, err := strconv.ParseBool(o.value); err == nil {
+			if cfg.Validate == nil {
+				cfg.Validate = &config.ValidateConfig{}
+			}
+			cfg.Validate.Response = &b
+		}
+
+	case headerValidateVerbose:
+		if b, err := strconv.ParseBool(o.value); err == nil {
+			if cfg.Validate == nil {
+				cfg.Validate = &config.ValidateConfig{}
+			}
+			cfg.Validate.Verbose = &b
+		}
+
+	case headerValidateTimeout:
+		if d, err := time.ParseDuration(o.value); err == nil && d > 0 {
+			if cfg.Validate == nil {
+				cfg.Validate = &config.ValidateConfig{}
+			}
+			cfg.Validate.Timeout = &d
 		}
 	}
 }

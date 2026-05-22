@@ -74,6 +74,17 @@ func SetupSandbox(sandboxDir string) error {
 		return fmt.Errorf("failed to recreate data directory: %w", err)
 	}
 
+	// Sweep leftover batch-server-N binaries from previous runs. Each is
+	// ~70-80MB; under sandbox reuse they pile up across runs and fill the
+	// disk. The current run will recreate them as it goes.
+	if entries, err := os.ReadDir(sandboxDir); err == nil {
+		for _, e := range entries {
+			if !e.IsDir() && strings.HasPrefix(e.Name(), "batch-server-") {
+				_ = os.Remove(filepath.Join(sandboxDir, e.Name()))
+			}
+		}
+	}
+
 	// Add replace directive to go.mod so Go uses local code instead of fetching from internet
 	// This is needed because generated handlers import packages like:
 	// github.com/mockzilla/mockzilla/v2/resources/data/services/stripe_spec3/types
@@ -175,6 +186,7 @@ func buildGenService(sandboxDir string) error {
 
 	cmd := exec.Command("go", "build", "-o", genServiceBin, "./cmd/gen/service")
 	cmd.Dir = sandboxDir
+	cmd.Env = append(os.Environ(), sandboxGoEnv(sandboxDir)...)
 
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
@@ -194,6 +206,7 @@ func BuildServiceServer(sandboxDir, serviceName string) (string, error) {
 
 	cmd := exec.Command("go", "build", "-o", serverBin, ".")
 	cmd.Dir = serverDir
+	cmd.Env = append(os.Environ(), sandboxGoEnv(sandboxDir)...)
 
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

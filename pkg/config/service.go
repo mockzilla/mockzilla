@@ -46,6 +46,12 @@ type ServiceConfig struct {
 	errors    []*KeyValue[int, int]
 }
 
+// DefaultValidationTimeout bounds a single validate call when the
+// service config doesn't set its own. Surfaced so middleware and
+// integration tests share a single source of truth instead of two
+// drifting consts.
+const DefaultValidationTimeout = 1 * time.Second
+
 // ValidateConfig toggles request and response validation against the
 // OpenAPI schema. Both default to false (opt-in): building the validator
 // is the dominant cold-start cost (hundreds of MB of heap and seconds of
@@ -57,6 +63,21 @@ type ServiceConfig struct {
 type ValidateConfig struct {
 	Request  *bool `yaml:"request,omitempty"`
 	Response *bool `yaml:"response,omitempty"`
+	// Verbose keeps the validator's bulky ReferenceSchema and
+	// ReferenceObject fields in the client-facing error payload. Default
+	// (false) strips them so clients get a slim error with just the
+	// actionable bits (reason, path, location, line/column). Tests and
+	// debugging sessions set it true to see the full context.
+	Verbose *bool `yaml:"verbose,omitempty"`
+	// Timeout bounds a single request- or response-validation call.
+	// The validator inlines the schema before checking the body, and
+	// pathological specs (deeply self-referential allOf, mutually
+	// recursive components, very large request bodies) trigger
+	// exponential rendering that never returns within a request
+	// lifetime. On timeout we skip validation for that request rather
+	// than block the response. Default 1s; bump for specs with
+	// legitimately large/complex bodies.
+	Timeout *time.Duration `yaml:"timeout,omitempty"`
 }
 
 // RequestEnabled reports whether request validation is enabled. Defaults to false.
@@ -69,8 +90,26 @@ func (v *ValidateConfig) ResponseEnabled() bool {
 	return v != nil && v.Response != nil && *v.Response
 }
 
+// VerboseEnabled reports whether full validator context is kept in the
+// response payload. Defaults to false (slim).
+func (v *ValidateConfig) VerboseEnabled() bool {
+	return v != nil && v.Verbose != nil && *v.Verbose
+}
+
+// TimeoutOrDefault returns the configured timeout, falling back to
+// DefaultValidationTimeout when unset or non-positive. Non-positive
+// values are treated as unset so a typo can't accidentally disable
+// the timeout safety net.
+func (v *ValidateConfig) TimeoutOrDefault() time.Duration {
+	if v != nil && v.Timeout != nil && *v.Timeout > 0 {
+		return *v.Timeout
+	}
+	return DefaultValidationTimeout
+}
+
 // NewServiceConfig creates a new ServiceConfig with default values.
 func NewServiceConfig() *ServiceConfig {
+	off := false
 	return &ServiceConfig{
 		Errors:      make(map[string]int),
 		Latencies:   make(map[string]time.Duration),
@@ -78,6 +117,7 @@ func NewServiceConfig() *ServiceConfig {
 		History:     NewHistoryConfig(),
 		SpecOptions: NewSpecOptions(),
 		Extra:       make(map[string]any),
+		Validate:    &ValidateConfig{Request: &off, Response: &off, Verbose: &off},
 	}
 }
 
@@ -111,6 +151,10 @@ func (s *ServiceConfig) WithDefaults() *ServiceConfig {
 
 	if s.SpecOptions == nil {
 		s.SpecOptions = defaults.SpecOptions
+	}
+
+	if s.Validate == nil {
+		s.Validate = defaults.Validate
 	}
 
 	// Fill nil map fields

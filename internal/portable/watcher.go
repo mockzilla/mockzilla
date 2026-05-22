@@ -11,6 +11,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/factory"
+	validator "github.com/pb33f/libopenapi-validator"
 )
 
 // watchServices watches each service's spec, config.yml, context.yml,
@@ -280,7 +281,9 @@ func reloadService(svc Service, router *api.Router, handlers map[string]*swappab
 			"service", svc.Name, "error", vErr)
 		v = sw.Validator()
 	}
-	sw.swap(h, v)
+
+	sw.swap(h, v, func() (validator.Validator, error) { return buildValidator(h) })
+
 	slog.Info("Reloaded service", "name", svc.Name)
 	_ = router
 }

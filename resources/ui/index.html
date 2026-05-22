@@ -185,6 +185,35 @@
                                             <label for="override-replay-enabled">Replay</label>
                                             <input type="text" id="override-replay-value" placeholder="empty = use config; e.g. body:field1;query:field2">
                                         </div>
+                                        <div class="config-override-row">
+                                            <input type="checkbox" id="override-validate-request-enabled">
+                                            <label for="override-validate-request-enabled">Validate Request</label>
+                                            <select id="override-validate-request-value">
+                                                <option value="true">true</option>
+                                                <option value="false">false</option>
+                                            </select>
+                                        </div>
+                                        <div class="config-override-row">
+                                            <input type="checkbox" id="override-validate-response-enabled">
+                                            <label for="override-validate-response-enabled">Validate Response</label>
+                                            <select id="override-validate-response-value">
+                                                <option value="true">true</option>
+                                                <option value="false">false</option>
+                                            </select>
+                                        </div>
+                                        <div class="config-override-row">
+                                            <input type="checkbox" id="override-validate-verbose-enabled">
+                                            <label for="override-validate-verbose-enabled">Validate Verbose</label>
+                                            <select id="override-validate-verbose-value">
+                                                <option value="true">true</option>
+                                                <option value="false">false</option>
+                                            </select>
+                                        </div>
+                                        <div class="config-override-row">
+                                            <input type="checkbox" id="override-validate-timeout-enabled">
+                                            <label for="override-validate-timeout-enabled">Validate Timeout</label>
+                                            <input type="text" id="override-validate-timeout-value" placeholder="e.g. 5s" value="1s" style="width: 6rem;">
+                                        </div>
                                     </div>
                                 </div>
 

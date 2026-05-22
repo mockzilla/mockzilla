@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/pb33f/libopenapi"
@@ -157,7 +158,7 @@ func TestCreateValidationMiddleware(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := &config.ServiceConfig{Name: "test", Validate: tc.cfg}
 			params := newTestParams(cfg)
-			mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
+			mw := CreateValidationMiddleware(params, func(bool) validator.Validator { return v }, nil)
 
 			req := httptest.NewRequest(http.MethodPost, "/pets", strings.NewReader(tc.reqBody))
 			req.Header.Set("Content-Type", "application/json")
@@ -175,7 +176,7 @@ func TestCreateValidationMiddleware_NilValidator(t *testing.T) {
 	// Source returning nil means validation is silently skipped: a bad
 	// spec at startup shouldn't make every request fail.
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return nil }, nil)
+	mw := CreateValidationMiddleware(params, func(bool) validator.Validator { return nil }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusTeapot)
@@ -195,7 +196,7 @@ func TestCreateValidationMiddleware_RequestBodyForwarded(t *testing.T) {
 	// still see the original bytes intact.
 	v := newValidatorFromSpec(t, validateTestSpec)
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
+	mw := CreateValidationMiddleware(params, func(bool) validator.Validator { return v }, nil)
 
 	var got []byte
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -223,7 +224,7 @@ func TestCreateValidationMiddleware_NonSuccessResponseSkipsValidation(t *testing
 	// than wrap them in another 500.
 	v := newValidatorFromSpec(t, validateTestSpec)
 	params := newTestParams(nil)
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
+	mw := CreateValidationMiddleware(params, func(bool) validator.Validator { return v }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -250,7 +251,7 @@ func TestValidationErrorPayload_Encoding(t *testing.T) {
 		Name:     "test",
 		Validate: &config.ValidateConfig{Request: &boolTrue},
 	})
-	mw := CreateValidationMiddleware(params, func() validator.Validator { return v }, nil)
+	mw := CreateValidationMiddleware(params, func(bool) validator.Validator { return v }, nil)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("handler should not be reached on request failure")
@@ -512,6 +513,28 @@ func TestAllWildcardContentType(t *testing.T) {
 	})
 }
 
+func TestRequestPathHasEmptySegments(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{"plain path", "/users/123", false},
+		{"root path", "/", false},
+		{"empty path", "", false},
+		{"trailing slash is fine", "/users/", false},
+		{"two consecutive slashes mid-path", "/users//123", true},
+		{"three consecutive slashes mid-path", "/keys/alias///reencrypt", true},
+		{"double slash adjacent to leading slash is empty seg", "//foo", true},
+		{"path-param value with embedded slash producing empty seg", "/things/foo//bar", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, requestPathHasEmptySegments(tc.path))
+		})
+	}
+}
+
 func TestValidatorCannotLookup(t *testing.T) {
 	cases := []struct {
 		name string
@@ -551,40 +574,214 @@ func TestAllAmbiguousOneOf(t *testing.T) {
 		Message: "200 response body failed to validate schema",
 		Reason:  "The response body for status code '200' is defined as an object. However, it does not meet the schema requirements of the specification",
 		SchemaValidationErrors: []*errors.SchemaValidationFailure{
-			{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched", KeywordLocation: "/properties/x/oneOf"},
 		},
 	}
 	noneMatched := &errors.ValidationError{
 		Message: "200 response body failed to validate schema",
 		SchemaValidationErrors: []*errors.SchemaValidationFailure{
-			{Reason: "'oneOf' failed, none matched"},
+			{Reason: "'oneOf' failed, none matched", KeywordLocation: "/properties/x/oneOf"},
 		},
 	}
-	mixed := &errors.ValidationError{
+	ambiguousWithChild := &errors.ValidationError{
 		Message: "200 response body failed to validate schema",
+		// Real-world libopenapi-validator output: the ambiguous oneOf
+		// appears at /properties/x/oneOf, and each matched branch
+		// contributes child errors nested deeper under the same path
+		// (here, enum failure inside branch 1).
 		SchemaValidationErrors: []*errors.SchemaValidationFailure{
-			{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
-			{Reason: "minProperties: got 0, want 1"},
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched", KeywordLocation: "/properties/x/oneOf"},
+			{Reason: "value must be 'Page Break'", KeywordLocation: "/properties/x/oneOf/1/properties/Type/enum"},
+		},
+	}
+	ambiguousPlusUnrelated := &errors.ValidationError{
+		Message: "200 response body failed to validate schema",
+		// A non-child error (different prefix) means a real failure is
+		// mixed in - skipping would swallow it.
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched", KeywordLocation: "/properties/x/oneOf"},
+			{Reason: "minProperties: got 0, want 1", KeywordLocation: "/properties/y/minProperties"},
 		},
 	}
 	noNested := &errors.ValidationError{
 		Message: "request validation failed",
 		Reason:  "minProperties: got 0, want 1",
 	}
+	siblingAmbiguous := &errors.ValidationError{
+		Message: "200 response body failed to validate schema",
+		// Two unrelated fields each have an ambiguous oneOf. The
+		// SVEs share no /anyOf or /oneOf prefix, but every SVE is
+		// itself ambiguous - all failures are spec ambiguity.
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched", KeywordLocation: "/properties/x/oneOf"},
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched", KeywordLocation: "/properties/y/oneOf"},
+		},
+	}
 
 	t.Run("empty slice is not all-ambiguous", func(t *testing.T) {
 		assert.False(t, allAmbiguousOneOf(nil))
 	})
-	t.Run("all ambiguous oneOf", func(t *testing.T) {
+	t.Run("solo ambiguous oneOf", func(t *testing.T) {
 		assert.True(t, allAmbiguousOneOf([]*errors.ValidationError{ambiguous}))
+	})
+	t.Run("ambiguous oneOf with child explanation", func(t *testing.T) {
+		assert.True(t, allAmbiguousOneOf([]*errors.ValidationError{ambiguousWithChild}))
+	})
+	t.Run("sibling ambiguous oneOfs at unrelated paths", func(t *testing.T) {
+		assert.True(t, allAmbiguousOneOf([]*errors.ValidationError{siblingAmbiguous}))
 	})
 	t.Run("none-matched is not ambiguous", func(t *testing.T) {
 		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{noneMatched}))
 	})
-	t.Run("mixed reasons inside one error fail", func(t *testing.T) {
-		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{mixed}))
+	t.Run("ambiguous mixed with unrelated failure fails", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{ambiguousPlusUnrelated}))
 	})
 	t.Run("error without nested schema failures is not ambiguous", func(t *testing.T) {
 		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{noNested}))
 	})
+}
+
+func TestAllAmbiguousOneOfSVE(t *testing.T) {
+	allAmbiguous := []*errors.SchemaValidationFailure{
+		{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
+		{Reason: "'oneOf' failed, subschemas 0, 2 matched"},
+	}
+	mixed := []*errors.SchemaValidationFailure{
+		{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
+		{Reason: "minProperties: got 0, want 1"},
+	}
+	allNone := []*errors.SchemaValidationFailure{
+		{Reason: "'oneOf' failed, none matched"},
+	}
+
+	t.Run("all ambiguous", func(t *testing.T) {
+		assert.True(t, allAmbiguousOneOfSVE(allAmbiguous))
+	})
+	t.Run("mixed with non-ambiguous fails", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOfSVE(mixed))
+	})
+	t.Run("none-matched is not ambiguous", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOfSVE(allNone))
+	})
+}
+
+func TestIsValidatorTimeout(t *testing.T) {
+	t.Run("nil slice is not a timeout", func(t *testing.T) {
+		assert.False(t, isValidatorTimeout(nil))
+	})
+	t.Run("regular failure is not a timeout", func(t *testing.T) {
+		assert.False(t, isValidatorTimeout([]*errors.ValidationError{
+			{ValidationType: "schema"},
+		}))
+	})
+	t.Run("synthetic timeout error is detected", func(t *testing.T) {
+		assert.True(t, isValidatorTimeout([]*errors.ValidationError{
+			{ValidationType: "timeout"},
+		}))
+	})
+	t.Run("mixed - any timeout entry trips the check", func(t *testing.T) {
+		assert.True(t, isValidatorTimeout([]*errors.ValidationError{
+			{ValidationType: "schema"},
+			{ValidationType: "timeout"},
+		}))
+	})
+}
+
+func TestSlimValidationErrors(t *testing.T) {
+	t.Run("nil and empty input pass through", func(t *testing.T) {
+		assert.Nil(t, slimValidationErrors(nil))
+		assert.Nil(t, slimValidationErrors([]*errors.ValidationError{}))
+	})
+
+	t.Run("keeps reason + nested errors, blanks ReferenceSchema/Object, drops envelope", func(t *testing.T) {
+		in := []*errors.ValidationError{
+			{
+				Message:           "POST request body for '/pet' failed to validate schema",
+				Reason:            "The request body is defined as an object. However, it does not meet the schema requirements",
+				ValidationType:    "requestBody",
+				ValidationSubType: "schema",
+				HowToFix:          "Ensure that the object being submitted, matches the schema correctly",
+				RequestPath:       "/pet",
+				SpecPath:          "/pet",
+				RequestMethod:     "POST",
+				SpecLine:          693,
+				SpecCol:           7,
+				SchemaValidationErrors: []*errors.SchemaValidationFailure{
+					{
+						Reason:          "got number, want string",
+						KeywordLocation: "/properties/tags/items/properties/name/type",
+						ReferenceSchema: "type: object\nproperties: ...",
+						ReferenceObject: `{"tags":[{"name":1}]}`,
+					},
+				},
+			},
+		}
+		out := slimValidationErrors(in)
+		require.Len(t, out, 1)
+		// Envelope reason kept; everything else dropped (no field in slim item).
+		assert.Equal(t, in[0].Reason, out[0].Reason)
+		require.Len(t, out[0].ValidationErrors, 1)
+		// Bulky reference fields blanked
+		assert.Empty(t, out[0].ValidationErrors[0].ReferenceSchema)
+		assert.Empty(t, out[0].ValidationErrors[0].ReferenceObject)
+		// Actionable per-error details preserved
+		assert.Equal(t, "got number, want string", out[0].ValidationErrors[0].Reason)
+		assert.Equal(t, "/properties/tags/items/properties/name/type", out[0].ValidationErrors[0].KeywordLocation)
+		// Original ValidationError untouched (caller can still log full detail)
+		assert.NotEmpty(t, in[0].SchemaValidationErrors[0].ReferenceSchema)
+		assert.NotEmpty(t, in[0].SchemaValidationErrors[0].ReferenceObject)
+		assert.NotEmpty(t, in[0].HowToFix)
+	})
+
+	t.Run("nil SchemaValidationErrors entries don't panic", func(t *testing.T) {
+		in := []*errors.ValidationError{
+			{SchemaValidationErrors: []*errors.SchemaValidationFailure{nil}},
+		}
+		out := slimValidationErrors(in)
+		require.Len(t, out, 1)
+		assert.Nil(t, out[0].ValidationErrors[0])
+	})
+
+	t.Run("slim JSON contains only error/details + reason/validationErrors", func(t *testing.T) {
+		in := []*errors.ValidationError{
+			{
+				Message:           "ignored envelope text",
+				Reason:            "got number, want string",
+				ValidationType:    "requestBody",
+				ValidationSubType: "schema",
+				HowToFix:          "fix it",
+				RequestPath:       "/pet",
+				SpecPath:          "/pet",
+				RequestMethod:     "POST",
+				SpecLine:          693,
+				SpecCol:           7,
+				SchemaValidationErrors: []*errors.SchemaValidationFailure{
+					{Reason: "inner", KeywordLocation: "/x/type"},
+				},
+			},
+		}
+		payload := slimValidationErrorPayload{Error: "request validation failed", Details: slimValidationErrors(in)}
+		b, err := json.Marshal(payload)
+		require.NoError(t, err)
+		s := string(b)
+		// Slim wire shape: only top-level fields the user asked for.
+		assert.Contains(t, s, `"reason":"got number, want string"`)
+		assert.Contains(t, s, `"validationErrors":[{"reason":"inner"`)
+		assert.NotContains(t, s, `"howToFix"`)
+		assert.NotContains(t, s, `"validationType"`)
+		assert.NotContains(t, s, `"validationSubType"`)
+		assert.NotContains(t, s, `"specLine"`)
+		assert.NotContains(t, s, `"requestMethod"`)
+	})
+}
+
+func TestTimeoutValidationError(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
+	timeout := 750 * time.Millisecond
+	e := timeoutValidationError(req, "response", timeout)
+	assert.Equal(t, "timeout", e.ValidationType)
+	assert.Equal(t, "response", e.ValidationSubType)
+	assert.Equal(t, http.MethodGet, e.RequestMethod)
+	assert.Equal(t, "/foo", e.RequestPath)
+	assert.Contains(t, e.Message, timeout.String())
 }

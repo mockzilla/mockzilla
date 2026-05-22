@@ -87,14 +87,20 @@ func generateContentFromSchema(schema *schema.Schema, valueReplacer replacer.Val
 
 	if typ == types.TypeObject {
 		obj := generateContentObject(schema, valueReplacer, state)
-		// When generating write-only content (requests), don't convert nil to empty object
-		// if all properties were filtered out due to being readOnly. This prevents
-		// validation errors for nested objects with only readOnly required fields.
-		// However, for top-level objects (empty NamePath), still return empty object.
-		// Also don't convert to empty object if nil was due to recursion hit.
+
+		// Nested write-only requests need nil to propagate up so the
+		// parent can drop fields whose required children all collapsed
+		// under read/write filtering; promoting nil to {} here
+		// would produce a body the validator rejects as "extra empty
+		// object". Outside that one path nil promotes to {} so a
+		// no-property type:object schema doesn't propagate up as JSON
+		// null - which fails strict validators on every oneOf branch
+		// even when the field is nullable.
 		isNested := state != nil && len(state.NamePath) > 0
+
 		recursionHit := state != nil && state.RecursionHit
-		if obj == nil && !recursionHit && (!schema.Nullable || !isNested) && (state == nil || !state.IsContentWriteOnly || !isNested) {
+		writeOnlyFilter := isNested && state != nil && state.IsContentWriteOnly
+		if obj == nil && !recursionHit && !writeOnlyFilter {
 			obj = map[string]any{}
 		}
 		return obj
@@ -301,17 +307,27 @@ func generateContentArray(schema *schema.Schema, valueReplacer replacer.ValueRep
 		return nil
 	}
 
-	// avoid generating too many items
+	// Default to one item so arrays without size constraints aren't empty
+	// (an empty array passes type validation but loses signal in the mock
+	// response). MinItems raises the floor; MaxItems caps the ceiling.
+	// Both are honored so specs declaring `maxItems: 0` (singleton
+	// sentinels, deprecated-empty arrays) get an empty array instead of
+	// failing validation with "maxItems: got 1, want 0".
 	take := 1
-	if schema.MinItems != nil {
+	if schema.MinItems != nil && *schema.MinItems > 0 {
 		take = int(*schema.MinItems)
 	}
+	if schema.MaxItems != nil {
+		if maxx := int(*schema.MaxItems); maxx < take {
+			take = maxx
+		}
+	}
+
 	if take == 0 {
-		take = 1
+		return []any{}
 	}
 
 	var res []any
-
 	for i := 1; i <= take; i++ {
 		childState := state.NewFrom(state).WithOptions(replacer.WithElementIndex(i))
 		item := generateContentFromSchema(schema.Items, valueReplacer, childState)

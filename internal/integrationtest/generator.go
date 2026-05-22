@@ -150,6 +150,7 @@ func RunGoGenerate(sandboxDir, serviceName string, timeout time.Duration) error 
 
 	cmd := exec.CommandContext(ctx, "go", "generate", generateFile)
 	cmd.Dir = sandboxDir
+	cmd.Env = append(os.Environ(), sandboxGoEnv(sandboxDir)...)
 
 	var stdout, stderr bytes.Buffer
 	if isDebugEnabled() {

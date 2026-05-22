@@ -9,15 +9,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
+	validator "github.com/pb33f/libopenapi-validator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type validatorAlias = validator.Validator
 
 //go:embed testdata/**
 var testDataFS embed.FS
@@ -237,7 +241,7 @@ func TestSwappableHandler(t *testing.T) {
 		h2, err := newHandler(specBytes)
 		require.NoError(t, err)
 
-		sw.swap(h2, nil)
+		sw.swap(h2, nil, nil)
 		assert.Equal(t, h2.Routes(), sw.Routes())
 	})
 
@@ -248,6 +252,60 @@ func TestSwappableHandler(t *testing.T) {
 
 	t.Run("MatchPath delegates", func(t *testing.T) {
 		_, _ = sw.MatchPath("/pets", "GET")
+	})
+}
+
+func TestSwappableHandler_EnsureValidator(t *testing.T) {
+	specBytes := loadTestSpec(t, "petstore.yml")
+	h, err := newHandler(specBytes)
+	require.NoError(t, err)
+
+	t.Run("builds once and caches", func(t *testing.T) {
+		var calls int32
+		var mu sync.Mutex
+		sw := &swappableHandler{
+			handler: h,
+			buildFn: func() (vlocal validatorAlias, _ error) {
+				mu.Lock()
+				calls++
+				mu.Unlock()
+				return buildValidator(h)
+			},
+			buildDone: make(chan struct{}),
+		}
+		// EnsureValidator triggers the build but is non-blocking. Use
+		// WaitForValidator to assert the post-build cached state.
+		sw.EnsureValidator()
+		v1 := sw.WaitForValidator()
+		v2 := sw.EnsureValidator()
+		assert.NotNil(t, v1)
+		assert.Same(t, v1, v2)
+		mu.Lock()
+		assert.EqualValues(t, 1, calls)
+		mu.Unlock()
+	})
+
+	t.Run("returns nil when buildFn unset", func(t *testing.T) {
+		sw := &swappableHandler{handler: h, buildDone: make(chan struct{})}
+		assert.Nil(t, sw.EnsureValidator())
+		assert.Nil(t, sw.WaitForValidator())
+	})
+
+	t.Run("ensureValidator adapter respects ensure flag", func(t *testing.T) {
+		sw := &swappableHandler{
+			handler:   h,
+			buildFn:   func() (validatorAlias, error) { return buildValidator(h) },
+			buildDone: make(chan struct{}),
+		}
+		// ensure=false: no build, returns nil
+		assert.Nil(t, sw.ensureValidator(false))
+		// ensure=true: kicks off background build; non-blocking, so wait
+		// for it before asserting the cached state.
+		sw.ensureValidator(true)
+		v := sw.WaitForValidator()
+		assert.NotNil(t, v)
+		// ensure=false now returns the cached one
+		assert.Same(t, v, sw.ensureValidator(false))
 	})
 }
 
@@ -267,7 +325,7 @@ func TestRegisterService(t *testing.T) {
 	handlers := make(map[string]*swappableHandler)
 
 	svc := Service{Name: "petstore", SpecPath: specPath}
-	err := registerService(router, svc, nil, handlers)
+	err := registerService(router, svc, nil, handlers, &sync.WaitGroup{})
 	require.NoError(t, err)
 
 	assert.Contains(t, handlers, "petstore")
@@ -361,7 +419,7 @@ func TestIntegration_EndToEnd(t *testing.T) {
 	handlers := make(map[string]*swappableHandler)
 
 	svc := Service{Name: "petstore", SpecPath: specPath}
-	err := registerService(router, svc, nil, handlers)
+	err := registerService(router, svc, nil, handlers, &sync.WaitGroup{})
 	require.NoError(t, err)
 
 	ts := httptest.NewServer(router)

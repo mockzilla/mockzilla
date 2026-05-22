@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -24,6 +25,8 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/factory"
 	"github.com/mockzilla/mockzilla/v2/pkg/middleware"
 	validator "github.com/pb33f/libopenapi-validator"
+	validatorconfig "github.com/pb33f/libopenapi-validator/config"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 const (
@@ -43,8 +46,38 @@ type Setup struct {
 	// strict callers (integration tests) inspect this to fail loudly.
 	Failed []FailedService
 
-	handlers map[string]*swappableHandler
-	flags    flags
+	handlers    map[string]*swappableHandler
+	flags       flags
+	validatorWG sync.WaitGroup
+}
+
+// WaitForValidators blocks until every background validator goroutine
+// spawned during BuildSetup has finished, or ctx is cancelled. Returns
+// true on success, false when ctx fired first (validators still running
+// in the background; service-level validation stays off for them, same
+// as the pre-call window). Production callers don't need this; tests
+// use it so response-validation coverage is deterministic instead of
+// racing the goroutines, and bound the wait because some pathological
+// specs send libopenapi-validator's schema-render path into runaway
+// recursion that never returns.
+func (s *Setup) WaitForValidators(ctx context.Context) bool {
+	start := time.Now()
+	done := make(chan struct{})
+	go func() {
+		s.validatorWG.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		slog.Info("All validators ready", "elapsed", time.Since(start))
+		return true
+	case <-ctx.Done():
+		slog.Warn("WaitForValidators ctx fired before all validators ready; proceeding with whatever built",
+			"elapsed", time.Since(start),
+			"reason", ctx.Err())
+		return false
+	}
 }
 
 type FailedService struct {
@@ -114,11 +147,17 @@ func BuildSetup(args []string) (*Setup, error) {
 	}
 
 	handlers := make(map[string]*swappableHandler)
-	var failed []FailedService
+	setup := &Setup{
+		Router:   router,
+		AppCfg:   appCfg,
+		Services: services,
+		handlers: handlers,
+		flags:    fl,
+	}
 	for _, svc := range services {
-		if err := registerService(router, svc, overrides, handlers); err != nil {
+		if err := registerService(router, svc, overrides, handlers, &setup.validatorWG); err != nil {
 			slog.Error("Failed to register service", "name", svc.Name, "error", err)
-			failed = append(failed, FailedService{Name: svc.Name, Err: err})
+			setup.Failed = append(setup.Failed, FailedService{Name: svc.Name, Err: err})
 			continue
 		}
 	}
@@ -126,14 +165,7 @@ func BuildSetup(args []string) (*Setup, error) {
 	// Server boots even when zero services registered. The UI and internal
 	// routes are still useful, and operators can fix specs without
 	// restarting the process.
-	return &Setup{
-		Router:   router,
-		AppCfg:   appCfg,
-		Services: services,
-		Failed:   failed,
-		handlers: handlers,
-		flags:    fl,
-	}, nil
+	return setup, nil
 }
 
 // Run starts the server in portable mode. The args are positional
@@ -421,6 +453,7 @@ func registerService(
 	svc Service,
 	overrides *cliOverrides,
 	handlers map[string]*swappableHandler,
+	validatorWG *sync.WaitGroup,
 ) error {
 	specBytes, err := os.ReadFile(svc.SpecPath)
 	if err != nil {
@@ -468,28 +501,44 @@ func registerService(
 	var regOpts []api.HandlerOption
 	validationOn := svcCfg.Validate.RequestEnabled() || svcCfg.Validate.ResponseEnabled()
 
-	sw := &swappableHandler{handler: h}
+	sw := &swappableHandler{
+		handler:   h,
+		buildFn:   func() (validator.Validator, error) { return buildValidator(h) },
+		buildDone: make(chan struct{}),
+	}
 	handlers[svc.Name] = sw
 
-	if validationOn {
-		mw := func(p *middleware.Params) func(http.Handler) http.Handler {
-			return middleware.CreateValidationMiddleware(p, sw.Validator, sw.MatchPath)
-		}
-		regOpts = append(regOpts, api.WithMiddleware(
-			[]func(*middleware.Params) func(http.Handler) http.Handler{mw},
-		))
+	// Attach the validation middleware unconditionally. It's a cheap
+	// no-op when no per-request side wants validation, but staying
+	// attached lets X-Mockzilla-Validate-* headers opt into validation
+	// for services that booted with it disabled. The validator itself
+	// is built lazily by EnsureValidator on the first such request.
+	mw := func(p *middleware.Params) func(http.Handler) http.Handler {
+		return middleware.CreateValidationMiddleware(p, sw.ensureValidator, sw.MatchPath)
+	}
+	regOpts = append(regOpts, api.WithMiddleware(
+		[]func(*middleware.Params) func(http.Handler) http.Handler{mw},
+	))
 
-		// Build the validator in the background.
+	if validationOn {
+		// Eager background build so services that boot with validation
+		// on don't pay the build cost on the first request. Uses the
+		// blocking WaitForValidator so validatorWG.Done fires only when
+		// the build actually finishes; that's what Setup.WaitForValidators
+		// hangs on. Request-path callers use EnsureValidator instead so a
+		// long build doesn't pin the handler goroutine.
+		validatorWG.Add(1)
 		go func() {
-			built, err := buildValidator(h)
-			if err != nil {
+			defer validatorWG.Done()
+			start := time.Now()
+			built := sw.WaitForValidator()
+			if built == nil {
 				slog.Warn("validator construction failed; service will run without validation",
 					"service", svc.Name,
-					"error", err)
+					"elapsed", time.Since(start))
 				return
 			}
-			sw.setValidator(built)
-			slog.Info("Validator ready", "service", svc.Name)
+			slog.Info("Validator ready", "service", svc.Name, "elapsed", time.Since(start))
 		}()
 	}
 
@@ -503,6 +552,14 @@ func registerService(
 // service config opts into validation, the caller refuses to register
 // the service rather than silently dropping validation. Spec
 // problems should be visible at startup, not papered over.
+//
+// Patterns are intentionally not enforced. The mock generator can't
+// satisfy arbitrary regexes (JS regex literals, prose-as-regex,
+// adversarial lookarounds, format-vs-pattern conflicts), so checking
+// them surfaces false positives instead of real bugs. The no-op
+// RegexpEngine plugs into the validator's compile slot and makes every
+// MatchString return true; type/required/format/etc. validation is
+// untouched.
 func buildValidator(h *handler) (v validator.Validator, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -515,12 +572,25 @@ func buildValidator(h *handler) (v validator.Validator, err error) {
 	if docErr != nil {
 		return nil, fmt.Errorf("parsing spec: %w", docErr)
 	}
-	built, vErrs := validator.NewValidator(doc)
+
+	built, vErrs := validator.NewValidator(doc, validatorconfig.WithRegexEngine(noopRegexpEngine))
 	if len(vErrs) > 0 {
 		return nil, fmt.Errorf("validator construction: %w", errors.Join(vErrs...))
 	}
 	return built, nil
 }
+
+// noopRegexpEngine compiles every pattern to a Regexp whose MatchString
+// always returns true. See buildValidator for why patterns aren't
+// enforced.
+func noopRegexpEngine(string) (jsonschema.Regexp, error) {
+	return matchAllRegexp{}, nil
+}
+
+type matchAllRegexp struct{}
+
+func (matchAllRegexp) MatchString(string) bool { return true }
+func (matchAllRegexp) String() string          { return ".*" }
 
 func emitReadyStamp(appCfg *config.AppConfig, router *api.Router) {
 	registered := router.GetServices()

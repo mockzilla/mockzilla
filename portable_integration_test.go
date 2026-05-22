@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -30,6 +31,16 @@ const (
 	// in-process portable server. Without it a hung handler would
 	// freeze the whole suite (default client has no timeout).
 	requestTimeout = 30 * time.Second
+
+	// validatorWaitTimeout bounds Setup.WaitForValidators so a single
+	// runaway validator construction doesn't deadlock the whole batch.
+	// libopenapi-validator's warmSchemaCaches recurses through inline
+	// schema rendering and can stall on pathological specs (deep $ref
+	// cycles, exotic discriminator shapes). Per-spec validators that
+	// don't finish in time get the same treatment they got pre-wait
+	// (validation skipped); the test still runs and the rest of the
+	// batch isn't held hostage.
+	validatorWaitTimeout = 30 * time.Second
 
 	// portableCacheFileName is the on-disk cache of passing specs for
 	// this suite. Kept separate from the codegen cache - the two suites
@@ -72,10 +83,15 @@ func TestPortableIntegration(t *testing.T) {
 	}
 
 	// Silence portable runtime's INFO logs - one line per HTTP request,
-	// per registered service, etc. Errors still surface.
-	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, &slog.HandlerOptions{
-		Level: slog.LevelError,
-	})))
+	// per registered service, etc. Errors still surface. The handler
+	// also scans Warn messages for validation-middleware skip/panic/
+	// timeout decisions so the final summary can report what the
+	// validator actually did across the run, without adding counters
+	// to production code.
+	resetValidationCounters()
+	slog.SetDefault(slog.New(&countingHandler{
+		base: slog.NewTextHandler(io.Discard, &slog.HandlerOptions{Level: slog.LevelError}),
+	}))
 
 	integrationtest.SetSpecsFS(specsFS)
 
@@ -138,8 +154,22 @@ func TestPortableIntegration(t *testing.T) {
 	totalSpecs := len(specs)
 	t.Logf("Running portable integration on %d spec(s)", totalSpecs)
 
+	// Declared early so the cleanup closure below can capture it; the
+	// batch-setup block further down populates it.
+	var batchMat *batchMaterialization
+
 	t.Cleanup(func() {
-		stats.printSummary(totalSpecs)
+		// Capture batchMat once at cleanup time; it's the same pointer
+		// the orchestrator-driven test loop populated. svcToSpec is the
+		// reverse of specToSvc so VALIDATION_INCIDENT lines can carry
+		// the spec they belong to.
+		svcToSpec := map[string]string{}
+		if batchMat != nil {
+			for spec, svc := range batchMat.specToSvc {
+				svcToSpec[svc] = spec
+			}
+		}
+		stats.printSummary(totalSpecs, svcToSpec)
 		if cache != nil {
 			if err := cache.Save(); err != nil {
 				t.Logf("Failed to save cache: %v", err)
@@ -183,7 +213,6 @@ func TestPortableIntegration(t *testing.T) {
 		toTest     []string
 		batchBoot  time.Duration
 		batchSetup *portable.Setup
-		batchMat   *batchMaterialization
 		batchURL   string
 		setupErr   error
 		failByName = map[string]error{}
@@ -201,13 +230,45 @@ func TestPortableIntegration(t *testing.T) {
 		} else {
 			batchMat = mat
 			t.Cleanup(mat.cleanup)
+			setupBuilt := time.Now()
 			batchSetup, err = portable.BuildSetup([]string{mat.root})
 			if err != nil {
 				setupErr = fmt.Errorf("build setup: %w", err)
 			} else {
+				buildElapsed := time.Since(setupBuilt)
+
+				// Validators are built in background goroutines per service.
+				// Without this wait, the per-spec test loop races them: a
+				// request that arrives before the validator is ready skips
+				// validation entirely (middleware no-ops on nil validator),
+				// hiding real response-schema failures and producing flaky
+				// pass/fail per spec across runs.
+				//
+				// Bounded: libopenapi-validator's schema-render path can go
+				// into runaway recursion on some specs (paypal, etc) and
+				// never return. We yield after validatorWaitTimeout and let
+				// the per-spec tests run; specs whose validator didn't
+				// finish exit the batch the same way they did pre-fix,
+				// with validation skipped.
+				waitStart := time.Now()
+				waitCtx, waitCancel := context.WithTimeout(ctx, validatorWaitTimeout)
+				ready := batchSetup.WaitForValidators(waitCtx)
+
+				waitCancel()
+
+				waitElapsed := time.Since(waitStart)
+				status := "ready"
+				if !ready {
+					status = "TIMED OUT"
+				}
+
+				fmt.Fprintf(os.Stderr, "  batch: %d service(s), spec parse=%s, validator wait=%s (%s)\n",
+					len(toTest), formatShortDuration(buildElapsed), formatShortDuration(waitElapsed), status)
+
 				for _, f := range batchSetup.Failed {
 					failByName[f.Name] = f.Err
 				}
+
 				ts := httptest.NewServer(batchSetup.Router)
 				batchURL = ts.URL
 				t.Cleanup(ts.Close)
@@ -395,7 +456,7 @@ func lintRuleSummary(defects []lint.Defect) string {
 	return strings.Join(parts, " ")
 }
 
-func (s *portableStats) printSummary(totalSpecs int) {
+func (s *portableStats) printSummary(totalSpecs int, svcToSpec map[string]string) {
 	p := s.passedSpecs.Load()
 	f := s.failedSpecs.Load()
 	l := s.lintSkippedSpecs.Load()
@@ -422,6 +483,17 @@ func (s *portableStats) printSummary(totalSpecs int) {
 	fmt.Fprintf(os.Stderr, "Total operations tested: %d\n", totalOps)
 	fmt.Fprintf(os.Stderr, "OK: %d   Failures: %d\n", totalOK, totalFails)
 	fmt.Fprintln(os.Stderr, "========================================")
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprint(os.Stderr, validationSummary())
+	// Machine-parseable single-line variants the orchestrator picks up
+	// to aggregate validation activity across every batch. Kept
+	// separate from the human summary above so the per-batch output
+	// stays readable. Stats line lists per-bucket totals; incident
+	// lines name the individual panicked/timed-out routes.
+	if line := validationStatsLine(); line != "" {
+		fmt.Fprintln(os.Stderr, line)
+	}
+	fmt.Fprint(os.Stderr, validationIncidentLines(svcToSpec))
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "=== Services Summary ===")
 
@@ -569,7 +641,12 @@ func materializeBatch(specs []string) (*batchMaterialization, error) {
 	// so on-demand parsing would just defer the same work behind first
 	// requests. Eager also surfaces spec-parse failures at boot, which
 	// the orchestrator wants visible as a per-spec failure.
-	cfgBody := []byte("spec:\n  lazyLoad: false\nvalidate:\n  request: true\n  response: true\n")
+	// 5s validation timeout (vs the 1s default) gives complex POST
+	// bodies in real-world specs (sinao, invoicing APIs with deeply
+	// nested allOf) enough budget to evaluate instead of timing out
+	// and skipping; without this the suite reports legitimate timeouts
+	// as if they were spec defects.
+	cfgBody := []byte("spec:\n  lazyLoad: false\nvalidate:\n  request: true\n  response: true\n  verbose: true\n  timeout: 5s\n")
 
 	specToSvc := make(map[string]string, len(specs))
 	for i, spec := range specs {
@@ -655,16 +732,86 @@ func testService(ctx context.Context, client *http.Client, baseURL, serviceName 
 		mountPrefix = ""
 	}
 
-	var failures []routeFailure
-	for _, route := range routes {
-		if ctx.Err() != nil {
-			break
+	conc := routeConcurrency()
+	if conc <= 1 || len(routes) <= 1 {
+		var failures []routeFailure
+		for _, route := range routes {
+			if ctx.Err() != nil {
+				break
+			}
+			if f, ok := testOneRoute(ctx, client, baseURL, urlName, mountPrefix, route); !ok {
+				failures = append(failures, f)
+			}
 		}
-		if f, ok := testOneRoute(ctx, client, baseURL, urlName, mountPrefix, route); !ok {
-			failures = append(failures, f)
+		return failures, len(routes)
+	}
+
+	// Fan routes out to conc workers. The mock handler is stateless per
+	// request, so the in-process httptest.Server handles them in parallel
+	// fine; the win is amortising response-generation latency on huge
+	// specs (docusign et al) where the spec is parsed once but the
+	// per-route factory.Response is non-trivial.
+	type result struct {
+		failure routeFailure
+		failed  bool
+	}
+	jobs := make(chan routeInfo)
+	results := make(chan result, len(routes))
+	var wg sync.WaitGroup
+	for i := 0; i < conc; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for route := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
+				if f, ok := testOneRoute(ctx, client, baseURL, urlName, mountPrefix, route); !ok {
+					results <- result{failure: f, failed: true}
+				}
+			}
+		}()
+	}
+	go func() {
+		defer close(jobs)
+		for _, route := range routes {
+			if ctx.Err() != nil {
+				return
+			}
+			jobs <- route
+		}
+	}()
+	wg.Wait()
+	close(results)
+
+	var failures []routeFailure
+	for r := range results {
+		if r.failed {
+			failures = append(failures, r.failure)
 		}
 	}
 	return failures, len(routes)
+}
+
+// routeConcurrency reads the ROUTE_CONCURRENCY env var. Default 4 is
+// the empirical sweet spot from docusign (4m15s sequential → 1m40s at
+// 4); past 8 hits HTTP transport defaults and starts flaking without
+// further speedup. Independent of MAX_CONCURRENCY (which sets
+// `-test.parallel`, i.e. how many specs run at once); on a single big
+// spec running in its own batch, the spec parallelism doesn't help, so
+// this knob fans out routes within a spec.
+const defaultRouteConcurrency = 4
+
+func routeConcurrency() int {
+	v := os.Getenv("ROUTE_CONCURRENCY")
+	if v == "" {
+		return defaultRouteConcurrency
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return defaultRouteConcurrency
+	}
+	return n
 }
 
 type routeInfo struct {
@@ -812,4 +959,302 @@ func excludeMarkedSpecs(specs []string) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+// Validation-middleware activity counters. Populated by countingHandler
+// from the slog Warn messages the middleware emits on every skip /
+// panic / timeout. Only buckets the middleware actually logs are
+// represented (request-side allPathMissing and 400-failures are silent
+// in the middleware, so they have no counters here).
+var (
+	vcReqPanic   atomic.Int64
+	vcReqTimeout atomic.Int64
+
+	vcRespPanic           atomic.Int64
+	vcRespTimeout         atomic.Int64
+	vcRespSkipSchemaRend  atomic.Int64
+	vcRespSkipAmbigOneOf  atomic.Int64
+	vcRespSkipPathMissing atomic.Int64
+	vcRespSkipJSRegex     atomic.Int64
+	vcRespSkipPattern     atomic.Int64
+	vcRespSkipUnsat       atomic.Int64
+	vcRespSkipConfTypes   atomic.Int64
+	vcRespSkipCTParams    atomic.Int64
+	vcRespSkipWildcardCT  atomic.Int64
+	vcRespSkipStatusCode  atomic.Int64
+	vcRespSkipRouterPath  atomic.Int64
+	vcRespFailed          atomic.Int64
+)
+
+// Captured panic/timeout incidents, pre-formatted at capture time as
+// `VALIDATION_INCIDENT kind=... method=... path=... reason=...`. Stored
+// without `spec=` (which the capture site doesn't know); the emitter
+// resolves the leading /<svc>/ segment to a spec name and appends it.
+var (
+	validationIncidentsMu sync.Mutex
+	validationIncidents   []string
+)
+
+func resetValidationCounters() {
+	for _, c := range []*atomic.Int64{
+		&vcReqPanic, &vcReqTimeout,
+		&vcRespPanic, &vcRespTimeout, &vcRespSkipSchemaRend, &vcRespSkipAmbigOneOf,
+		&vcRespSkipPathMissing, &vcRespSkipJSRegex, &vcRespSkipPattern, &vcRespSkipUnsat,
+		&vcRespSkipConfTypes, &vcRespSkipCTParams, &vcRespSkipWildcardCT,
+		&vcRespSkipStatusCode, &vcRespSkipRouterPath, &vcRespFailed,
+	} {
+		c.Store(0)
+	}
+	validationIncidentsMu.Lock()
+	validationIncidents = nil
+	validationIncidentsMu.Unlock()
+}
+
+func recordValidationIncident(kind string, r slog.Record) {
+	var method, path, reason string
+	r.Attrs(func(a slog.Attr) bool {
+		switch a.Key {
+		case "method":
+			method = a.Value.String()
+		case "path":
+			path = a.Value.String()
+		case "reason":
+			reason = a.Value.String()
+		}
+		return true
+	})
+
+	// Reason carries the panic message + full Go stack. Default keeps
+	// the first line only (enough to bucket "nil pointer" vs spec
+	// defect) so the orchestrator output stays scannable. Set
+	// VALIDATION_REASON_LINES=N to capture the first N stack frames -
+	// invaluable when chasing a rare, hard-to-reproduce panic. Newlines
+	// are flattened to ` | ` so the incident line stays single-line for
+	// the regex parser.
+	maxLines := 1
+	if v := os.Getenv("VALIDATION_REASON_LINES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxLines = n
+		}
+	}
+
+	if maxLines == 1 {
+		if i := strings.IndexByte(reason, '\n'); i >= 0 {
+			reason = reason[:i]
+		}
+	} else {
+		lines := strings.SplitN(reason, "\n", maxLines+1)
+		if len(lines) > maxLines {
+			lines = lines[:maxLines]
+		}
+		reason = strings.Join(lines, " | ")
+	}
+
+	limit := 200
+	if maxLines > 1 {
+		limit = 200 * maxLines
+	}
+
+	if len(reason) > limit {
+		reason = reason[:limit] + "..."
+	}
+
+	validationIncidentsMu.Lock()
+	validationIncidents = append(validationIncidents,
+		fmt.Sprintf("VALIDATION_INCIDENT kind=%s method=%s path=%s reason=%s",
+			kind, method, path, reason))
+	validationIncidentsMu.Unlock()
+}
+
+// countingHandler bumps validation counters by pattern-matching the
+// middleware's Warn message prefixes, then forwards to the base handler
+// (which is Discard in tests). Keeps prod code untouched; the messages
+// it matches are the ones the middleware already logs for operators.
+type countingHandler struct {
+	base slog.Handler
+}
+
+func (h *countingHandler) Enabled(_ context.Context, level slog.Level) bool {
+	// Accept Warn so we see middleware decisions; pass everything else
+	// through to the base handler's own level decision.
+	if level >= slog.LevelWarn {
+		return true
+	}
+	return h.base.Enabled(context.Background(), level)
+}
+
+func (h *countingHandler) Handle(ctx context.Context, r slog.Record) error {
+	if r.Level == slog.LevelWarn {
+		switch {
+		case strings.HasPrefix(r.Message, "Request validator panicked"):
+			vcReqPanic.Add(1)
+			recordValidationIncident("req_panic", r)
+		case strings.HasPrefix(r.Message, "Request validator exceeded timeout"):
+			vcReqTimeout.Add(1)
+			recordValidationIncident("req_timeout", r)
+		case strings.HasPrefix(r.Message, "Response validator panicked"):
+			vcRespPanic.Add(1)
+			recordValidationIncident("resp_panic", r)
+		case strings.HasPrefix(r.Message, "Response validator exceeded timeout"):
+			vcRespTimeout.Add(1)
+			recordValidationIncident("resp_timeout", r)
+		case strings.HasPrefix(r.Message, "Validator schema render failed"):
+			vcRespSkipSchemaRend.Add(1)
+		case strings.HasPrefix(r.Message, "oneOf variants overlap"):
+			vcRespSkipAmbigOneOf.Add(1)
+		case strings.HasPrefix(r.Message, "Spec path not found by validator"):
+			vcRespSkipPathMissing.Add(1)
+		case strings.HasPrefix(r.Message, "Spec pattern uses JS regex literal"):
+			vcRespSkipJSRegex.Add(1)
+		case strings.HasPrefix(r.Message, "Spec pattern is prose"):
+			vcRespSkipPattern.Add(1)
+		case strings.HasPrefix(r.Message, "Spec schema is unsatisfiable"):
+			vcRespSkipUnsat.Add(1)
+		case strings.HasPrefix(r.Message, "Spec allOf has conflicting branch types"):
+			vcRespSkipConfTypes.Add(1)
+		case strings.HasPrefix(r.Message, "Spec content type only differs"):
+			vcRespSkipCTParams.Add(1)
+		case strings.HasPrefix(r.Message, "Spec declares wildcard"):
+			vcRespSkipWildcardCT.Add(1)
+		case strings.HasPrefix(r.Message, "Response status code not declared"):
+			vcRespSkipStatusCode.Add(1)
+		case strings.HasPrefix(r.Message, "libopenapi-validator matched a different spec path"):
+			vcRespSkipRouterPath.Add(1)
+		case strings.HasPrefix(r.Message, "Response validation failed"):
+			vcRespFailed.Add(1)
+		}
+	}
+	return h.base.Handle(ctx, r)
+}
+
+func (h *countingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &countingHandler{base: h.base.WithAttrs(attrs)}
+}
+
+func (h *countingHandler) WithGroup(name string) slog.Handler {
+	return &countingHandler{base: h.base.WithGroup(name)}
+}
+
+// validationSummary returns a multi-line block of validation-middleware
+// activity totals. Zero-everything when validation never ran (e.g.
+// config disabled for the run).
+func validationSummary() string {
+	respSkipTotal := vcRespSkipSchemaRend.Load() + vcRespSkipAmbigOneOf.Load() +
+		vcRespSkipPathMissing.Load() + vcRespSkipJSRegex.Load() + vcRespSkipPattern.Load() +
+		vcRespSkipUnsat.Load() + vcRespSkipConfTypes.Load() + vcRespSkipCTParams.Load() +
+		vcRespSkipWildcardCT.Load() + vcRespSkipStatusCode.Load() + vcRespSkipRouterPath.Load()
+
+	var b strings.Builder
+	fmt.Fprintln(&b, "=== Validation Activity ===")
+	fmt.Fprintf(&b, "  request:  panic=%-3d  timeout=%-3d\n",
+		vcReqPanic.Load(), vcReqTimeout.Load())
+	fmt.Fprintf(&b, "  response: failed(500)=%-5d  panic=%-3d  timeout=%-3d  skip-heuristic=%-3d\n",
+		vcRespFailed.Load(), vcRespPanic.Load(), vcRespTimeout.Load(), respSkipTotal)
+	if respSkipTotal > 0 {
+		fmt.Fprintln(&b, "  response skip breakdown:")
+		printIfNonzero(&b, "    schema-render-fail   ", vcRespSkipSchemaRend.Load())
+		printIfNonzero(&b, "    ambiguous-oneOf      ", vcRespSkipAmbigOneOf.Load())
+		printIfNonzero(&b, "    path-missing         ", vcRespSkipPathMissing.Load())
+		printIfNonzero(&b, "    js-regex-literal     ", vcRespSkipJSRegex.Load())
+		printIfNonzero(&b, "    prose-pattern        ", vcRespSkipPattern.Load())
+		printIfNonzero(&b, "    unsatisfiable-schema ", vcRespSkipUnsat.Load())
+		printIfNonzero(&b, "    conflicting-allOf    ", vcRespSkipConfTypes.Load())
+		printIfNonzero(&b, "    content-type-params  ", vcRespSkipCTParams.Load())
+		printIfNonzero(&b, "    wildcard-content-type", vcRespSkipWildcardCT.Load())
+		printIfNonzero(&b, "    status-code-missing  ", vcRespSkipStatusCode.Load())
+		printIfNonzero(&b, "    router-path-mismatch ", vcRespSkipRouterPath.Load())
+	}
+	return b.String()
+}
+
+func printIfNonzero(b *strings.Builder, label string, v int64) {
+	if v > 0 {
+		fmt.Fprintf(b, "%s %d\n", label, v)
+	}
+}
+
+// validationStatsLine emits one tagged line the orchestrator can parse
+// to aggregate validation activity across batches. Zero-valued tokens
+// are omitted so quiet batches produce a near-empty line instead of a
+// long row of zeros; the orchestrator's parser tolerates missing keys.
+// The line always starts with `VALIDATION_STATS` so the regex matches
+// even when no fields follow.
+func validationStatsLine() string {
+	pairs := []struct {
+		key   string
+		value int64
+	}{
+		{"req_panic", vcReqPanic.Load()},
+		{"req_timeout", vcReqTimeout.Load()},
+		{"resp_failed", vcRespFailed.Load()},
+		{"resp_panic", vcRespPanic.Load()},
+		{"resp_timeout", vcRespTimeout.Load()},
+		{"resp_skip_schema", vcRespSkipSchemaRend.Load()},
+		{"resp_skip_ambig_oneof", vcRespSkipAmbigOneOf.Load()},
+		{"resp_skip_path_missing", vcRespSkipPathMissing.Load()},
+		{"resp_skip_js_regex", vcRespSkipJSRegex.Load()},
+		{"resp_skip_pattern", vcRespSkipPattern.Load()},
+		{"resp_skip_unsat", vcRespSkipUnsat.Load()},
+		{"resp_skip_conflicting_allof", vcRespSkipConfTypes.Load()},
+		{"resp_skip_ct_params", vcRespSkipCTParams.Load()},
+		{"resp_skip_wildcard_ct", vcRespSkipWildcardCT.Load()},
+		{"resp_skip_status_code", vcRespSkipStatusCode.Load()},
+		{"resp_skip_router_path", vcRespSkipRouterPath.Load()},
+	}
+	var b strings.Builder
+	for _, p := range pairs {
+		if p.value == 0 {
+			continue
+		}
+		fmt.Fprintf(&b, " %s=%d", p.key, p.value)
+	}
+	if b.Len() == 0 {
+		return ""
+	}
+	return "VALIDATION_STATS" + b.String()
+}
+
+// validationIncidentLines returns one tagged line per captured panic /
+// timeout. The svcToSpec map (built from the batch materialisation) is
+// applied here so each line carries the spec it belongs to; the
+// orchestrator groups on that to summarise multi-spec runs.
+func validationIncidentLines(svcToSpec map[string]string) string {
+	validationIncidentsMu.Lock()
+	defer validationIncidentsMu.Unlock()
+	if len(validationIncidents) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for _, line := range validationIncidents {
+		b.WriteString(line)
+		if spec := specForIncidentLine(line, svcToSpec); spec != "" {
+			fmt.Fprintf(&b, " spec=%s", spec)
+		}
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+// specForIncidentLine pulls the `/sNNNN/` service prefix out of an
+// incident's path= token and resolves it to the spec file via the
+// batch's svc→spec map. Returns "" when the path doesn't have a
+// resolvable service segment.
+func specForIncidentLine(line string, svcToSpec map[string]string) string {
+	const tag = "path="
+	i := strings.Index(line, tag)
+	if i < 0 {
+		return ""
+	}
+	rest := line[i+len(tag):]
+	if j := strings.IndexByte(rest, ' '); j >= 0 {
+		rest = rest[:j]
+	}
+	if !strings.HasPrefix(rest, "/") {
+		return ""
+	}
+	rest = rest[1:]
+	if k := strings.IndexByte(rest, '/'); k >= 0 {
+		rest = rest[:k]
+	}
+	return svcToSpec[rest]
 }
