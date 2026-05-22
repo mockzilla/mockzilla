@@ -12,6 +12,7 @@
 [![codecov](https://codecov.io/gh/mockzilla/mockzilla/graph/badge.svg?token=XGCEHYUDH0)](https://codecov.io/gh/mockzilla/mockzilla)
 [![GoReportCard](https://goreportcard.com/badge/github.com/mockzilla/mockzilla/v2)](https://goreportcard.com/report/github.com/mockzilla/mockzilla/v2)
 [![Go Reference](https://pkg.go.dev/badge/github.com/mockzilla/mockzilla/v2.svg)](https://pkg.go.dev/github.com/mockzilla/mockzilla/v2)
+[![mockzilla](https://snapcraft.io/mockzilla/badge.svg)](https://snapcraft.io/mockzilla)
 [![License](https://img.shields.io/github/license/mockzilla/mockzilla)](https://github.com/mockzilla/mockzilla/blob/main/LICENSE)
 
 
