@@ -1023,15 +1023,42 @@ func recordValidationIncident(kind string, r slog.Record) {
 		}
 		return true
 	})
-	// First line of the panic message is enough to distinguish "nil
-	// pointer" vs "index out of range" vs spec defect; the full stack
-	// would balloon the orchestrator output.
-	if i := strings.IndexByte(reason, '\n'); i >= 0 {
-		reason = reason[:i]
+
+	// Reason carries the panic message + full Go stack. Default keeps
+	// the first line only (enough to bucket "nil pointer" vs spec
+	// defect) so the orchestrator output stays scannable. Set
+	// VALIDATION_REASON_LINES=N to capture the first N stack frames -
+	// invaluable when chasing a rare, hard-to-reproduce panic. Newlines
+	// are flattened to ` | ` so the incident line stays single-line for
+	// the regex parser.
+	maxLines := 1
+	if v := os.Getenv("VALIDATION_REASON_LINES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			maxLines = n
+		}
 	}
-	if len(reason) > 200 {
-		reason = reason[:200] + "..."
+
+	if maxLines == 1 {
+		if i := strings.IndexByte(reason, '\n'); i >= 0 {
+			reason = reason[:i]
+		}
+	} else {
+		lines := strings.SplitN(reason, "\n", maxLines+1)
+		if len(lines) > maxLines {
+			lines = lines[:maxLines]
+		}
+		reason = strings.Join(lines, " | ")
 	}
+
+	limit := 200
+	if maxLines > 1 {
+		limit = 200 * maxLines
+	}
+
+	if len(reason) > limit {
+		reason = reason[:limit] + "..."
+	}
+
 	validationIncidentsMu.Lock()
 	validationIncidents = append(validationIncidents,
 		fmt.Sprintf("VALIDATION_INCIDENT kind=%s method=%s path=%s reason=%s",
