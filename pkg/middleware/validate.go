@@ -1011,8 +1011,8 @@ type slimValidationErrorPayload struct {
 }
 
 type slimValidationItem struct {
-	Reason           string                              `json:"reason,omitempty"`
-	ValidationErrors []*errors.SchemaValidationFailure   `json:"validationErrors,omitempty"`
+	Reason           string                            `json:"reason,omitempty"`
+	ValidationErrors []*errors.SchemaValidationFailure `json:"validationErrors,omitempty"`
 }
 
 // slimValidationErrors maps each ValidationError to its slim form:
