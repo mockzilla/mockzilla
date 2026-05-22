@@ -170,6 +170,15 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 				return
 			}
 
+			if allConflictingAllOfTypes(validationErrs) {
+				RequestLog(log, req).Warn("Spec allOf has conflicting branch types (e.g. allOf: [{type:object},{type:array}]); skipping response validation",
+					"method", req.Method,
+					"path", req.URL.Path,
+					"errors", len(validationErrs))
+				writeThrough(w, rw)
+				return
+			}
+
 			if allContentTypeParamsOnly(validationErrs) {
 				RequestLog(log, req).Warn("Spec content type only differs by media-type parameters; skipping response validation",
 					"method", req.Method,
@@ -546,6 +555,104 @@ func reasonIsDescriptivePattern(reason string) bool {
 	return strings.Contains(pattern, ", ")
 }
 
+// allConflictingAllOfTypes reports failures where every error is a type
+// mismatch against an `allOf` branch whose siblings declare different
+// scalar types - the canonical unsatisfiable shape is `allOf: [{type:
+// object}, {type: array}]`. The generator can produce one or the other
+// but never both, and the validator dutifully reports whichever branch
+// the generated value isn't. Treated as "validation skipped" rather
+// than surfacing as a 500.
+func allConflictingAllOfTypes(errs []*errors.ValidationError) bool {
+	if len(errs) == 0 {
+		return false
+	}
+	for _, e := range errs {
+		if len(e.SchemaValidationErrors) == 0 {
+			return false
+		}
+		for _, sve := range e.SchemaValidationErrors {
+			if sve == nil {
+				return false
+			}
+			if !schemaFailureIsConflictingAllOfTypes(sve.ReferenceSchema, sve.KeywordLocation, sve.Reason) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func schemaFailureIsConflictingAllOfTypes(referenceSchema, keywordLocation, reason string) bool {
+	if referenceSchema == "" {
+		return false
+	}
+	if !strings.Contains(reason, "want ") || !strings.Contains(reason, "got ") {
+		return false
+	}
+
+	// Only confident when the failing keyword is the branch's `type`;
+	// other allOf failures (required, schema, etc.) have their own
+	// dedicated heuristics or warrant real diagnostic output.
+	if !strings.HasSuffix(keywordLocation, "/type") {
+		return false
+	}
+
+	var root any
+	if err := yaml.Unmarshal([]byte(referenceSchema), &root); err != nil {
+		return false
+	}
+	return containsAllOfTypeConflict(root)
+}
+
+// containsAllOfTypeConflict walks a parsed schema and returns true when
+// any `allOf` branch list contains two or more branches that declare
+// different non-empty scalar `type` values. Walks both objects and
+// arrays so allOf nested under properties/items/additionalProperties is
+// reached.
+func containsAllOfTypeConflict(node any) bool {
+	switch v := node.(type) {
+	case map[string]any:
+		if allOf, ok := v["allOf"].([]any); ok {
+			seen := map[string]bool{}
+			for _, branch := range allOf {
+				b, ok := branch.(map[string]any)
+				if !ok {
+					continue
+				}
+
+				switch t := b["type"].(type) {
+				case string:
+					if t != "" && t != "null" {
+						seen[t] = true
+					}
+				case []any:
+					for _, x := range t {
+						if s, ok := x.(string); ok && s != "" && s != "null" {
+							seen[s] = true
+						}
+					}
+				}
+			}
+			if len(seen) > 1 {
+				return true
+			}
+		}
+
+		for _, child := range v {
+			if containsAllOfTypeConflict(child) {
+				return true
+			}
+		}
+	case []any:
+		for _, item := range v {
+			if containsAllOfTypeConflict(item) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // allUnsatisfiableSchema reports internally inconsistent schemas: a `required` name
 // that isn't in `properties` combined with `additionalProperties: false`.
 func allUnsatisfiableSchema(errs []*errors.ValidationError) bool {
@@ -671,17 +778,79 @@ func allAmbiguousOneOf(errs []*errors.ValidationError) bool {
 	if len(errs) == 0 {
 		return false
 	}
+
+	// Two acceptable shapes:
+	//   1. every SVE is itself an ambiguous-oneOf reason - sibling
+	//      fields both have ambiguous oneOfs at unrelated paths.
+	//   2. at least one SVE is ambiguous AND all SVEs share a prefix
+	//      through /anyOf or /oneOf - parent ambiguity plus child
+	//      explanations from the same composition chain.
+	// Distinguishes "swallowable ambiguity" from "ambiguous + an
+	// unrelated real failure".
 	for _, e := range errs {
 		if len(e.SchemaValidationErrors) == 0 {
 			return false
 		}
-		for _, sve := range e.SchemaValidationErrors {
-			if !isAmbiguousOneOfReason(sve.Reason) {
-				return false
-			}
+		if allAmbiguousOneOfSVE(e.SchemaValidationErrors) {
+			continue
+		}
+		if !anyAmbiguousOneOf(e.SchemaValidationErrors) {
+			return false
+		}
+		if !errorsShareCompositionRoot(e.SchemaValidationErrors) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func allAmbiguousOneOfSVE(sves []*errors.SchemaValidationFailure) bool {
+	for _, sve := range sves {
+		if !isAmbiguousOneOfReason(sve.Reason) {
+			return false
 		}
 	}
 	return true
+}
+
+func anyAmbiguousOneOf(sves []*errors.SchemaValidationFailure) bool {
+	for _, sve := range sves {
+		if isAmbiguousOneOfReason(sve.Reason) {
+			return true
+		}
+	}
+	return false
+}
+
+func errorsShareCompositionRoot(sves []*errors.SchemaValidationFailure) bool {
+	if len(sves) <= 1 {
+		return true
+	}
+
+	prefix := sves[0].KeywordLocation
+	for _, sve := range sves[1:] {
+		prefix = commonPathPrefix(prefix, sve.KeywordLocation)
+		if prefix == "" {
+			return false
+		}
+	}
+
+	return strings.Contains(prefix, "/anyOf") || strings.Contains(prefix, "/oneOf")
+}
+
+func commonPathPrefix(a, b string) string {
+	n := len(a)
+	if len(b) < n {
+		n = len(b)
+	}
+
+	for i := 0; i < n; i++ {
+		if a[i] != b[i] {
+			return a[:i]
+		}
+	}
+	return a[:n]
 }
 
 func isAmbiguousOneOfReason(reason string) bool {

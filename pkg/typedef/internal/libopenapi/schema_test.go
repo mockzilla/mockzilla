@@ -16,9 +16,11 @@ func loadResponseSchema(t *testing.T, specYAML string, path, method string) *sch
 	t.Helper()
 	reg, err := NewRegistry([]byte(specYAML), Options{})
 	require.NoError(t, err)
+
 	op := reg.FindOperation(path, method)
 	require.NotNil(t, op, "operation %s %s missing", method, path)
 	require.NotNil(t, op.Response, "operation has no response")
+
 	success := op.Response.GetSuccess()
 	require.NotNil(t, success, "operation has no success response")
 	return success.Content
@@ -98,6 +100,7 @@ paths:
                   age:  {type: integer}
 `
 	s := loadResponseSchema(t, spec, "/", "GET")
+
 	assert.Equal(t, types.TypeObject, s.Type)
 	assert.Equal(t, []string{"name"}, s.Required)
 	assert.Contains(t, s.Properties, "name")
@@ -143,6 +146,7 @@ paths:
                   type: integer
 `
 	s := loadResponseSchema(t, spec, "/", "GET")
+
 	require.NotNil(t, s.AdditionalProperties)
 	assert.Equal(t, types.TypeInteger, s.AdditionalProperties.Type)
 	assert.False(t, s.AdditionalPropertiesForbidden)
@@ -183,6 +187,7 @@ paths:
                 const: alpha
 `
 	s := loadResponseSchema(t, spec, "/", "GET")
+
 	require.Len(t, s.Enum, 1)
 	assert.Equal(t, "alpha", s.Enum[0])
 	assert.Equal(t, types.TypeString, s.Type)
@@ -290,6 +295,112 @@ paths:
 	assert.True(t, prop.IsNull)
 }
 
+func TestConvertSchema_NullableAllOfTypeConflictEmitsNull(t *testing.T) {
+	// Outer says type:object, allOf branch dictates integer. Both are
+	// enforced; no scalar fits, so nullable falls back to null even
+	// though the inner enum offers concrete values.
+	spec := `openapi: 3.0.0
+info: {title: t, version: 1}
+paths:
+  /:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    allOf:
+                      - $ref: "#/components/schemas/StatusEnum"
+                    nullable: true
+                    type: object
+components:
+  schemas:
+    StatusEnum:
+      type: integer
+      enum: [0, 1, 2]
+`
+	s := loadResponseSchema(t, spec, "/", "GET")
+	prop, ok := s.Properties["status"]
+	require.True(t, ok)
+	assert.True(t, prop.IsNull, "allOf type conflict + nullable must fall back to null")
+}
+
+func TestConvertSchema_NullableOneOfTypeConflictKeepsEnumBranch(t *testing.T) {
+	// Outer says type:integer but oneOf branches dictate string enums.
+	// oneOf is exclusive: a string from the enum branch satisfies one
+	// oneOf path. IsNull must stay false so the generator picks an
+	// enum value.
+	spec := `openapi: 3.0.0
+info: {title: t, version: 1}
+paths:
+  /:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: integer
+                    nullable: true
+                    oneOf:
+                      - $ref: "#/components/schemas/StatusEnum"
+                      - $ref: "#/components/schemas/NullEnum"
+components:
+  schemas:
+    StatusEnum:
+      type: string
+      enum: [pending, active]
+    NullEnum:
+      type: object
+      enum: [null]
+`
+	s := loadResponseSchema(t, spec, "/", "GET")
+	prop, ok := s.Properties["status"]
+
+	require.True(t, ok)
+	assert.False(t, prop.IsNull, "oneOf with enum must let the generator pick a branch value")
+	assert.NotEmpty(t, prop.Enum, "composed enum from picked oneOf branch must survive")
+}
+
+func TestConvertSchema_NullableOneOfTypeConflictNoEnumEmitsNull(t *testing.T) {
+	// Outer is array, oneOf picks an object branch with no enum.
+	// Generator has nothing concrete to pick from the union; nullable
+	// falls back to null.
+	spec := `openapi: 3.0.0
+info: {title: t, version: 1}
+paths:
+  /:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    nullable: true
+                    oneOf:
+                      - type: object
+                        properties:
+                          id: {type: string}
+`
+	s := loadResponseSchema(t, spec, "/", "GET")
+	prop, ok := s.Properties["files"]
+	require.True(t, ok)
+	assert.True(t, prop.IsNull, "oneOf type conflict + nullable + no enum must fall back to null")
+}
+
 func TestConvertSchema_RecursiveSelfReference(t *testing.T) {
 	spec := `openapi: 3.0.0
 info: {title: t, version: 1}
@@ -312,6 +423,7 @@ components:
         next: {$ref: "#/components/schemas/Node"}
 `
 	s := loadResponseSchema(t, spec, "/", "GET")
+
 	assert.Equal(t, types.TypeObject, s.Type)
 	assert.Contains(t, s.Properties, "name")
 	assert.Contains(t, s.Properties, "next")

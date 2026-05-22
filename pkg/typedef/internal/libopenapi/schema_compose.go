@@ -91,12 +91,28 @@ func mergeAllOfBranch(proxy *base.SchemaProxy, out *composedShape, ctx *convertC
 
 	if sub.Properties != nil {
 		for k, propProxy := range sub.Properties.FromOldest() {
-			if _, exists := out.properties[k]; exists {
+			converted := convertProxy(propProxy, ctx)
+			if converted == nil {
 				continue
 			}
-			if converted := convertProxy(propProxy, ctx); converted != nil {
-				out.properties[k] = converted
+
+			if existing, exists := out.properties[k]; exists {
+				// Both branches declared this property. allOf
+				// semantics require the value to satisfy both, so the
+				// merged property is the more constraining of the two.
+				// Picking the one with more properties + required keys.
+				// branch 0 narrows to a base $ref like
+				// `{self}` while branch 1 redeclares the same property
+				// as a richer $ref like `{self, history, harvest, ...}`
+				// whose allOf already contains the base. First-wins
+				// loses the richer branch's keys and the generator can
+				// no longer satisfy the required list.
+				if propertyMoreSpecific(converted, existing) {
+					out.properties[k] = converted
+				}
+				continue
 			}
+			out.properties[k] = converted
 		}
 	}
 
@@ -112,14 +128,74 @@ func mergeAllOfBranch(proxy *base.SchemaProxy, out *composedShape, ctx *convertC
 		out.enums = convertEnumNodes(sub.Enum, out.typ)
 	}
 
+	// Scalar constraint accumulation. allOf semantics require every
+	// branch to be satisfied, so when multiple branches declare the
+	// same constraint we take the tightest: min of *Length/maximum
+	// upper bounds, max of *Length/minimum lower bounds. Pattern and
+	// format can't be safely intersected; first non-empty wins, which
+	// matches the no-op regex engine policy in
+	// internal/portable/runner.go (patterns aren't validated anyway).
+	if v := sub.MaxLength; v != nil && (out.maxLength == nil || *v < *out.maxLength) {
+		out.maxLength = v
+	}
+	if v := sub.MinLength; v != nil && (out.minLength == nil || *v > *out.minLength) {
+		out.minLength = v
+	}
+	if v := sub.Maximum; v != nil && (out.maximum == nil || *v < *out.maximum) {
+		out.maximum = v
+	}
+	if v := sub.Minimum; v != nil && (out.minimum == nil || *v > *out.minimum) {
+		out.minimum = v
+	}
+	if v := sub.MaxItems; v != nil && (out.maxItems == nil || *v < *out.maxItems) {
+		out.maxItems = v
+	}
+	if v := sub.MinItems; v != nil && (out.minItems == nil || *v > *out.minItems) {
+		out.minItems = v
+	}
+	if out.multipleOf == nil {
+		out.multipleOf = sub.MultipleOf
+	}
+	if out.pattern == "" {
+		out.pattern = sub.Pattern
+	}
+	if out.format == "" {
+		out.format = sub.Format
+	}
+
 	for _, nested := range sub.AllOf {
 		mergeAllOfBranch(nested, out, ctx)
+	}
+
+	// Pure-composition allOf branches like `allOf: [{oneOf: [A, B, C]},
+	// {description: ...}]` carry their shape inside their own oneOf/anyOf
+	// rather than directly. Without descending into them the branch
+	// contributes nothing, and the merged shape ends up with no type or
+	// properties; the generator then falls back to a bare string and
+	// response validation fails with "got string, want object". Pick the
+	// first non-null union branch (matching the policy in composeSchema's
+	// own oneOf/anyOf handling).
+	hasOwnShape := (sub.Properties != nil && sub.Properties.Len() > 0) ||
+		firstNonNullType(sub.Type) != "" || len(sub.Enum) > 0
+	if !hasOwnShape {
+		if branch := firstNonNullBranch(sub.OneOf); branch != nil {
+			mergeUnionBranch(branch, out, ctx)
+		} else if branch := firstNonNullBranch(sub.AnyOf); branch != nil {
+			mergeUnionBranch(branch, out, ctx)
+		}
 	}
 
 	if sub.Items != nil && sub.Items.IsA() && out.items == nil {
 		if items := convertProxy(sub.Items.A, ctx); items != nil {
 			out.items = items
-			if out.typ == "" {
+			// Items signal an array; if a prior branch typed this as
+			// something else (typical "allOf: [{type: object}, {type:
+			// array, items: ...}]" mismatch in real specs), array wins
+			// because the items themselves are what the generator needs
+			// to produce a satisfiable value. Without this override the
+			// generator emits an object and response validation rejects
+			// it as "got object, want array".
+			if out.typ != types.TypeArray {
 				out.typ = types.TypeArray
 			}
 		}
@@ -141,12 +217,24 @@ func mergeUnionBranch(proxy *base.SchemaProxy, out *composedShape, ctx *convertC
 
 	if sub.Properties != nil {
 		for k, propProxy := range sub.Properties.FromOldest() {
-			if _, exists := out.properties[k]; exists {
+			converted := convertProxy(propProxy, ctx)
+			if converted == nil {
 				continue
 			}
-			if converted := convertProxy(propProxy, ctx); converted != nil {
-				out.properties[k] = converted
+			if existing, exists := out.properties[k]; exists {
+				// Same merge policy as mergeAllOfBranch: prefer the
+				// more specific schema when both branches declare the
+				// same property. Crucial for enum narrowing — broad
+				// branch declares the property by $ref to a base type,
+				// narrow branch redeclares it with a tighter enum;
+				// first-wins kept the broad version and generated
+				// values were rejected by the narrow enum.
+				if propertyMoreSpecific(converted, existing) {
+					out.properties[k] = converted
+				}
+				continue
 			}
+			out.properties[k] = converted
 		}
 	}
 
@@ -186,16 +274,17 @@ func mergeUnionBranch(proxy *base.SchemaProxy, out *composedShape, ctx *convertC
 		out.maxItems = sub.MaxItems
 	}
 
-	// Common shape in real-world specs: `anyOf: [{allOf:[A, B]}, ...]`,
-	// where the picked anyOf branch is itself a pure composition with
-	// no direct shape. Walk its allOf so the merged shape includes the
-	// branch's nested properties; without this, the generator gets a
-	// bare schema and falls back to a string. Skip when the branch
-	// already contributed properties/type/enum: saves a lot of
-	// redundant work on heavy specs (clarifai, docusign) where union
-	// branches are well-formed and don't need the allOf rescue.
+	// Walk the picked branch's own allOf. Real-world specs
+	// declare `type: object` and a op-level `required` list at the wrapper schema,
+	// but put the actual property definitions inside allOf branches that reference
+	// other component schemas. Without descending, the picked branch
+	// contributes a type and a required list but zero property
+	// definitions; the generator then can't emit the required keys and
+	// response validation fails with "missing properties ...". Skip
+	// when the branch already declared its own properties or enum so
+	// well-formed union branches don't pay the double-walk cost.
 	hasOwnProps := sub.Properties != nil && sub.Properties.Len() > 0
-	if len(sub.AllOf) > 0 && !hasOwnProps && firstNonNullType(sub.Type) == "" && len(sub.Enum) == 0 {
+	if len(sub.AllOf) > 0 && !hasOwnProps && len(sub.Enum) == 0 {
 		for _, nested := range sub.AllOf {
 			mergeAllOfBranch(nested, out, ctx)
 		}
@@ -273,6 +362,34 @@ func applyComposedConstraints(out *schema.Schema, c *composedShape) {
 	if out.MaxItems == nil {
 		out.MaxItems = c.maxItems
 	}
+}
+
+// propertyMoreSpecific reports whether candidate carries strictly more
+// shape information than incumbent. "More" means a non-empty type when
+// incumbent had none, a non-empty enum when incumbent had none, more
+// declared properties, or more required keys. It's intentionally
+// asymmetric (no equality case) so the merge stays deterministic when
+// the two are equivalent.
+func propertyMoreSpecific(candidate, incumbent *schema.Schema) bool {
+	if candidate == nil {
+		return false
+	}
+	if incumbent == nil {
+		return true
+	}
+	if len(candidate.Properties) > len(incumbent.Properties) {
+		return true
+	}
+	if len(candidate.Required) > len(incumbent.Required) {
+		return true
+	}
+	if incumbent.Type == "" && candidate.Type != "" {
+		return true
+	}
+	if len(incumbent.Enum) == 0 && len(candidate.Enum) > 0 {
+		return true
+	}
+	return false
 }
 
 // firstNonNullBranch returns the first non-null oneOf/anyOf branch from

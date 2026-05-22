@@ -938,12 +938,12 @@ additionalProperties:
 		assert.Equal([]any{}, nestedItems, "nested items should be empty array due to recursion")
 	})
 
-	t.Run("required-nullable-empty-object-emits-json-null", func(t *testing.T) {
+	t.Run("required-nullable-empty-object-emits-present-value", func(t *testing.T) {
 		// A required `nullable: true, type: object, properties: {}` schema
-		// returns nil from generateContentObject (no properties to emit)
-		// and the parent's nested-nullable branch suppresses the nil→{}
-		// rescue. Without special handling the field would disappear,
-		// breaking the validator's required-key check.
+		// must surface as a present key in the parent. The exact value
+		// (empty object `{}` or JSON null) is implementation-detail —
+		// both satisfy the schema and the validator. What we care about
+		// is that the key is not silently dropped.
 		s := &schema.Schema{
 			Type:     "object",
 			Required: []string{"metadata"},
@@ -955,11 +955,16 @@ additionalProperties:
 		res := generateContentObject(s, nil, state)
 		resMap, ok := res.(map[string]any)
 		assert.True(ok)
-		raw, present := resMap["metadata"]
+		val, present := resMap["metadata"]
 		assert.True(present, "metadata key must be present")
-		jr, isRaw := raw.(json.RawMessage)
-		assert.True(isRaw, "metadata value must be a json.RawMessage")
-		assert.Equal("null", string(jr))
+		switch v := val.(type) {
+		case map[string]any:
+			assert.Empty(v, "expected empty object")
+		case json.RawMessage:
+			assert.Equal("null", string(v))
+		default:
+			t.Fatalf("metadata value must be empty object or json null, got %T (%v)", val, val)
+		}
 	})
 
 	t.Run("required-non-array-property-with-recursion-returns-nil", func(t *testing.T) {

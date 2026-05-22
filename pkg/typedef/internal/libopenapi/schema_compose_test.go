@@ -1,6 +1,9 @@
 package libopenapi
 
 import (
+	"maps"
+	"os"
+	"slices"
 	"testing"
 
 	"github.com/mockzilla/mockzilla/v2/internal/types"
@@ -9,6 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var _ = slices.Sorted[string] // keep slices import if maps.Keys collapses
 
 func TestCompose_AllOfMergesPropertiesAndRequired(t *testing.T) {
 	spec := `openapi: 3.0.0
@@ -267,6 +272,246 @@ paths:
 	require.Len(t, s.Enum, 2, "first branch's enum wins")
 	keys := mapToStrings(s.Enum)
 	assert.ElementsMatch(t, []string{"x", "y"}, keys)
+}
+
+// TestCompose_NestedAllOfRefMergesWithInlineBranch covers the beezup
+// orderLinks shape: a $ref to a schema that declares some properties +
+// an inline allOf branch that adds more properties and bumps required.
+// The merged schema must carry properties from both branches so the
+// generator can emit every required key.
+func TestCompose_NestedAllOfRefMergesWithInlineBranch(t *testing.T) {
+	spec := `openapi: 3.0.0
+info: {title: t, version: 1}
+paths:
+  /:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Links"
+components:
+  schemas:
+    HeaderLinks:
+      type: object
+      required: [self]
+      properties:
+        self: {type: object, properties: {href: {type: string}}}
+    Links:
+      allOf:
+        - $ref: "#/components/schemas/HeaderLinks"
+        - type: object
+          required: [self, history, harvest]
+          properties:
+            history: {type: object, properties: {href: {type: string}}}
+            harvest: {type: object, properties: {href: {type: string}}}
+`
+	s := loadResponseSchema(t, spec, "/", "GET")
+	assert.Contains(t, s.Properties, "self", "self from $ref branch")
+	assert.Contains(t, s.Properties, "history", "history from inline branch")
+	assert.Contains(t, s.Properties, "harvest", "harvest from inline branch")
+	assert.ElementsMatch(t, []string{"self", "history", "harvest"}, s.Required)
+}
+
+// TestCompose_BeezupLinksHierarchy reproduces the exact orderWithLinks
+// nesting from testdata/specs/3.0/misc/beezup.com.yml: links appears in
+// two allOf branches (once via $ref order, once via $ref orderWithLinks
+// inline), and the linked schema is itself allOf-of-$ref-plus-inline.
+// The merged response.links must surface every property the inline
+// branch contributes (history, harvest), not just self from the $ref.
+func TestCompose_BeezupLinksHierarchy(t *testing.T) {
+	spec := `openapi: 3.0.0
+info: {title: t, version: 1}
+paths:
+  /:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderWithLinks"
+components:
+  schemas:
+    HeaderLinks:
+      type: object
+      required: [self]
+      properties:
+        self: {type: object, properties: {href: {type: string}}}
+    HistoryLink:
+      type: object
+      properties: {href: {type: string}}
+    HarvestLink:
+      type: object
+      properties: {href: {type: string}}
+    OrderLinks:
+      allOf:
+        - $ref: "#/components/schemas/HeaderLinks"
+        - type: object
+          required: [self, history, harvest]
+          properties:
+            history: {$ref: "#/components/schemas/HistoryLink"}
+            harvest: {$ref: "#/components/schemas/HarvestLink"}
+    OrderHeader:
+      type: object
+      properties:
+        id: {type: string}
+    Order:
+      allOf:
+        - $ref: "#/components/schemas/OrderHeader"
+        - type: object
+          properties:
+            links: {$ref: "#/components/schemas/OrderLinks"}
+    OrderWithLinks:
+      allOf:
+        - $ref: "#/components/schemas/Order"
+        - type: object
+          required: [links]
+          properties:
+            links: {$ref: "#/components/schemas/OrderLinks"}
+`
+	s := loadResponseSchema(t, spec, "/", "GET")
+	require.NotNil(t, s.Properties["links"])
+	linksProp := s.Properties["links"]
+	assert.Contains(t, linksProp.Properties, "self", "self from HeaderLinks")
+	assert.Contains(t, linksProp.Properties, "history", "history from OrderLinks inline branch")
+	assert.Contains(t, linksProp.Properties, "harvest", "harvest from OrderLinks inline branch")
+	assert.ElementsMatch(t, []string{"self", "history", "harvest"}, linksProp.Required)
+}
+
+// TestCompose_BoxOneOfInsideAllOf covers box.com's Collaboration.item
+// pattern: `allOf: [{oneOf: [$ref A, $ref B]}, {description}]` where
+// each oneOf branch is itself allOf-of-$ref-plus-inline. The merged
+// shape must carry properties from the chosen oneOf branch's entire
+// allOf chain (including required keys declared at the outer schema
+// level), not just the first $ref in the chain.
+func TestCompose_BoxOneOfInsideAllOf(t *testing.T) {
+	spec := `openapi: 3.0.0
+info: {title: t, version: 1}
+paths:
+  /:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Collab"
+components:
+  schemas:
+    FileBase:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string}
+        etag: {type: string}
+    FileMini:
+      allOf:
+        - $ref: "#/components/schemas/FileBase"
+        - type: object
+          properties:
+            name: {type: string}
+            sequence_id: {type: string}
+            sha1: {type: string}
+      required:
+        - sequence_id
+        - sha1
+      type: object
+    File:
+      allOf:
+        - $ref: "#/components/schemas/FileMini"
+        - type: object
+          properties:
+            description: {type: string}
+    Folder:
+      type: object
+      required: [id]
+      properties:
+        id: {type: string}
+        kind: {type: string, enum: [folder]}
+    Collab:
+      type: object
+      properties:
+        item:
+          allOf:
+            - oneOf:
+                - $ref: "#/components/schemas/File"
+                - $ref: "#/components/schemas/Folder"
+            - description: chosen item
+`
+	s := loadResponseSchema(t, spec, "/", "GET")
+	require.NotNil(t, s.Properties["item"])
+	item := s.Properties["item"]
+	assert.Contains(t, item.Properties, "id", "id from FileBase $ref")
+	assert.Contains(t, item.Properties, "sequence_id", "sequence_id from FileMini inline branch")
+	assert.Contains(t, item.Properties, "sha1", "sha1 from FileMini inline branch")
+	assert.Contains(t, item.Required, "sequence_id", "FileMini's required must propagate")
+	assert.Contains(t, item.Required, "sha1", "FileMini's required must propagate")
+}
+
+// TestCompose_BoxRealSpec_CollaborationsItem dumps what the registry
+// produces for box.com's /collaborations GET response, specifically the
+// entries[].item property. This is a diagnostic test: it doesn't assert
+// success, it logs the converted schema so we can see exactly what the
+// generator gets.
+func TestCompose_BeezupRealSpec_OrderLinks(t *testing.T) {
+	t.Skip("diagnostic only; un-skip to inspect beezup.com schema conversion")
+	specBytes, err := os.ReadFile("../../../../testdata/specs/3.0/misc/beezup.com.yml")
+	require.NoError(t, err)
+	reg, err := NewRegistry(specBytes, Options{})
+	require.NoError(t, err)
+
+	// Look at orderLinks via the model directly, bypassing the cached
+	// convert path the operation walk uses, to see what compose
+	// produces on a fresh conversion.
+	freshCtx := newConvertCtx()
+	model := reg.model
+	for name, proxy := range model.Components.Schemas.FromOldest() {
+		if name != "orderLinks" {
+			continue
+		}
+		converted := convertProxy(proxy, freshCtx)
+		require.NotNil(t, converted)
+		t.Logf("orderLinks (fresh) Type=%q Required=%v Properties=%v",
+			converted.Type, converted.Required, slices.Sorted(maps.Keys(converted.Properties)))
+	}
+
+	op := reg.FindOperation("/orders/v3/{marketplaceTechnicalCode}/{accountId}/{beezUPOrderId}", "GET")
+	require.NotNil(t, op)
+	success := op.Response.GetSuccess()
+	root := success.Content
+	links := root.Properties["links"]
+	require.NotNil(t, links)
+	t.Logf("links (via operation) Type=%q Required=%v Properties=%v",
+		links.Type, links.Required, slices.Sorted(maps.Keys(links.Properties)))
+}
+
+func TestCompose_BoxRealSpec_CollaborationsItem(t *testing.T) {
+	t.Skip("diagnostic only; un-skip to inspect box.com schema conversion")
+	specBytes, err := os.ReadFile("../../../../testdata/specs/3.0/misc/box.com.yml")
+	require.NoError(t, err)
+	reg, err := NewRegistry(specBytes, Options{})
+	require.NoError(t, err)
+	op := reg.FindOperation("/collaborations", "GET")
+	require.NotNil(t, op)
+	require.NotNil(t, op.Response)
+	success := op.Response.GetSuccess()
+	require.NotNil(t, success)
+
+	// Walk Collaborations.entries.items.item
+	collabs := success.Content
+	t.Logf("collabs.Properties keys: %v", slices.Sorted(maps.Keys(collabs.Properties)))
+	entries := collabs.Properties["entries"]
+	require.NotNil(t, entries)
+	require.NotNil(t, entries.Items)
+	t.Logf("entries.Items.Properties keys: %v", slices.Sorted(maps.Keys(entries.Items.Properties)))
+	item := entries.Items.Properties["item"]
+	require.NotNil(t, item)
+	t.Logf("item.Type=%q, Required=%v, Properties=%v", item.Type, item.Required, slices.Sorted(maps.Keys(item.Properties)))
 }
 
 func TestAllOfMergeArrayItems(t *testing.T) {

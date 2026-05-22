@@ -133,19 +133,17 @@ func convertSchema(s *base.Schema, ctx *convertCtx) *schema.Schema {
 
 	composed := composeSchema(s, ctx)
 	if composed != nil {
-		// Unsatisfiable spec: outer declares one type, an allOf branch
-		// demands another. When the schema is nullable AND the composed
-		// branch offered no enum to choose from, the only value that
-		// can satisfy everything is JSON null. uploadcare /group's
-		// `files` field is the canonical case (type: array + allOf:
-		// [{type: object}, ...] + nullable, no enum). Skip the IsNull
-		// switch when an enum is present: the generator can pick a
-		// branch-typed value that satisfies at least one oneOf path
-		// (procurify CreditCard.status, integer + oneOf of string
-		// enums, would otherwise emit null and fail every oneOf).
+		// Outer and composed types disagree. allOf branches are all
+		// enforced alongside the outer, so a type conflict has no
+		// satisfying scalar - null is the only fit when nullable.
+		// oneOf/anyOf source falls back to null only without an enum;
+		// with an enum the generator picks a branch value that
+		// satisfies one of the union paths.
 		if typ != "" && composed.typ != "" && typ != composed.typ &&
-			derefBool(s.Nullable) && len(composed.enums) == 0 {
-			isNull = true
+			derefBool(s.Nullable) {
+			if len(s.AllOf) > 0 || len(composed.enums) == 0 {
+				isNull = true
+			}
 		}
 		mergeComposed(&typ, &items, properties, &required, &enums, composed)
 	}

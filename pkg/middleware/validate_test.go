@@ -551,40 +551,93 @@ func TestAllAmbiguousOneOf(t *testing.T) {
 		Message: "200 response body failed to validate schema",
 		Reason:  "The response body for status code '200' is defined as an object. However, it does not meet the schema requirements of the specification",
 		SchemaValidationErrors: []*errors.SchemaValidationFailure{
-			{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched", KeywordLocation: "/properties/x/oneOf"},
 		},
 	}
 	noneMatched := &errors.ValidationError{
 		Message: "200 response body failed to validate schema",
 		SchemaValidationErrors: []*errors.SchemaValidationFailure{
-			{Reason: "'oneOf' failed, none matched"},
+			{Reason: "'oneOf' failed, none matched", KeywordLocation: "/properties/x/oneOf"},
 		},
 	}
-	mixed := &errors.ValidationError{
+	ambiguousWithChild := &errors.ValidationError{
 		Message: "200 response body failed to validate schema",
+		// Real-world libopenapi-validator output: the ambiguous oneOf
+		// appears at /properties/x/oneOf, and each matched branch
+		// contributes child errors nested deeper under the same path
+		// (here, enum failure inside branch 1).
 		SchemaValidationErrors: []*errors.SchemaValidationFailure{
-			{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
-			{Reason: "minProperties: got 0, want 1"},
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched", KeywordLocation: "/properties/x/oneOf"},
+			{Reason: "value must be 'Page Break'", KeywordLocation: "/properties/x/oneOf/1/properties/Type/enum"},
+		},
+	}
+	ambiguousPlusUnrelated := &errors.ValidationError{
+		Message: "200 response body failed to validate schema",
+		// A non-child error (different prefix) means a real failure is
+		// mixed in - skipping would swallow it.
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched", KeywordLocation: "/properties/x/oneOf"},
+			{Reason: "minProperties: got 0, want 1", KeywordLocation: "/properties/y/minProperties"},
 		},
 	}
 	noNested := &errors.ValidationError{
 		Message: "request validation failed",
 		Reason:  "minProperties: got 0, want 1",
 	}
+	siblingAmbiguous := &errors.ValidationError{
+		Message: "200 response body failed to validate schema",
+		// Two unrelated fields each have an ambiguous oneOf. The
+		// SVEs share no /anyOf or /oneOf prefix, but every SVE is
+		// itself ambiguous - all failures are spec ambiguity.
+		SchemaValidationErrors: []*errors.SchemaValidationFailure{
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched", KeywordLocation: "/properties/x/oneOf"},
+			{Reason: "'oneOf' failed, subschemas 0, 1 matched", KeywordLocation: "/properties/y/oneOf"},
+		},
+	}
 
 	t.Run("empty slice is not all-ambiguous", func(t *testing.T) {
 		assert.False(t, allAmbiguousOneOf(nil))
 	})
-	t.Run("all ambiguous oneOf", func(t *testing.T) {
+	t.Run("solo ambiguous oneOf", func(t *testing.T) {
 		assert.True(t, allAmbiguousOneOf([]*errors.ValidationError{ambiguous}))
+	})
+	t.Run("ambiguous oneOf with child explanation", func(t *testing.T) {
+		assert.True(t, allAmbiguousOneOf([]*errors.ValidationError{ambiguousWithChild}))
+	})
+	t.Run("sibling ambiguous oneOfs at unrelated paths", func(t *testing.T) {
+		assert.True(t, allAmbiguousOneOf([]*errors.ValidationError{siblingAmbiguous}))
 	})
 	t.Run("none-matched is not ambiguous", func(t *testing.T) {
 		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{noneMatched}))
 	})
-	t.Run("mixed reasons inside one error fail", func(t *testing.T) {
-		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{mixed}))
+	t.Run("ambiguous mixed with unrelated failure fails", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{ambiguousPlusUnrelated}))
 	})
 	t.Run("error without nested schema failures is not ambiguous", func(t *testing.T) {
 		assert.False(t, allAmbiguousOneOf([]*errors.ValidationError{noNested}))
+	})
+}
+
+func TestAllAmbiguousOneOfSVE(t *testing.T) {
+	allAmbiguous := []*errors.SchemaValidationFailure{
+		{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
+		{Reason: "'oneOf' failed, subschemas 0, 2 matched"},
+	}
+	mixed := []*errors.SchemaValidationFailure{
+		{Reason: "'oneOf' failed, subschemas 0, 1 matched"},
+		{Reason: "minProperties: got 0, want 1"},
+	}
+	allNone := []*errors.SchemaValidationFailure{
+		{Reason: "'oneOf' failed, none matched"},
+	}
+
+	t.Run("all ambiguous", func(t *testing.T) {
+		assert.True(t, allAmbiguousOneOfSVE(allAmbiguous))
+	})
+	t.Run("mixed with non-ambiguous fails", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOfSVE(mixed))
+	})
+	t.Run("none-matched is not ambiguous", func(t *testing.T) {
+		assert.False(t, allAmbiguousOneOfSVE(allNone))
 	})
 }
