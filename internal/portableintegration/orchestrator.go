@@ -111,7 +111,7 @@ func Run(t *testing.T, cfg Config) {
 	}
 	defer cleanup()
 
-	var agg aggregate
+	agg := aggregate{totalSpecs: len(specs)}
 	failedBatches := 0
 	for i, batch := range batches {
 		fmt.Fprintln(os.Stderr)
@@ -252,34 +252,42 @@ type batchSummary struct {
 	bootMs    float64
 	testMs    float64
 	failed    []string
+
 	// inFlight: specs that printed a "start" line but never a completion.
 	// On SIGKILL these are the candidates for what caused it.
 	inFlight []string
+
 	// Validation-middleware counters from the child's
 	// VALIDATION_STATS line. Zero when the child didn't emit one (older
 	// binary, or process killed before the summary printed).
 	validation validationStats
+
+	// Raw VALIDATION_INCIDENT lines from the child, verbatim. Kept as
+	// strings instead of a parsed struct since the aggregate only ever
+	// regexes them once at print time and never queries individual
+	// fields elsewhere.
+	incidents []string
 }
 
 // validationStats mirrors the VALIDATION_STATS tokens emitted by the
 // child test binary. The fields are summed across batches by aggregate.
 type validationStats struct {
-	reqPanic                int64
-	reqTimeout              int64
-	respFailed              int64
-	respPanic               int64
-	respTimeout             int64
-	respSkipSchema          int64
-	respSkipAmbigOneof      int64
-	respSkipPathMissing     int64
-	respSkipJSRegex         int64
-	respSkipPattern         int64
-	respSkipUnsat           int64
+	reqPanic                 int64
+	reqTimeout               int64
+	respFailed               int64
+	respPanic                int64
+	respTimeout              int64
+	respSkipSchema           int64
+	respSkipAmbigOneof       int64
+	respSkipPathMissing      int64
+	respSkipJSRegex          int64
+	respSkipPattern          int64
+	respSkipUnsat            int64
 	respSkipConflictingAllOf int64
-	respSkipCTParams        int64
-	respSkipWildcardCT      int64
-	respSkipStatusCode      int64
-	respSkipRouterPath      int64
+	respSkipCTParams         int64
+	respSkipWildcardCT       int64
+	respSkipStatusCode       int64
+	respSkipRouterPath       int64
 }
 
 func (v *validationStats) add(o validationStats) {
@@ -315,8 +323,10 @@ var (
 	startRx = regexp.MustCompile(`^\s*start (.+)$`)
 
 	// Matches the child test binary's machine-parseable summary line.
-	// Tokens are key=integer pairs; unknown tokens are tolerated.
-	validationStatsRx     = regexp.MustCompile(`^VALIDATION_STATS\s+(.+)$`)
+	// Tokens are key=integer pairs; unknown tokens are tolerated. The
+	// `\s*` lets quiet batches print just `VALIDATION_STATS` with no
+	// values (we omit zeros).
+	validationStatsRx      = regexp.MustCompile(`^VALIDATION_STATS\s*(.*)$`)
 	validationStatsTokenRx = regexp.MustCompile(`([a-z_]+)=(-?\d+)`)
 )
 
@@ -360,6 +370,9 @@ func scanStream(r io.Reader, tee io.Writer) batchSummary {
 		}
 		if m := validationStatsRx.FindStringSubmatch(line); m != nil {
 			s.validation = parseValidationStats(m[1])
+		}
+		if strings.HasPrefix(line, "VALIDATION_INCIDENT ") {
+			s.incidents = append(s.incidents, line)
 		}
 	}
 	for spec := range started {
@@ -438,6 +451,12 @@ type aggregate struct {
 	inFlight     []string
 	seenInFlight map[string]struct{}
 	validation   validationStats
+	incidents    []string
+
+	// totalSpecs is the count of distinct specs the orchestrator was
+	// asked to run; the incident printer uses it to decide between
+	// per-route detail (single spec) and per-spec rollup (many specs).
+	totalSpecs int
 }
 
 func (a *aggregate) merge(b batchSummary) {
@@ -469,6 +488,7 @@ func (a *aggregate) merge(b batchSummary) {
 		a.seenInFlight[spec] = struct{}{}
 		a.inFlight = append(a.inFlight, spec)
 	}
+	a.incidents = append(a.incidents, b.incidents...)
 }
 
 func (a *aggregate) print(totalBatches, failedBatches int, wall time.Duration) {
@@ -491,6 +511,7 @@ func (a *aggregate) print(totalBatches, failedBatches int, wall time.Duration) {
 			fmtMs(inProcessMs/float64(total)), fmtDur(wall/time.Duration(total)))
 	}
 	fmt.Fprintf(os.Stderr, "Batches:            %d (failing: %d)\n", totalBatches, failedBatches)
+
 	// A batch can exit non-zero without naming a failed spec when the
 	// child was killed mid-run (timeout, SIGKILL on a hung handler) or
 	// crashed before any per-spec line printed. Surface the gap so the
@@ -498,6 +519,7 @@ func (a *aggregate) print(totalBatches, failedBatches int, wall time.Duration) {
 	if gap := failedBatches - a.failSpecs; gap > 0 {
 		fmt.Fprintf(os.Stderr, "  batches without listed spec failures: %d (timeout/SIGKILL or boot crash)\n", gap)
 	}
+
 	if len(a.inFlight) > 0 {
 		fmt.Fprintf(os.Stderr, "  specs in-flight at batch kill: %d (likely cause of the killed batches above)\n",
 			len(a.inFlight))
@@ -537,10 +559,12 @@ func (a *aggregate) printValidation() {
 		v.respSkipJSRegex + v.respSkipPattern + v.respSkipUnsat +
 		v.respSkipConflictingAllOf + v.respSkipCTParams + v.respSkipWildcardCT +
 		v.respSkipStatusCode + v.respSkipRouterPath
+
 	fmt.Fprintln(os.Stderr, "=== Validation Activity (all batches) ===")
 	fmt.Fprintf(os.Stderr, "  request:  panic=%-3d  timeout=%-3d\n", v.reqPanic, v.reqTimeout)
 	fmt.Fprintf(os.Stderr, "  response: failed(500)=%-5d  panic=%-3d  timeout=%-3d  skip-heuristic=%-3d\n",
 		v.respFailed, v.respPanic, v.respTimeout, respSkipTotal)
+
 	if respSkipTotal > 0 {
 		fmt.Fprintln(os.Stderr, "  response skip breakdown:")
 		printIfNonzero("    schema-render-fail   ", v.respSkipSchema)
@@ -556,6 +580,140 @@ func (a *aggregate) printValidation() {
 		printIfNonzero("    router-path-mismatch ", v.respSkipRouterPath)
 	}
 	fmt.Fprintln(os.Stderr, strings.Repeat("=", 50))
+
+	a.printIncidents()
+}
+
+// printIncidents lists captured panics/timeouts. Single-spec runs get
+// full per-route detail (method, path, reason); multi-spec runs roll
+// up by spec file with per-kind counts, since a multi-thousand-spec
+// corpus run would otherwise wall-of-text the operator.
+func (a *aggregate) printIncidents() {
+	if len(a.incidents) == 0 {
+		return
+	}
+	fmt.Fprintln(os.Stderr)
+
+	if a.totalSpecs <= 1 {
+		fmt.Fprintln(os.Stderr, "=== Validation Incidents (per route) ===")
+		printIncidentsPerRoute(a.incidents)
+	} else {
+		fmt.Fprintln(os.Stderr, "=== Validation Incidents (per spec) ===")
+		printIncidentsPerSpec(a.incidents)
+	}
+	fmt.Fprintln(os.Stderr, strings.Repeat("=", 50))
+}
+
+// incidentField pulls a `key=` token's value out of an incident line.
+// path/method/kind/spec are single tokens (no spaces); reason runs to
+// end of line *unless* a `spec=` suffix follows (the child appends
+// spec last), in which case we stop before it.
+func incidentField(line, key string) string {
+	tag := key + "="
+	i := strings.Index(line, tag)
+	if i < 0 {
+		return ""
+	}
+	rest := line[i+len(tag):]
+	if key == "reason" {
+		if j := strings.LastIndex(rest, " spec="); j >= 0 {
+			rest = rest[:j]
+		}
+		return rest
+	}
+	if j := strings.IndexByte(rest, ' '); j >= 0 {
+		return rest[:j]
+	}
+	return rest
+}
+
+var incidentKindOrder = []struct{ kind, label string }{
+	{"req_panic", "request validator panics"},
+	{"req_timeout", "request validator timeouts"},
+	{"resp_panic", "response validator panics"},
+	{"resp_timeout", "response validator timeouts"},
+}
+
+func printIncidentsPerRoute(lines []string) {
+	byKind := map[string][]string{}
+	for _, line := range lines {
+		byKind[incidentField(line, "kind")] = append(byKind[incidentField(line, "kind")], line)
+	}
+	for _, g := range incidentKindOrder {
+		incs := byKind[g.kind]
+		if len(incs) == 0 {
+			continue
+		}
+		sort.Slice(incs, func(i, j int) bool {
+			mi, mj := incidentField(incs[i], "method"), incidentField(incs[j], "method")
+			if mi != mj {
+				return mi < mj
+			}
+			return incidentField(incs[i], "path") < incidentField(incs[j], "path")
+		})
+		fmt.Fprintf(os.Stderr, "  %s (%d):\n", g.label, len(incs))
+		for _, line := range incs {
+			method := incidentField(line, "method")
+			path := incidentField(line, "path")
+			reason := incidentField(line, "reason")
+			if reason != "" {
+				fmt.Fprintf(os.Stderr, "    %-6s %s\n      %s\n", method, path, reason)
+			} else {
+				fmt.Fprintf(os.Stderr, "    %-6s %s\n", method, path)
+			}
+		}
+	}
+}
+
+func printIncidentsPerSpec(lines []string) {
+	type bucket struct {
+		reqPanic, reqTimeout, respPanic, respTimeout int
+	}
+	bySpec := map[string]*bucket{}
+	for _, line := range lines {
+		spec := incidentField(line, "spec")
+		if spec == "" {
+			spec = "(unresolved)"
+		}
+		b, ok := bySpec[spec]
+		if !ok {
+			b = &bucket{}
+			bySpec[spec] = b
+		}
+		switch incidentField(line, "kind") {
+		case "req_panic":
+			b.reqPanic++
+		case "req_timeout":
+			b.reqTimeout++
+		case "resp_panic":
+			b.respPanic++
+		case "resp_timeout":
+			b.respTimeout++
+		}
+	}
+	specs := make([]string, 0, len(bySpec))
+	for s := range bySpec {
+		specs = append(specs, s)
+	}
+
+	sort.Strings(specs)
+	for _, spec := range specs {
+		b := bySpec[spec]
+		var parts []string
+		if b.reqPanic > 0 {
+			parts = append(parts, fmt.Sprintf("req_panic=%d", b.reqPanic))
+		}
+		if b.reqTimeout > 0 {
+			parts = append(parts, fmt.Sprintf("req_timeout=%d", b.reqTimeout))
+		}
+		if b.respPanic > 0 {
+			parts = append(parts, fmt.Sprintf("resp_panic=%d", b.respPanic))
+		}
+		if b.respTimeout > 0 {
+			parts = append(parts, fmt.Sprintf("resp_timeout=%d", b.respTimeout))
+		}
+		fmt.Fprintf(os.Stderr, "  %s  %s\n", spec, strings.Join(parts, " "))
+	}
 }
 
 func printIfNonzero(label string, v int64) {

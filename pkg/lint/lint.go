@@ -90,6 +90,8 @@ func (w *walker) walkPathItem(item *v3.PathItem, base string) {
 	if item == nil {
 		return
 	}
+	w.walkParameters(item.Parameters, base+".parameters")
+
 	ops := map[string]*v3.Operation{
 		"get": item.Get, "post": item.Post, "put": item.Put, "delete": item.Delete,
 		"patch": item.Patch, "head": item.Head, "options": item.Options, "trace": item.Trace,
@@ -100,6 +102,9 @@ func (w *walker) walkPathItem(item *v3.PathItem, base string) {
 			continue
 		}
 		prefix := base + "." + method
+
+		w.walkParameters(op.Parameters, prefix+".parameters")
+
 		if op.RequestBody != nil && op.RequestBody.Content != nil {
 			for ct, mt := range op.RequestBody.Content.FromOldest() {
 				w.walkProxy(mt.Schema, prefix+".requestBody.content."+ct+".schema")
@@ -114,6 +119,34 @@ func (w *walker) walkPathItem(item *v3.PathItem, base string) {
 					w.walkProxy(mt.Schema, prefix+".responses."+code+".content."+ct+".schema")
 				}
 			}
+		}
+	}
+}
+
+// walkParameters flags parameters that carry neither `schema` nor a
+// non-empty `content` - the symptom of an OAS-2.0-style parameter (with
+// top-level `type`/`enum`) that libopenapi parses as an empty 3.0
+// Parameter. libopenapi-validator then dereferences the nil schema and
+// panics on every request to the route. Marking the spec lint-bad
+// short-circuits that before the test even tries the route. Note that
+// libopenapi initialises Content to an empty *orderedmap (not nil), so
+// nil-vs-empty matters.
+func (w *walker) walkParameters(params []*v3.Parameter, basePath string) {
+	for _, p := range params {
+		if p == nil {
+			continue
+		}
+		hasContent := p.Content != nil && p.Content.Len() > 0
+		if p.Schema == nil && !hasContent {
+			w.defects = append(w.defects, Defect{
+				Rule:   "param-missing-schema",
+				Path:   basePath + "." + p.Name,
+				Detail: "parameter has neither `schema` nor `content` (likely OAS 2.0 style with top-level type/enum on the parameter object)",
+			})
+			continue
+		}
+		if p.Schema != nil {
+			w.walkProxy(p.Schema, basePath+"."+p.Name+".schema")
 		}
 	}
 }
@@ -150,12 +183,15 @@ func (w *walker) walkProxy(proxy *base.SchemaProxy, path string) {
 	if s.AdditionalProperties != nil && s.AdditionalProperties.A != nil {
 		w.walkProxy(s.AdditionalProperties.A, path+".additionalProperties")
 	}
+
 	for i, p := range s.AllOf {
 		w.walkProxy(p, fmt.Sprintf("%s.allOf[%d]", path, i))
 	}
+
 	for i, p := range s.OneOf {
 		w.walkProxy(p, fmt.Sprintf("%s.oneOf[%d]", path, i))
 	}
+
 	for i, p := range s.AnyOf {
 		w.walkProxy(p, fmt.Sprintf("%s.anyOf[%d]", path, i))
 	}

@@ -55,6 +55,17 @@
           "type": "boolean",
           "description": "Validate responses.",
           "default": false
+        },
+        "verbose": {
+          "type": "boolean",
+          "description": "Include the full validator envelope (howToFix, validationType, requestPath, referenceSchema, ...) in validation-failure responses. Default returns a slim shape with only reason + nested validationErrors.",
+          "default": false
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Maximum time a single validate call may run before being abandoned (Go duration format, e.g. '500ms', '5s'). Pathological specs can send the validator's schema render into runaway recursion; on timeout the request proceeds without validation. Default 1s.",
+          "default": "1s",
+          "pattern": "^\\d+(ns|us|µs|ms|s|m|h)(\\d+(ns|us|µs|ms|s|m|h))*$"
         }
       }
     },

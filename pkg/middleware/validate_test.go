@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/pb33f/libopenapi"
@@ -754,10 +755,11 @@ func TestSlimValidationErrors(t *testing.T) {
 
 func TestTimeoutValidationError(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/foo", nil)
-	e := timeoutValidationError(req, "response")
+	timeout := 750 * time.Millisecond
+	e := timeoutValidationError(req, "response", timeout)
 	assert.Equal(t, "timeout", e.ValidationType)
 	assert.Equal(t, "response", e.ValidationSubType)
 	assert.Equal(t, http.MethodGet, e.RequestMethod)
 	assert.Equal(t, "/foo", e.RequestPath)
-	assert.Contains(t, e.Message, validationTimeout.String())
+	assert.Contains(t, e.Message, timeout.String())
 }

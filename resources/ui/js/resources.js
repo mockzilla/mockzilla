@@ -131,6 +131,15 @@ const getConfigOverrideHeaders = () => {
         }
     }
 
+    // Validate Timeout override (Go duration string, e.g. "5s", "500ms")
+    const validateTimeoutEnabled = document.getElementById('override-validate-timeout-enabled');
+    if (validateTimeoutEnabled && validateTimeoutEnabled.checked) {
+        const validateTimeoutValue = document.getElementById('override-validate-timeout-value');
+        if (validateTimeoutValue && validateTimeoutValue.value.trim() !== '') {
+            headers['X-Mockzilla-Validate-Timeout'] = validateTimeoutValue.value.trim();
+        }
+    }
+
     return headers;
 };
 
@@ -536,6 +545,7 @@ const wireCurlLiveUpdate = () => {
         'override-validate-request-enabled', 'override-validate-request-value',
         'override-validate-response-enabled', 'override-validate-response-value',
         'override-validate-verbose-enabled', 'override-validate-verbose-value',
+        'override-validate-timeout-enabled', 'override-validate-timeout-value',
     ];
     const refresh = () => renderCurl(lastCurlState);
     for (const id of overrideIds) {

@@ -26,6 +26,7 @@ const (
 	headerValidateRequest  = "Validate-Request"
 	headerValidateResponse = "Validate-Response"
 	headerValidateVerbose  = "Validate-Verbose"
+	headerValidateTimeout  = "Validate-Timeout"
 )
 
 const sourceUI = "ui"
@@ -206,6 +207,14 @@ func applyOverride(cfg *config.ServiceConfig, o configOverride) {
 				cfg.Validate = &config.ValidateConfig{}
 			}
 			cfg.Validate.Verbose = &b
+		}
+
+	case headerValidateTimeout:
+		if d, err := time.ParseDuration(o.value); err == nil && d > 0 {
+			if cfg.Validate == nil {
+				cfg.Validate = &config.ValidateConfig{}
+			}
+			cfg.Validate.Timeout = &d
 		}
 	}
 }
