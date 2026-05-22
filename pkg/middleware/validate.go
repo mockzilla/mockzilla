@@ -62,6 +62,11 @@ func CreateValidationMiddleware(params *Params, source ValidatorSource, lookup S
 			validatorReq := requestForValidator(req, cfg)
 			validationTimeout := cfg.Validate.TimeoutOrDefault()
 
+			if requestPathHasEmptySegments(validatorReq.URL.Path) {
+				next.ServeHTTP(w, req)
+				return
+			}
+
 			if lookup != nil {
 				if specPath, ok := lookup(validatorReq.URL.Path, validatorReq.Method); ok && validatorCannotLookup(specPath) {
 					next.ServeHTTP(w, req)
@@ -412,6 +417,15 @@ func stripPrefix(p, prefix string) string {
 		return p
 	}
 	return stripped
+}
+
+// requestPathHasEmptySegments reports paths that contain consecutive `/`
+// anywhere. libopenapi-validator's path matcher splits on `/` and
+// indexes the resulting segments without guarding the empty-string
+// case, so an empty segment crashes its preflight before our
+// safeValidate* recover can catch the panic.
+func requestPathHasEmptySegments(p string) bool {
+	return strings.Contains(p, "//")
 }
 
 // validatorCannotLookup reports paths libopenapi-validator's FindPath mishandles:

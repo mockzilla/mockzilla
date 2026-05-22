@@ -513,6 +513,28 @@ func TestAllWildcardContentType(t *testing.T) {
 	})
 }
 
+func TestRequestPathHasEmptySegments(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+		want bool
+	}{
+		{"plain path", "/users/123", false},
+		{"root path", "/", false},
+		{"empty path", "", false},
+		{"trailing slash is fine", "/users/", false},
+		{"two consecutive slashes mid-path", "/users//123", true},
+		{"three consecutive slashes mid-path", "/keys/alias///reencrypt", true},
+		{"double slash adjacent to leading slash is empty seg", "//foo", true},
+		{"path-param value with embedded slash producing empty seg", "/things/foo//bar", true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, requestPathHasEmptySegments(tc.path))
+		})
+	}
+}
+
 func TestValidatorCannotLookup(t *testing.T) {
 	cases := []struct {
 		name string
