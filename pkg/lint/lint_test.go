@@ -93,3 +93,119 @@ func TestSpec_RealValidationSpecs(t *testing.T) {
 		})
 	}
 }
+
+// TestSpec_ParamMissingSchema covers the OAS-2.0-style parameter
+// shape: top-level `type`/`enum` on the parameter object instead of a
+// nested `schema:`. libopenapi parses these as parameters with neither
+// schema nor content, and libopenapi-validator panics on the nil
+// schema; the lint rule flags the spec so the validator never sees it.
+func TestSpec_ParamMissingSchema(t *testing.T) {
+	t.Run("operation-level parameter without schema or content", func(t *testing.T) {
+		spec := writeSpec(t, "oas2-param.yml", `
+openapi: 3.0.0
+info: {title: t, version: "1"}
+paths:
+  /candles:
+    get:
+      parameters:
+        - name: granularity
+          in: query
+          required: true
+          type: string
+          enum: ["ONE_DAY", "ONE_HOUR"]
+      responses:
+        '200':
+          description: ok
+`)
+		defects, err := Spec(spec)
+		require.NoError(t, err)
+		require.NotEmpty(t, defects)
+		var hit *Defect
+		for i, d := range defects {
+			if d.Rule == "param-missing-schema" {
+				hit = &defects[i]
+				break
+			}
+		}
+		require.NotNil(t, hit, "expected param-missing-schema, got: %v", defects)
+		assert.Contains(t, hit.Path, "parameters.granularity")
+	})
+
+	t.Run("path-level parameter without schema or content", func(t *testing.T) {
+		spec := writeSpec(t, "oas2-path-param.yml", `
+openapi: 3.0.0
+info: {title: t, version: "1"}
+paths:
+  /things/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        type: string
+    get:
+      responses:
+        '200':
+          description: ok
+`)
+		defects, err := Spec(spec)
+		require.NoError(t, err)
+		var hit bool
+		for _, d := range defects {
+			if d.Rule == "param-missing-schema" && d.Path == "paths./things/{id}.parameters.id" {
+				hit = true
+				break
+			}
+		}
+		assert.True(t, hit, "expected path-level param-missing-schema, got: %v", defects)
+	})
+
+	t.Run("parameter with proper schema is silent", func(t *testing.T) {
+		spec := writeSpec(t, "oas3-param.yml", `
+openapi: 3.0.0
+info: {title: t, version: "1"}
+paths:
+  /candles:
+    get:
+      parameters:
+        - name: granularity
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: ["ONE_DAY", "ONE_HOUR"]
+      responses:
+        '200':
+          description: ok
+`)
+		defects, err := Spec(spec)
+		require.NoError(t, err)
+		for _, d := range defects {
+			assert.NotEqual(t, "param-missing-schema", d.Rule, "should not fire on well-formed param: %v", d)
+		}
+	})
+
+	t.Run("parameter with content-only is silent", func(t *testing.T) {
+		spec := writeSpec(t, "param-content.yml", `
+openapi: 3.0.0
+info: {title: t, version: "1"}
+paths:
+  /things:
+    get:
+      parameters:
+        - name: filter
+          in: query
+          content:
+            application/json:
+              schema:
+                type: object
+      responses:
+        '200':
+          description: ok
+`)
+		defects, err := Spec(spec)
+		require.NoError(t, err)
+		for _, d := range defects {
+			assert.NotEqual(t, "param-missing-schema", d.Rule, "content-only params are valid: %v", d)
+		}
+	})
+}

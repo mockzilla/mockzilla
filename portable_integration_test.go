@@ -1231,4 +1231,3 @@ func specForIncidentLine(line string, svcToSpec map[string]string) string {
 	}
 	return svcToSpec[rest]
 }
-

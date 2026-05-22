@@ -201,6 +201,38 @@ func TestApplyOverrides(t *testing.T) {
 		assert.True(result.Validate.VerboseEnabled())
 		assert.Nil(original.Validate)
 	})
+
+	t.Run("overrides Validate-Timeout with parseable duration", func(t *testing.T) {
+		original := &config.ServiceConfig{}
+		result := applyOverrides(original, []configOverride{
+			{key: headerValidateTimeout, value: "5s"},
+		})
+		assert.NotNil(result.Validate)
+		assert.Equal(5*time.Second, result.Validate.TimeoutOrDefault())
+		assert.Nil(original.Validate)
+	})
+
+	t.Run("Validate-Timeout with unparseable value falls back to default", func(t *testing.T) {
+		original := &config.ServiceConfig{}
+		result := applyOverrides(original, []configOverride{
+			{key: headerValidateTimeout, value: "not-a-duration"},
+		})
+		// applyOverrides initialises Validate eagerly even when the
+		// override doesn't take, so the field exists but Timeout stays
+		// nil and TimeoutOrDefault returns the package default.
+		if result.Validate != nil {
+			assert.Nil(result.Validate.Timeout)
+		}
+		assert.Equal(config.DefaultValidationTimeout, result.Validate.TimeoutOrDefault())
+	})
+
+	t.Run("Validate-Timeout zero falls back to default (treated as unset)", func(t *testing.T) {
+		original := &config.ServiceConfig{}
+		result := applyOverrides(original, []configOverride{
+			{key: headerValidateTimeout, value: "0s"},
+		})
+		assert.Equal(config.DefaultValidationTimeout, result.Validate.TimeoutOrDefault())
+	})
 }
 
 func TestCreateConfigOverrideMiddleware(t *testing.T) {

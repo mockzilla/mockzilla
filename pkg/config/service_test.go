@@ -1621,12 +1621,21 @@ func TestValidateConfig_Defaults(t *testing.T) {
 		var v *ValidateConfig
 		assert.False(t, v.RequestEnabled())
 		assert.False(t, v.ResponseEnabled())
+		assert.False(t, v.VerboseEnabled())
 	})
 
 	t.Run("empty config: same as nil", func(t *testing.T) {
 		v := &ValidateConfig{}
 		assert.False(t, v.RequestEnabled())
 		assert.False(t, v.ResponseEnabled())
+		assert.False(t, v.VerboseEnabled())
+	})
+
+	t.Run("verbose toggles independently", func(t *testing.T) {
+		v := &ValidateConfig{Verbose: boolPtr(true)}
+		assert.True(t, v.VerboseEnabled())
+		v.Verbose = boolPtr(false)
+		assert.False(t, v.VerboseEnabled())
 	})
 
 	t.Run("explicit request=true enables request", func(t *testing.T) {
@@ -1645,6 +1654,35 @@ func TestValidateConfig_Defaults(t *testing.T) {
 		v := &ValidateConfig{Request: boolPtr(true), Response: boolPtr(true)}
 		assert.True(t, v.RequestEnabled())
 		assert.True(t, v.ResponseEnabled())
+	})
+}
+
+func TestValidateConfig_TimeoutOrDefault(t *testing.T) {
+	durPtr := func(d time.Duration) *time.Duration { return &d }
+
+	t.Run("nil config falls back to default", func(t *testing.T) {
+		var v *ValidateConfig
+		assert.Equal(t, DefaultValidationTimeout, v.TimeoutOrDefault())
+	})
+
+	t.Run("nil timeout falls back to default", func(t *testing.T) {
+		v := &ValidateConfig{}
+		assert.Equal(t, DefaultValidationTimeout, v.TimeoutOrDefault())
+	})
+
+	t.Run("explicit positive timeout wins", func(t *testing.T) {
+		v := &ValidateConfig{Timeout: durPtr(7 * time.Second)}
+		assert.Equal(t, 7*time.Second, v.TimeoutOrDefault())
+	})
+
+	t.Run("zero timeout falls back to default", func(t *testing.T) {
+		v := &ValidateConfig{Timeout: durPtr(0)}
+		assert.Equal(t, DefaultValidationTimeout, v.TimeoutOrDefault())
+	})
+
+	t.Run("negative timeout falls back to default", func(t *testing.T) {
+		v := &ValidateConfig{Timeout: durPtr(-1 * time.Second)}
+		assert.Equal(t, DefaultValidationTimeout, v.TimeoutOrDefault())
 	})
 }
 
