@@ -255,6 +255,50 @@ type batchSummary struct {
 	// inFlight: specs that printed a "start" line but never a completion.
 	// On SIGKILL these are the candidates for what caused it.
 	inFlight []string
+	// Validation-middleware counters from the child's
+	// VALIDATION_STATS line. Zero when the child didn't emit one (older
+	// binary, or process killed before the summary printed).
+	validation validationStats
+}
+
+// validationStats mirrors the VALIDATION_STATS tokens emitted by the
+// child test binary. The fields are summed across batches by aggregate.
+type validationStats struct {
+	reqPanic                int64
+	reqTimeout              int64
+	respFailed              int64
+	respPanic               int64
+	respTimeout             int64
+	respSkipSchema          int64
+	respSkipAmbigOneof      int64
+	respSkipPathMissing     int64
+	respSkipJSRegex         int64
+	respSkipPattern         int64
+	respSkipUnsat           int64
+	respSkipConflictingAllOf int64
+	respSkipCTParams        int64
+	respSkipWildcardCT      int64
+	respSkipStatusCode      int64
+	respSkipRouterPath      int64
+}
+
+func (v *validationStats) add(o validationStats) {
+	v.reqPanic += o.reqPanic
+	v.reqTimeout += o.reqTimeout
+	v.respFailed += o.respFailed
+	v.respPanic += o.respPanic
+	v.respTimeout += o.respTimeout
+	v.respSkipSchema += o.respSkipSchema
+	v.respSkipAmbigOneof += o.respSkipAmbigOneof
+	v.respSkipPathMissing += o.respSkipPathMissing
+	v.respSkipJSRegex += o.respSkipJSRegex
+	v.respSkipPattern += o.respSkipPattern
+	v.respSkipUnsat += o.respSkipUnsat
+	v.respSkipConflictingAllOf += o.respSkipConflictingAllOf
+	v.respSkipCTParams += o.respSkipCTParams
+	v.respSkipWildcardCT += o.respSkipWildcardCT
+	v.respSkipStatusCode += o.respSkipStatusCode
+	v.respSkipRouterPath += o.respSkipRouterPath
 }
 
 var (
@@ -269,6 +313,11 @@ var (
 
 	// Matches the per-subtest start announcement.
 	startRx = regexp.MustCompile(`^\s*start (.+)$`)
+
+	// Matches the child test binary's machine-parseable summary line.
+	// Tokens are key=integer pairs; unknown tokens are tolerated.
+	validationStatsRx     = regexp.MustCompile(`^VALIDATION_STATS\s+(.+)$`)
+	validationStatsTokenRx = regexp.MustCompile(`([a-z_]+)=(-?\d+)`)
 )
 
 func scanStream(r io.Reader, tee io.Writer) batchSummary {
@@ -309,12 +358,63 @@ func scanStream(r io.Reader, tee io.Writer) batchSummary {
 			delete(started, m[1])
 			s.lintSpecs++
 		}
+		if m := validationStatsRx.FindStringSubmatch(line); m != nil {
+			s.validation = parseValidationStats(m[1])
+		}
 	}
 	for spec := range started {
 		s.inFlight = append(s.inFlight, spec)
 	}
 	sort.Strings(s.inFlight)
 	return s
+}
+
+// parseValidationStats turns a `key=N key=N ...` payload into a
+// validationStats struct, tolerating unknown keys so newer child
+// binaries don't break older orchestrators.
+func parseValidationStats(payload string) validationStats {
+	var v validationStats
+	for _, m := range validationStatsTokenRx.FindAllStringSubmatch(payload, -1) {
+		n, err := strconv.ParseInt(m[2], 10, 64)
+		if err != nil {
+			continue
+		}
+		switch m[1] {
+		case "req_panic":
+			v.reqPanic = n
+		case "req_timeout":
+			v.reqTimeout = n
+		case "resp_failed":
+			v.respFailed = n
+		case "resp_panic":
+			v.respPanic = n
+		case "resp_timeout":
+			v.respTimeout = n
+		case "resp_skip_schema":
+			v.respSkipSchema = n
+		case "resp_skip_ambig_oneof":
+			v.respSkipAmbigOneof = n
+		case "resp_skip_path_missing":
+			v.respSkipPathMissing = n
+		case "resp_skip_js_regex":
+			v.respSkipJSRegex = n
+		case "resp_skip_pattern":
+			v.respSkipPattern = n
+		case "resp_skip_unsat":
+			v.respSkipUnsat = n
+		case "resp_skip_conflicting_allof":
+			v.respSkipConflictingAllOf = n
+		case "resp_skip_ct_params":
+			v.respSkipCTParams = n
+		case "resp_skip_wildcard_ct":
+			v.respSkipWildcardCT = n
+		case "resp_skip_status_code":
+			v.respSkipStatusCode = n
+		case "resp_skip_router_path":
+			v.respSkipRouterPath = n
+		}
+	}
+	return v
 }
 
 func toMs(v, unit string) float64 {
@@ -326,15 +426,18 @@ func toMs(v, unit string) float64 {
 }
 
 type aggregate struct {
-	okSpecs    int
-	failSpecs  int
-	lintSpecs  int
-	routes     int
-	failures   int
-	bootMs     float64
-	testMs     float64
-	failed     []string
-	seenFailed map[string]struct{}
+	okSpecs      int
+	failSpecs    int
+	lintSpecs    int
+	routes       int
+	failures     int
+	bootMs       float64
+	testMs       float64
+	failed       []string
+	seenFailed   map[string]struct{}
+	inFlight     []string
+	seenInFlight map[string]struct{}
+	validation   validationStats
 }
 
 func (a *aggregate) merge(b batchSummary) {
@@ -345,6 +448,7 @@ func (a *aggregate) merge(b batchSummary) {
 	a.failures += b.failures
 	a.bootMs += b.bootMs
 	a.testMs += b.testMs
+	a.validation.add(b.validation)
 	if a.seenFailed == nil {
 		a.seenFailed = map[string]struct{}{}
 	}
@@ -354,6 +458,16 @@ func (a *aggregate) merge(b batchSummary) {
 		}
 		a.seenFailed[spec] = struct{}{}
 		a.failed = append(a.failed, spec)
+	}
+	if a.seenInFlight == nil {
+		a.seenInFlight = map[string]struct{}{}
+	}
+	for _, spec := range b.inFlight {
+		if _, ok := a.seenInFlight[spec]; ok {
+			continue
+		}
+		a.seenInFlight[spec] = struct{}{}
+		a.inFlight = append(a.inFlight, spec)
 	}
 }
 
@@ -377,7 +491,21 @@ func (a *aggregate) print(totalBatches, failedBatches int, wall time.Duration) {
 			fmtMs(inProcessMs/float64(total)), fmtDur(wall/time.Duration(total)))
 	}
 	fmt.Fprintf(os.Stderr, "Batches:            %d (failing: %d)\n", totalBatches, failedBatches)
+	// A batch can exit non-zero without naming a failed spec when the
+	// child was killed mid-run (timeout, SIGKILL on a hung handler) or
+	// crashed before any per-spec line printed. Surface the gap so the
+	// "failing: N" count above is interpretable instead of mysterious.
+	if gap := failedBatches - a.failSpecs; gap > 0 {
+		fmt.Fprintf(os.Stderr, "  batches without listed spec failures: %d (timeout/SIGKILL or boot crash)\n", gap)
+	}
+	if len(a.inFlight) > 0 {
+		fmt.Fprintf(os.Stderr, "  specs in-flight at batch kill: %d (likely cause of the killed batches above)\n",
+			len(a.inFlight))
+	}
 	fmt.Fprintln(os.Stderr, strings.Repeat("=", 50))
+
+	fmt.Fprintln(os.Stderr)
+	a.printValidation()
 
 	if len(a.failed) > 0 {
 		sorted := append([]string(nil), a.failed...)
@@ -387,6 +515,52 @@ func (a *aggregate) print(totalBatches, failedBatches int, wall time.Duration) {
 		for _, spec := range sorted {
 			fmt.Fprintf(os.Stderr, "  %s\n", spec)
 		}
+	}
+
+	if len(a.inFlight) > 0 {
+		sorted := append([]string(nil), a.inFlight...)
+		sort.Strings(sorted)
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintf(os.Stderr, "=== In-flight specs at batch kill (%d) ===\n", len(sorted))
+		for _, spec := range sorted {
+			fmt.Fprintf(os.Stderr, "  %s\n", spec)
+		}
+	}
+}
+
+// printValidation renders the orchestrator-wide validation activity
+// summary aggregated from every batch's VALIDATION_STATS line. Mirrors
+// the per-batch block the child emits so output is comparable.
+func (a *aggregate) printValidation() {
+	v := a.validation
+	respSkipTotal := v.respSkipSchema + v.respSkipAmbigOneof + v.respSkipPathMissing +
+		v.respSkipJSRegex + v.respSkipPattern + v.respSkipUnsat +
+		v.respSkipConflictingAllOf + v.respSkipCTParams + v.respSkipWildcardCT +
+		v.respSkipStatusCode + v.respSkipRouterPath
+	fmt.Fprintln(os.Stderr, "=== Validation Activity (all batches) ===")
+	fmt.Fprintf(os.Stderr, "  request:  panic=%-3d  timeout=%-3d\n", v.reqPanic, v.reqTimeout)
+	fmt.Fprintf(os.Stderr, "  response: failed(500)=%-5d  panic=%-3d  timeout=%-3d  skip-heuristic=%-3d\n",
+		v.respFailed, v.respPanic, v.respTimeout, respSkipTotal)
+	if respSkipTotal > 0 {
+		fmt.Fprintln(os.Stderr, "  response skip breakdown:")
+		printIfNonzero("    schema-render-fail   ", v.respSkipSchema)
+		printIfNonzero("    ambiguous-oneOf      ", v.respSkipAmbigOneof)
+		printIfNonzero("    path-missing         ", v.respSkipPathMissing)
+		printIfNonzero("    js-regex-literal     ", v.respSkipJSRegex)
+		printIfNonzero("    prose-pattern        ", v.respSkipPattern)
+		printIfNonzero("    unsatisfiable-schema ", v.respSkipUnsat)
+		printIfNonzero("    conflicting-allOf    ", v.respSkipConflictingAllOf)
+		printIfNonzero("    content-type-params  ", v.respSkipCTParams)
+		printIfNonzero("    wildcard-content-type", v.respSkipWildcardCT)
+		printIfNonzero("    status-code-missing  ", v.respSkipStatusCode)
+		printIfNonzero("    router-path-mismatch ", v.respSkipRouterPath)
+	}
+	fmt.Fprintln(os.Stderr, strings.Repeat("=", 50))
+}
+
+func printIfNonzero(label string, v int64) {
+	if v > 0 {
+		fmt.Fprintf(os.Stderr, "%s %d\n", label, v)
 	}
 }
 

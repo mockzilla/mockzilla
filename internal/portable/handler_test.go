@@ -271,9 +271,12 @@ func TestSwappableHandler_EnsureValidator(t *testing.T) {
 				mu.Unlock()
 				return buildValidator(h)
 			},
-			validatorOnce: &sync.Once{},
+			buildDone: make(chan struct{}),
 		}
-		v1 := sw.EnsureValidator()
+		// EnsureValidator triggers the build but is non-blocking. Use
+		// WaitForValidator to assert the post-build cached state.
+		sw.EnsureValidator()
+		v1 := sw.WaitForValidator()
 		v2 := sw.EnsureValidator()
 		assert.NotNil(t, v1)
 		assert.Same(t, v1, v2)
@@ -283,20 +286,23 @@ func TestSwappableHandler_EnsureValidator(t *testing.T) {
 	})
 
 	t.Run("returns nil when buildFn unset", func(t *testing.T) {
-		sw := &swappableHandler{handler: h, validatorOnce: &sync.Once{}}
+		sw := &swappableHandler{handler: h, buildDone: make(chan struct{})}
 		assert.Nil(t, sw.EnsureValidator())
+		assert.Nil(t, sw.WaitForValidator())
 	})
 
 	t.Run("ensureValidator adapter respects ensure flag", func(t *testing.T) {
 		sw := &swappableHandler{
-			handler:       h,
-			buildFn:       func() (validatorAlias, error) { return buildValidator(h) },
-			validatorOnce: &sync.Once{},
+			handler:   h,
+			buildFn:   func() (validatorAlias, error) { return buildValidator(h) },
+			buildDone: make(chan struct{}),
 		}
 		// ensure=false: no build, returns nil
 		assert.Nil(t, sw.ensureValidator(false))
-		// ensure=true: builds
-		v := sw.ensureValidator(true)
+		// ensure=true: kicks off background build; non-blocking, so wait
+		// for it before asserting the cached state.
+		sw.ensureValidator(true)
+		v := sw.WaitForValidator()
 		assert.NotNil(t, v)
 		// ensure=false now returns the cached one
 		assert.Same(t, v, sw.ensureValidator(false))

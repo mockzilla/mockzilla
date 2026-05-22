@@ -502,9 +502,9 @@ func registerService(
 	validationOn := svcCfg.Validate.RequestEnabled() || svcCfg.Validate.ResponseEnabled()
 
 	sw := &swappableHandler{
-		handler:       h,
-		buildFn:       func() (validator.Validator, error) { return buildValidator(h) },
-		validatorOnce: &sync.Once{},
+		handler:   h,
+		buildFn:   func() (validator.Validator, error) { return buildValidator(h) },
+		buildDone: make(chan struct{}),
 	}
 	handlers[svc.Name] = sw
 
@@ -521,13 +521,17 @@ func registerService(
 	))
 
 	if validationOn {
-		// Eager background build so services that boot with validation on
-		// don't pay the build cost on the first request.
+		// Eager background build so services that boot with validation
+		// on don't pay the build cost on the first request. Uses the
+		// blocking WaitForValidator so validatorWG.Done fires only when
+		// the build actually finishes; that's what Setup.WaitForValidators
+		// hangs on. Request-path callers use EnsureValidator instead so a
+		// long build doesn't pin the handler goroutine.
 		validatorWG.Add(1)
 		go func() {
 			defer validatorWG.Done()
 			start := time.Now()
-			built := sw.EnsureValidator()
+			built := sw.WaitForValidator()
 			if built == nil {
 				slog.Warn("validator construction failed; service will run without validation",
 					"service", svc.Name,

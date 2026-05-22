@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -471,6 +472,11 @@ func (s *portableStats) printSummary(totalSpecs int) {
 	fmt.Fprintln(os.Stderr, "========================================")
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprint(os.Stderr, validationSummary())
+	// Machine-parseable single-line variant the orchestrator picks up
+	// to aggregate validation activity across every batch. Kept
+	// separate from the human summary above so the per-batch output
+	// stays readable.
+	fmt.Fprintln(os.Stderr, validationStatsLine())
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "=== Services Summary ===")
 
@@ -704,16 +710,86 @@ func testService(ctx context.Context, client *http.Client, baseURL, serviceName 
 		mountPrefix = ""
 	}
 
-	var failures []routeFailure
-	for _, route := range routes {
-		if ctx.Err() != nil {
-			break
+	conc := routeConcurrency()
+	if conc <= 1 || len(routes) <= 1 {
+		var failures []routeFailure
+		for _, route := range routes {
+			if ctx.Err() != nil {
+				break
+			}
+			if f, ok := testOneRoute(ctx, client, baseURL, urlName, mountPrefix, route); !ok {
+				failures = append(failures, f)
+			}
 		}
-		if f, ok := testOneRoute(ctx, client, baseURL, urlName, mountPrefix, route); !ok {
-			failures = append(failures, f)
+		return failures, len(routes)
+	}
+
+	// Fan routes out to conc workers. The mock handler is stateless per
+	// request, so the in-process httptest.Server handles them in parallel
+	// fine; the win is amortising response-generation latency on huge
+	// specs (docusign et al) where the spec is parsed once but the
+	// per-route factory.Response is non-trivial.
+	type result struct {
+		failure routeFailure
+		failed  bool
+	}
+	jobs := make(chan routeInfo)
+	results := make(chan result, len(routes))
+	var wg sync.WaitGroup
+	for i := 0; i < conc; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for route := range jobs {
+				if ctx.Err() != nil {
+					return
+				}
+				if f, ok := testOneRoute(ctx, client, baseURL, urlName, mountPrefix, route); !ok {
+					results <- result{failure: f, failed: true}
+				}
+			}
+		}()
+	}
+	go func() {
+		defer close(jobs)
+		for _, route := range routes {
+			if ctx.Err() != nil {
+				return
+			}
+			jobs <- route
+		}
+	}()
+	wg.Wait()
+	close(results)
+
+	var failures []routeFailure
+	for r := range results {
+		if r.failed {
+			failures = append(failures, r.failure)
 		}
 	}
 	return failures, len(routes)
+}
+
+// routeConcurrency reads the ROUTE_CONCURRENCY env var. Default 4 is
+// the empirical sweet spot from docusign (4m15s sequential → 1m40s at
+// 4); past 8 hits HTTP transport defaults and starts flaking without
+// further speedup. Independent of MAX_CONCURRENCY (which sets
+// `-test.parallel`, i.e. how many specs run at once); on a single big
+// spec running in its own batch, the spec parallelism doesn't help, so
+// this knob fans out routes within a spec.
+const defaultRouteConcurrency = 4
+
+func routeConcurrency() int {
+	v := os.Getenv("ROUTE_CONCURRENCY")
+	if v == "" {
+		return defaultRouteConcurrency
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return defaultRouteConcurrency
+	}
+	return n
 }
 
 type routeInfo struct {
@@ -1001,4 +1077,18 @@ func printIfNonzero(b *strings.Builder, label string, v int64) {
 	if v > 0 {
 		fmt.Fprintf(b, "%s %d\n", label, v)
 	}
+}
+
+// validationStatsLine emits one tagged line the orchestrator can parse
+// to aggregate validation activity across batches. Field order is
+// stable; new fields go on the end so old orchestrators degrade
+// gracefully when they hit unknown tokens.
+func validationStatsLine() string {
+	return fmt.Sprintf("VALIDATION_STATS req_panic=%d req_timeout=%d resp_failed=%d resp_panic=%d resp_timeout=%d resp_skip_schema=%d resp_skip_ambig_oneof=%d resp_skip_path_missing=%d resp_skip_js_regex=%d resp_skip_pattern=%d resp_skip_unsat=%d resp_skip_conflicting_allof=%d resp_skip_ct_params=%d resp_skip_wildcard_ct=%d resp_skip_status_code=%d resp_skip_router_path=%d",
+		vcReqPanic.Load(), vcReqTimeout.Load(),
+		vcRespFailed.Load(), vcRespPanic.Load(), vcRespTimeout.Load(),
+		vcRespSkipSchemaRend.Load(), vcRespSkipAmbigOneOf.Load(), vcRespSkipPathMissing.Load(),
+		vcRespSkipJSRegex.Load(), vcRespSkipPattern.Load(), vcRespSkipUnsat.Load(),
+		vcRespSkipConfTypes.Load(), vcRespSkipCTParams.Load(), vcRespSkipWildcardCT.Load(),
+		vcRespSkipStatusCode.Load(), vcRespSkipRouterPath.Load())
 }

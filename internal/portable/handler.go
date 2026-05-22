@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sync"
+	"sync/atomic"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
@@ -145,11 +146,18 @@ func (h *handler) handleRequest(w http.ResponseWriter, r *http.Request) {
 // atomically; the validation middleware reads through Validator() so it
 // always sees the validator built from the most recent spec.
 type swappableHandler struct {
-	mu            sync.RWMutex
-	handler       *handler
-	validator     validator.Validator
-	buildFn       func() (validator.Validator, error)
-	validatorOnce *sync.Once
+	mu        sync.RWMutex
+	handler   *handler
+	validator validator.Validator
+	buildFn   func() (validator.Validator, error)
+
+	// buildStarted/buildDone gate the lazy validator build. CompareAndSwap
+	// on buildStarted ensures exactly one builder goroutine runs;
+	// buildDone closes when that goroutine finishes (success or fail) so
+	// WaitForValidator can park on it. Both are reset by swap so a
+	// hot-reload triggers a fresh build for the new spec.
+	buildStarted atomic.Bool
+	buildDone    chan struct{}
 }
 
 // Validator returns the currently active validator for this service, or
@@ -160,34 +168,74 @@ func (s *swappableHandler) Validator() validator.Validator {
 	return s.validator
 }
 
-// EnsureValidator lazy-builds the validator on first call and caches it.
-// Returns nil if buildFn is unset or the build failed. Safe under
-// concurrent first-callers via sync.Once - all goroutines see the same
-// cached result. Per-request validation overrides call this so a service
-// that booted with validation off can still validate when an X-Mockzilla-
-// Validate-* header opts in.
+// EnsureValidator kicks off the lazy validator build (idempotently) and
+// returns whatever's already cached. Non-blocking: if the build is in
+// flight it returns nil and the caller proceeds without validation - a
+// later request after the build completes will see the validator. This
+// matters for pathological specs whose validator construction takes
+// minutes; blocking the request path would hang every caller behind it.
+// Use WaitForValidator if you need to block until the build finishes.
 func (s *swappableHandler) EnsureValidator() validator.Validator {
 	if v := s.Validator(); v != nil {
 		return v
 	}
+	s.startBuild()
+	return s.Validator()
+}
 
+// WaitForValidator triggers the lazy build (idempotently) and blocks
+// until it finishes. Returns the built validator, or nil if buildFn is
+// unset or the build failed. The eager startup goroutine uses this so
+// portable.Setup.WaitForValidators(ctx) can tell when every service is
+// ready; production request handlers should call EnsureValidator
+// instead so they degrade rather than hang.
+func (s *swappableHandler) WaitForValidator() validator.Validator {
+	if v := s.Validator(); v != nil {
+		return v
+	}
+
+	s.startBuild()
 	s.mu.RLock()
-	once := s.validatorOnce
-	build := s.buildFn
+	done := s.buildDone
 	s.mu.RUnlock()
-	if once == nil || build == nil {
+
+	if done == nil {
 		return nil
 	}
 
-	once.Do(func() {
+	<-done
+	return s.Validator()
+}
+
+// startBuild fires the validator construction in a background goroutine
+// exactly once. Subsequent callers see buildStarted already true and
+// return immediately; they can either accept the current Validator()
+// state or park on buildDone.
+func (s *swappableHandler) startBuild() {
+	if !s.buildStarted.CompareAndSwap(false, true) {
+		return
+	}
+
+	s.mu.RLock()
+	build := s.buildFn
+	done := s.buildDone
+	s.mu.RUnlock()
+	if build == nil || done == nil {
+		if done != nil {
+			close(done)
+		}
+		return
+	}
+
+	go func() {
+		defer close(done)
 		built, err := build()
 		if err != nil {
-			slog.Warn("Lazy validator construction failed; request will skip validation", "error", err)
+			slog.Warn("Lazy validator construction failed; service will run without validation", "error", err)
 			return
 		}
 		s.setValidator(built)
-	})
-	return s.Validator()
+	}()
 }
 
 // MatchPath resolves a concrete request path and method to the spec path
@@ -243,8 +291,11 @@ func (s *swappableHandler) swap(h *handler, v validator.Validator, build func() 
 
 	// Reset the lazy-build guard so a request that opts into validation
 	// after this reload rebuilds against the new spec, not the previous
-	// cached miss.
-	s.validatorOnce = &sync.Once{}
+	// cached miss. An in-flight build from before the swap still runs
+	// to completion and writes its result via setValidator - the same
+	// race the previous sync.Once-based implementation had.
+	s.buildStarted.Store(false)
+	s.buildDone = make(chan struct{})
 }
 
 // setValidator swaps just the validator in place. Callers race with
