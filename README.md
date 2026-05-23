@@ -13,7 +13,7 @@
 [![GoReportCard](https://goreportcard.com/badge/github.com/mockzilla/mockzilla/v2)](https://goreportcard.com/report/github.com/mockzilla/mockzilla/v2)
 [![Go Reference](https://pkg.go.dev/badge/github.com/mockzilla/mockzilla/v2.svg)](https://pkg.go.dev/github.com/mockzilla/mockzilla/v2)
 [![mockzilla](https://snapcraft.io/mockzilla/badge.svg)](https://snapcraft.io/mockzilla)
-[![License](https://img.shields.io/github/license/mockzilla/mockzilla)](https://github.com/mockzilla/mockzilla/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/mockzilla/mockzilla?cacheSeconds=3600)](https://github.com/mockzilla/mockzilla/blob/main/LICENSE)
 
 
 **Mockzilla** is an open-source mock server for OpenAPI specifications, validated against 2,200+ real-world OpenAPI specifications across 98,000+ endpoints. Point it at a spec and get a running API mock server in seconds - no code, no configuration, no separate infrastructure. It generates realistic responses from your schema, validates incoming requests against the spec, and can proxy real backends with automatic mock fallback so you can mix real and mocked endpoints in the same server. Use it locally during development, in CI pipelines for integration testing, or embed specs into a portable binary for offline and air-gapped environments.
