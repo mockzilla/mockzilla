@@ -239,15 +239,13 @@ func replaceInArea(ctx *ReplaceContext, area string) any {
 		return nil
 	}
 
-	namePath := []string{ctx.state.NamePath[0]}
-
 	for _, data := range ctx.data {
 		replacements, ok := data[fmt.Sprintf("%s%s", ctxAreaPrefix, area)]
 		if !ok {
 			continue
 		}
 
-		if res := replaceValueWithContext(namePath, replacements); res != nil {
+		if res := replaceValueWithContext(ctx.state.NamePath, replacements); res != nil {
 			return res
 		}
 	}

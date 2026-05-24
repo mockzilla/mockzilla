@@ -307,6 +307,42 @@ func TestReplaceInResponse(t *testing.T) {
 		})
 		assert.Equal("general-response-val", res)
 	})
+
+	t.Run("nested-field-matches-by-leaf-name", func(t *testing.T) {
+		state := NewReplaceState(WithName("available"), WithName("currency"), WithReadOnly())
+		res := replaceInResponse(&ReplaceContext{
+			faker:      fake,
+			state:      state,
+			areaPrefix: "in-",
+			data: []map[string]any{
+				{
+					"in-response": map[string]any{
+						"currency": []any{"usd", "eur", "gbp"},
+					},
+				},
+			},
+		})
+		assert.Contains([]any{"usd", "eur", "gbp"}, res)
+	})
+
+	t.Run("nested-field-matches-by-parent-namespace", func(t *testing.T) {
+		state := NewReplaceState(WithName("available"), WithName("currency"), WithReadOnly())
+		res := replaceInResponse(&ReplaceContext{
+			faker:      fake,
+			state:      state,
+			areaPrefix: "in-",
+			data: []map[string]any{
+				{
+					"in-response": map[string]any{
+						"available": map[string]any{
+							"currency": "usd",
+						},
+					},
+				},
+			},
+		})
+		assert.Equal("usd", res)
+	})
 }
 
 func TestReplaceInHeaders(t *testing.T) {
