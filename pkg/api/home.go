@@ -215,9 +215,6 @@ func hasUIFiles(uiPath string) bool {
 }
 
 func buildRobotsTxt(cfg *config.AppConfig) string {
-	if cfg.DisableUI {
-		return "User-agent: *\nDisallow: /\n"
-	}
 	trimmed := strings.Trim(cfg.HomeURL, "/")
 	allow := "/$"
 	if trimmed != "" {

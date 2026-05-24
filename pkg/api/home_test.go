@@ -168,7 +168,7 @@ func TestCreateHomeRoutes_RobotsTxt(t *testing.T) {
 		assert.Equal("User-agent: *\nAllow: /.ui\nDisallow: /\n", w.Body.String())
 	})
 
-	t.Run("UI disabled disallows everything", func(t *testing.T) {
+	t.Run("UI disabled does not register robots.txt", func(t *testing.T) {
 		cfg := config.NewDefaultAppConfig(t.TempDir())
 		cfg.DisableUI = true
 		router := NewRouter(WithConfigOption(cfg))
@@ -179,8 +179,7 @@ func TestCreateHomeRoutes_RobotsTxt(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		assert.Equal(http.StatusOK, w.Code)
-		assert.Equal("User-agent: *\nDisallow: /\n", w.Body.String())
+		assert.Equal(http.StatusNotFound, w.Code)
 	})
 }
 
