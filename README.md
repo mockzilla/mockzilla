@@ -73,7 +73,7 @@ mockzilla https://petstore3.swagger.io/api/v3/openapi.json
 ### Go
 
 ```bash
-go run github.com/mockzilla/mockzilla/v2/cmd/server@latest \
+go run github.com/mockzilla/mockzilla/v2/cmd/mockzilla@latest \
   https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
