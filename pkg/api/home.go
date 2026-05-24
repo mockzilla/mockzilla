@@ -39,6 +39,7 @@ func CreateHomeRoutes(router *Router) error {
 	}
 
 	router.Get(url, createUIHandler(router))
+	router.Get("/robots.txt", robotsHandler(router.Config()))
 
 	if trimmed == "" {
 		docsServer("/docs/*", router)
@@ -170,6 +171,17 @@ func createUIHandler(router *Router) http.HandlerFunc {
 	}
 }
 
+// robotsHandler serves /robots.txt. Only the home page path is
+// allowed; everything else is disallowed so search engines don't
+// index mock API responses.
+func robotsHandler(cfg *config.AppConfig) http.HandlerFunc {
+	body := buildRobotsTxt(cfg)
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte(body))
+	}
+}
+
 // fileServer conveniently sets up a http.FileServer handler to serve
 // static files. Uses filesystem UI if available, otherwise embedded.
 func fileServer(url string, router *Router) {
@@ -200,6 +212,15 @@ func hasUIFiles(uiPath string) bool {
 	indexPath := filepath.Join(uiPath, "index.html")
 	_, err := os.Stat(indexPath)
 	return err == nil
+}
+
+func buildRobotsTxt(cfg *config.AppConfig) string {
+	trimmed := strings.Trim(cfg.HomeURL, "/")
+	allow := "/$"
+	if trimmed != "" {
+		allow = "/" + trimmed
+	}
+	return "User-agent: *\nAllow: " + allow + "\nDisallow: /\n"
 }
 
 // docsServer serves the docs assets.

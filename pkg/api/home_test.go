@@ -135,6 +135,54 @@ func TestCreateHomeRoutes_CustomURL(t *testing.T) {
 	})
 }
 
+func TestCreateHomeRoutes_RobotsTxt(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("default home at /", func(t *testing.T) {
+		cfg := config.NewDefaultAppConfig(t.TempDir())
+		router := NewRouter(WithConfigOption(cfg))
+		err := CreateHomeRoutes(router)
+		assert.Nil(err)
+
+		req := httptest.NewRequest("GET", "/robots.txt", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(http.StatusOK, w.Code)
+		assert.Equal("text/plain; charset=utf-8", w.Header().Get("Content-Type"))
+		assert.Equal("User-agent: *\nAllow: /$\nDisallow: /\n", w.Body.String())
+	})
+
+	t.Run("custom home URL", func(t *testing.T) {
+		cfg := config.NewDefaultAppConfig(t.TempDir())
+		cfg.HomeURL = "/.ui"
+		router := NewRouter(WithConfigOption(cfg))
+		err := CreateHomeRoutes(router)
+		assert.Nil(err)
+
+		req := httptest.NewRequest("GET", "/robots.txt", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(http.StatusOK, w.Code)
+		assert.Equal("User-agent: *\nAllow: /.ui\nDisallow: /\n", w.Body.String())
+	})
+
+	t.Run("UI disabled does not register robots.txt", func(t *testing.T) {
+		cfg := config.NewDefaultAppConfig(t.TempDir())
+		cfg.DisableUI = true
+		router := NewRouter(WithConfigOption(cfg))
+		err := CreateHomeRoutes(router)
+		assert.Nil(err)
+
+		req := httptest.NewRequest("GET", "/robots.txt", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(http.StatusNotFound, w.Code)
+	})
+}
+
 func TestCreateHomeRoutes_EmbeddedFallback(t *testing.T) {
 	assert := assert2.New(t)
 
