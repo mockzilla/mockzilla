@@ -109,7 +109,12 @@ func (g *ResponseGenerator) Response(respSchema *schema.ResponseSchema, ctxData 
 	headers := generateHeaders(respSchema.Headers, valueReplacer)
 
 	isError := false
-	enc, err := encodeContent(content, respSchema.ContentType)
+	xmlRoot := ""
+	if respSchema.Body != nil {
+		xmlRoot = respSchema.Body.Name
+	}
+
+	enc, err := encodeContent(content, respSchema.ContentType, xmlRoot)
 	if err != nil {
 		enc = []byte(err.Error())
 		isError = true

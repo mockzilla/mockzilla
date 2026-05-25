@@ -454,6 +454,47 @@ func TestConvertProperties_NilProperties(t *testing.T) {
 	assert.Empty(t, nullOnly)
 }
 
+func TestConvertProxy_PopulatesNameFromRef(t *testing.T) {
+	spec := `openapi: 3.0.0
+info: {title: t, version: 1}
+paths:
+  /things:
+    get:
+      responses:
+        "200":
+          description: ok
+          content:
+            application/xml:
+              schema:
+                $ref: "#/components/schemas/timetable"
+components:
+  schemas:
+    timetable:
+      type: object
+      properties:
+        s:
+          type: array
+          items:
+            $ref: "#/components/schemas/stop"
+        inline:
+          type: object
+          properties:
+            x: {type: string}
+    stop:
+      type: object
+      properties:
+        eva: {type: integer}
+`
+	s := loadResponseSchema(t, spec, "/things", "GET")
+	require.NotNil(t, s)
+	assert.Equal(t, "timetable", s.Name)
+	require.NotNil(t, s.Properties["s"])
+	require.NotNil(t, s.Properties["s"].Items)
+	assert.Equal(t, "stop", s.Properties["s"].Items.Name)
+	require.NotNil(t, s.Properties["inline"])
+	assert.Equal(t, "", s.Properties["inline"].Name, "inline schemas have no name")
+}
+
 func TestConvertProxy_CycleEmitsRecursiveMarker(t *testing.T) {
 	spec := `openapi: 3.0.0
 info: {title: t, version: 1}
