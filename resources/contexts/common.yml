@@ -25,6 +25,8 @@ language: ["en", "de", "fr", "es", "it", "pt", "ru", "zh", "ja", "ko"]
 
 in-path:
   (id|Id)$: "alias:fake.u_int8"
+  (domain|Domain)$: "alias:fake.internet.domain"
+  (slug|Slug)$: "alias:fake.internet.slug"
 
 url: "alias:fake.internet.url"
 (url|Url)$: "alias:fake.internet.url"
