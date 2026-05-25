@@ -1,16 +1,18 @@
 package generator
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"mime"
+	"sort"
 	"strings"
 
 	"go.yaml.in/yaml/v4"
 )
 
-func encodeContent(content any, contentType string) ([]byte, error) {
+func encodeContent(content any, contentType string, xmlRootName ...string) ([]byte, error) {
 	if content == nil {
 		return nil, nil
 	}
@@ -45,6 +47,13 @@ func encodeContent(content any, contentType string) ([]byte, error) {
 		return res, nil
 
 	case "application/xml":
+		root := ""
+		if len(xmlRootName) > 0 {
+			root = xmlRootName[0]
+		}
+		if root != "" {
+			return marshalGenericXML(content, root)
+		}
 		return xml.Marshal(content)
 
 	case "application/x-yaml":
@@ -95,4 +104,60 @@ func encodeNDJSON(content any) ([]byte, error) {
 		return nil, err
 	}
 	return append(b, '\n'), nil
+}
+
+// marshalGenericXML emits XML for the generator's map/slice/scalar shapes.
+// encoding/xml refuses maps directly, so xml.Marshal alone errors on every
+// non-struct response. OpenAPI `xml:` metadata (attribute, namespace, …) is ignored.
+func marshalGenericXML(content any, rootName string) ([]byte, error) {
+	if rootName == "" {
+		rootName = "response"
+	}
+	var buf bytes.Buffer
+	enc := xml.NewEncoder(&buf)
+	if err := writeXMLElement(enc, rootName, content); err != nil {
+		return nil, err
+	}
+	if err := enc.Flush(); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func writeXMLElement(enc *xml.Encoder, name string, v any) error {
+	if arr, ok := v.([]any); ok {
+		for _, item := range arr {
+			if err := writeXMLElement(enc, name, item); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	start := xml.StartElement{Name: xml.Name{Local: name}}
+	if err := enc.EncodeToken(start); err != nil {
+		return err
+	}
+
+	switch val := v.(type) {
+	case nil:
+		// empty element
+	case map[string]any:
+		keys := make([]string, 0, len(val))
+		for k := range val {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if err := writeXMLElement(enc, k, val[k]); err != nil {
+				return err
+			}
+		}
+	default:
+		if err := enc.EncodeToken(xml.CharData(fmt.Sprint(val))); err != nil {
+			return err
+		}
+	}
+
+	return enc.EncodeToken(xml.EndElement{Name: start.Name})
 }

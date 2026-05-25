@@ -86,6 +86,14 @@ func convertProxy(proxy *base.SchemaProxy, ctx *convertCtx) *schema.Schema {
 	if res == nil {
 		return nil
 	}
+
+	if proxy.IsReference() {
+		if ref := proxy.GetReference(); ref != "" {
+			if i := strings.LastIndex(ref, "/"); i >= 0 {
+				res.Name = ref[i+1:]
+			}
+		}
+	}
 	if key != "" {
 		ctx.cache[key] = res
 	}

@@ -19,6 +19,9 @@ type Discriminator struct {
 type Schema struct {
 	Type string `yaml:"type,omitempty"`
 
+	// Name holds the component schema name when reached via $ref, empty for inline.
+	Name string `yaml:"-" json:"-"`
+
 	// in 3.1 examples can be an array (which is recommended)
 	Examples []any `yaml:"examples,omitempty"`
 

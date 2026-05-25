@@ -92,6 +92,49 @@ func TestEncodeContent(t *testing.T) {
 		assert.Equal(30, decoded.Age)
 	})
 
+	t.Run("application/xml encodes map with root name", func(t *testing.T) {
+		content := map[string]any{
+			"eva":     8000105,
+			"station": "Frankfurt",
+		}
+		result, err := encodeContent(content, "application/xml", "timetable")
+		assert.NoError(err)
+		assert.Equal(
+			`<timetable><eva>8000105</eva><station>Frankfurt</station></timetable>`,
+			string(result),
+		)
+	})
+
+	t.Run("application/xml encodes nested map and array", func(t *testing.T) {
+		content := map[string]any{
+			"eva": 1,
+			"s": []any{
+				map[string]any{"id": "a"},
+				map[string]any{"id": "b"},
+			},
+		}
+		result, err := encodeContent(content, "application/xml", "timetable")
+		assert.NoError(err)
+		assert.Equal(
+			`<timetable><eva>1</eva><s><id>a</id></s><s><id>b</id></s></timetable>`,
+			string(result),
+		)
+	})
+
+	t.Run("application/xml escapes special characters", func(t *testing.T) {
+		content := map[string]any{"msg": "<hi> & bye"}
+		result, err := encodeContent(content, "application/xml", "root")
+		assert.NoError(err)
+		assert.Equal(`<root><msg>&lt;hi&gt; &amp; bye</msg></root>`, string(result))
+	})
+
+	t.Run("application/xml falls back to xml.Marshal without root name", func(t *testing.T) {
+		content := map[string]any{"k": "v"}
+		_, err := encodeContent(content, "application/xml")
+		assert.Error(err)
+		assert.Contains(err.Error(), "unsupported type")
+	})
+
 	t.Run("application/x-yaml encoding", func(t *testing.T) {
 		content := map[string]any{
 			"name": "John",

@@ -75,6 +75,26 @@ func TestGenerator_Generate(t *testing.T) {
 		assert.False(res.IsError)
 	})
 
+	t.Run("xml response uses schema name as root element", func(t *testing.T) {
+		respSchema := &schema.ResponseSchema{
+			ContentType: "application/xml",
+			Body: &schema.Schema{
+				Name: "timetable",
+				Type: "object",
+				Properties: map[string]*schema.Schema{
+					"eva":     {Type: "integer", Enum: []any{8000105}},
+					"station": {Type: "string", Enum: []any{"Frankfurt"}},
+				},
+			},
+		}
+		res := gen.Response(respSchema, nil)
+		assert.False(res.IsError)
+		assert.Equal(
+			`<timetable><eva>8000105</eva><station>Frankfurt</station></timetable>`,
+			string(res.Body),
+		)
+	})
+
 	t.Run("response with encoding error", func(t *testing.T) {
 		respSchema := &schema.ResponseSchema{
 			ContentType: "application/xml",
