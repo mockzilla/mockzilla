@@ -33,13 +33,17 @@ type HistoryTable interface {
 }
 
 // HistoryRequest represents the HTTP request stored in a history entry.
+// IsBodyTruncated indicates the storage backend clipped Body to fit a cap;
+// the UI can render a "(truncated)" badge so users know the displayed
+// payload is not the full original.
 type HistoryRequest struct {
-	Method     string   `json:"method"`
-	URL        string   `json:"url"`
-	Body       []byte   `json:"body,omitempty"`
-	Headers    []string `json:"headers,omitempty"`
-	RemoteAddr string   `json:"remoteAddr,omitempty"`
-	RequestID  string   `json:"requestId,omitempty"`
+	Method          string   `json:"method"`
+	URL             string   `json:"url"`
+	Body            []byte   `json:"body,omitempty"`
+	IsBodyTruncated bool     `json:"isBodyTruncated,omitempty"`
+	Headers         []string `json:"headers,omitempty"`
+	RemoteAddr      string   `json:"remoteAddr,omitempty"`
+	RequestID       string   `json:"requestId,omitempty"`
 }
 
 // HistoryEntry represents a recorded request in the history.
@@ -63,14 +67,15 @@ type HistoryEntry struct {
 // UpstreamURL is the URL that was actually sent to the upstream service
 // Duration is the time taken to produce the response
 type HistoryResponse struct {
-	Body           []byte        `json:"body"`
-	StatusCode     int           `json:"statusCode"`
-	ContentType    string        `json:"contentType"`
-	IsFromUpstream bool          `json:"isFromUpstream"`
-	UpstreamURL    string        `json:"upstreamURL"`
-	Headers        []string      `json:"headers,omitempty"`
-	Duration       time.Duration `json:"duration,omitempty"`
-	UpstreamError  string        `json:"upstreamError,omitempty"`
+	Body            []byte        `json:"body"`
+	IsBodyTruncated bool          `json:"isBodyTruncated,omitempty"`
+	StatusCode      int           `json:"statusCode"`
+	ContentType     string        `json:"contentType"`
+	IsFromUpstream  bool          `json:"isFromUpstream"`
+	UpstreamURL     string        `json:"upstreamURL"`
+	Headers         []string      `json:"headers,omitempty"`
+	Duration        time.Duration `json:"duration,omitempty"`
+	UpstreamError   string        `json:"upstreamError,omitempty"`
 }
 
 // FlattenHeaders converts http.Header to a sorted slice of "Key: value" strings.
