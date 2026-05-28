@@ -224,6 +224,39 @@ func TestRedisHistory_Data(t *testing.T) {
 	})
 }
 
+func TestRedisHistory_Summaries(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("returns body-less projection", func(t *testing.T) {
+		history, _ := newTestRedisHistory(t)
+		history.Set(ctx, "/foo/{id}", &HistoryRequest{
+			Method:    "POST",
+			URL:       "/foo/1",
+			Body:      []byte(`{"name":"test"}`),
+			RequestID: "req-1",
+		}, &HistoryResponse{
+			StatusCode:  201,
+			Body:        []byte(`{"id":1}`),
+			ContentType: "application/json",
+			Duration:    42 * time.Millisecond,
+		})
+
+		summaries := history.Summaries(ctx)
+		assert.Len(t, summaries, 1)
+		s := summaries[0]
+		assert.Equal(t, "/foo/{id}", s.Resource)
+		assert.Equal(t, "POST", s.Request.Method)
+		assert.Equal(t, "req-1", s.Request.RequestID)
+		assert.Equal(t, 201, s.Response.StatusCode)
+		assert.Equal(t, 42*time.Millisecond, s.Response.Duration)
+	})
+
+	t.Run("empty history", func(t *testing.T) {
+		history, _ := newTestRedisHistory(t)
+		assert.Empty(t, history.Summaries(ctx))
+	})
+}
+
 func TestRedisHistory_Len(t *testing.T) {
 	ctx := context.Background()
 

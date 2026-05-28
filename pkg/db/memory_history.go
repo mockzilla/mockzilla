@@ -104,6 +104,20 @@ func (h *memoryHistoryTable) Data(_ context.Context) []*HistoryEntry {
 	return result
 }
 
+// Summaries returns body-less projections of all non-expired entries.
+func (h *memoryHistoryTable) Summaries(_ context.Context) []*HistorySummary {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	var result []*HistorySummary
+	for _, entry := range h.entries {
+		if !h.isExpired(entry) {
+			result = append(result, SummaryOf(entry))
+		}
+	}
+	return result
+}
+
 // Len returns the number of non-expired history entries.
 func (h *memoryHistoryTable) Len(_ context.Context) int {
 	h.mu.RLock()
