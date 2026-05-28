@@ -3,7 +3,6 @@ package api
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla/v2/pkg/db"
@@ -40,14 +39,9 @@ type HistoryListResponse struct {
 	Items []*db.HistoryEntry `json:"items"`
 }
 
-// HistorySummary is a slim version of HistoryEntry for list responses (no bodies).
-type HistorySummary struct {
-	ID        string              `json:"id"`
-	Resource  string              `json:"resource"`
-	Request   *db.HistoryRequest  `json:"request,omitempty"`
-	Response  *db.HistoryResponse `json:"response,omitempty"`
-	CreatedAt time.Time           `json:"createdAt"`
-}
+// HistorySummary aliases db.HistorySummary so existing callers and tests
+// continue to compile while the projection logic lives in the storage layer.
+type HistorySummary = db.HistorySummary
 
 // HistorySummaryListResponse is the response for history list endpoint.
 type HistorySummaryListResponse struct {
@@ -100,31 +94,9 @@ func (h *HistoryHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// List: return summaries without request/response bodies
-	items := database.History().Data(r.Context())
-	summaries := make([]*HistorySummary, 0, len(items))
-	for _, e := range items {
-		s := &HistorySummary{
-			ID:        e.ID,
-			Resource:  e.Resource,
-			CreatedAt: e.CreatedAt,
-		}
-		if e.Request != nil {
-			s.Request = &db.HistoryRequest{
-				Method:    e.Request.Method,
-				URL:       e.Request.URL,
-				RequestID: e.Request.RequestID,
-			}
-		}
-		if e.Response != nil {
-			s.Response = &db.HistoryResponse{
-				StatusCode:     e.Response.StatusCode,
-				ContentType:    e.Response.ContentType,
-				IsFromUpstream: e.Response.IsFromUpstream,
-				Duration:       e.Response.Duration,
-			}
-		}
-		summaries = append(summaries, s)
+	summaries := database.History().Summaries(r.Context())
+	if summaries == nil {
+		summaries = make([]*HistorySummary, 0)
 	}
 	NewJSONResponse(w).Send(&HistorySummaryListResponse{Items: summaries})
 }

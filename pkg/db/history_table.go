@@ -25,11 +25,67 @@ type HistoryTable interface {
 	// Data returns all request records as an ordered log.
 	Data(ctx context.Context) []*HistoryEntry
 
+	// Summaries returns a body-less projection of the most recent entries.
+	Summaries(ctx context.Context) []*HistorySummary
+
 	// Len returns the number of history entries.
 	Len(ctx context.Context) int
 
 	// Clear removes all history records.
 	Clear(ctx context.Context)
+}
+
+// HistorySummary is the body-less view returned by HistoryTable.Summaries.
+// JSON shape mirrors HistoryEntry so the same UI renders list and detail.
+type HistorySummary struct {
+	ID        string                  `json:"id"`
+	Resource  string                  `json:"resource"`
+	Request   *HistorySummaryRequest  `json:"request,omitempty"`
+	Response  *HistorySummaryResponse `json:"response,omitempty"`
+	CreatedAt time.Time               `json:"createdAt"`
+}
+
+type HistorySummaryRequest struct {
+	Method    string `json:"method"`
+	URL       string `json:"url"`
+	RequestID string `json:"requestId,omitempty"`
+}
+
+type HistorySummaryResponse struct {
+	StatusCode     int           `json:"statusCode"`
+	ContentType    string        `json:"contentType,omitempty"`
+	IsFromUpstream bool          `json:"isFromUpstream,omitempty"`
+	Duration       time.Duration `json:"duration,omitempty"`
+	UpstreamError  string        `json:"upstreamError,omitempty"`
+}
+
+// SummaryOf projects a full HistoryEntry down to the list-view fields.
+func SummaryOf(e *HistoryEntry) *HistorySummary {
+	if e == nil {
+		return nil
+	}
+	s := &HistorySummary{
+		ID:        e.ID,
+		Resource:  e.Resource,
+		CreatedAt: e.CreatedAt,
+	}
+	if e.Request != nil {
+		s.Request = &HistorySummaryRequest{
+			Method:    e.Request.Method,
+			URL:       e.Request.URL,
+			RequestID: e.Request.RequestID,
+		}
+	}
+	if e.Response != nil {
+		s.Response = &HistorySummaryResponse{
+			StatusCode:     e.Response.StatusCode,
+			ContentType:    e.Response.ContentType,
+			IsFromUpstream: e.Response.IsFromUpstream,
+			Duration:       e.Response.Duration,
+			UpstreamError:  e.Response.UpstreamError,
+		}
+	}
+	return s
 }
 
 // HistoryRequest represents the HTTP request stored in a history entry.

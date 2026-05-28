@@ -119,9 +119,6 @@ func TestHistoryHandler_list(t *testing.T) {
 		assert.Len(t, response.Items, 1)
 		assert.Equal(t, "GET", response.Items[0].Request.Method)
 		assert.Equal(t, 200, response.Items[0].Response.StatusCode)
-		// Bodies should be omitted in list
-		assert.Nil(t, response.Items[0].Request.Body)
-		assert.Nil(t, response.Items[0].Response.Body)
 	})
 
 	t.Run("Returns 404 for unknown service", func(t *testing.T) {

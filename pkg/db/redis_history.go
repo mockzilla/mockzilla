@@ -174,9 +174,45 @@ func (h *redisHistoryTable) GetByID(ctx context.Context, id string) (*HistoryEnt
 
 // Data returns all request records as an ordered log.
 func (h *redisHistoryTable) Data(ctx context.Context) []*HistoryEntry {
+	records := h.loadAllRecords(ctx)
+	if len(records) == 0 {
+		return nil
+	}
+
+	entries := make([]*HistoryEntry, 0, len(records))
+	for _, r := range records {
+		entries = append(entries, r.toEntry())
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].CreatedAt.Before(entries[j].CreatedAt)
+	})
+
+	return entries
+}
+
+// Summaries returns body-less projections of all entries.
+func (h *redisHistoryTable) Summaries(ctx context.Context) []*HistorySummary {
+	records := h.loadAllRecords(ctx)
+	if len(records) == 0 {
+		return nil
+	}
+
+	summaries := make([]*HistorySummary, 0, len(records))
+	for _, r := range records {
+		summaries = append(summaries, SummaryOf(r.toEntry()))
+	}
+
+	sort.Slice(summaries, func(i, j int) bool {
+		return summaries[i].CreatedAt.Before(summaries[j].CreatedAt)
+	})
+
+	return summaries
+}
+
+func (h *redisHistoryTable) loadAllRecords(ctx context.Context) []redisHistoryRecord {
 	pattern := h.namespace + ":entry:*"
 
-	// Collect all keys first, then batch-fetch with MGET.
 	var keys []string
 	iter := h.client.Scan(ctx, 0, pattern, 0).Iterator()
 	for iter.Next(ctx) {
@@ -192,27 +228,19 @@ func (h *redisHistoryTable) Data(ctx context.Context) []*HistoryEntry {
 		return nil
 	}
 
-	entries := make([]*HistoryEntry, 0, len(vals))
+	records := make([]redisHistoryRecord, 0, len(vals))
 	for _, val := range vals {
 		str, ok := val.(string)
 		if !ok || str == "" {
 			continue
 		}
-
 		var record redisHistoryRecord
 		if err := json.Unmarshal([]byte(str), &record); err != nil {
 			continue
 		}
-
-		entries = append(entries, record.toEntry())
+		records = append(records, record)
 	}
-
-	// Sort by CreatedAt for stable ordering
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].CreatedAt.Before(entries[j].CreatedAt)
-	})
-
-	return entries
+	return records
 }
 
 // Len returns the number of history entries.

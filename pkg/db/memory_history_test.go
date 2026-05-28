@@ -209,6 +209,58 @@ func TestMemoryHistoryTable_Data(t *testing.T) {
 	assert.NotEmpty(data[0].ID)
 }
 
+func TestMemoryHistoryTable_Summaries(t *testing.T) {
+	assert := assert2.New(t)
+	ctx := context.Background()
+
+	t.Run("returns body-less projection", func(t *testing.T) {
+		h := newTestHistoryTable(0)
+
+		h.Set(ctx, "/foo/{id}", &HistoryRequest{
+			Method:    "POST",
+			URL:       "/foo/1",
+			Body:      []byte(`{"name":"test"}`),
+			RequestID: "req-1",
+		}, &HistoryResponse{
+			StatusCode:  201,
+			Body:        []byte(`{"id":1}`),
+			ContentType: "application/json",
+			Duration:    42 * time.Millisecond,
+		})
+
+		summaries := h.Summaries(ctx)
+		assert.Len(summaries, 1)
+
+		s := summaries[0]
+		assert.NotEmpty(s.ID)
+		assert.Equal("/foo/{id}", s.Resource)
+		assert.NotNil(s.Request)
+		assert.Equal("POST", s.Request.Method)
+		assert.Equal("/foo/1", s.Request.URL)
+		assert.Equal("req-1", s.Request.RequestID)
+		assert.NotNil(s.Response)
+		assert.Equal(201, s.Response.StatusCode)
+		assert.Equal("application/json", s.Response.ContentType)
+		assert.Equal(42*time.Millisecond, s.Response.Duration)
+	})
+
+	t.Run("empty history", func(t *testing.T) {
+		h := newTestHistoryTable(0)
+		assert.Empty(h.Summaries(ctx))
+	})
+
+	t.Run("expired entries skipped", func(t *testing.T) {
+		h := newTestHistoryTable(50 * time.Millisecond)
+		h.Set(ctx, "/old", &HistoryRequest{Method: "GET", URL: "/old"}, nil)
+		time.Sleep(80 * time.Millisecond)
+		h.Set(ctx, "/new", &HistoryRequest{Method: "GET", URL: "/new"}, nil)
+
+		summaries := h.Summaries(ctx)
+		assert.Len(summaries, 1)
+		assert.Equal("/new", summaries[0].Resource)
+	})
+}
+
 func TestMemoryHistoryTable_Len(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
