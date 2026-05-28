@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caarlos0/env/v11"
 	assert2 "github.com/stretchr/testify/assert"
 )
 
@@ -33,6 +34,25 @@ func TestNewDefaultAppConfig(t *testing.T) {
 		assert.NotNil(cfg.Editor)
 		assert.Equal("chrome", cfg.Editor.Theme)
 		assert.Equal(14, cfg.Editor.FontSize)
+
+		// Storage must be non-nil so env.Parse can bind STORAGE_TYPE when
+		// no app.yml is present (sims without app.yml lose DDB otherwise).
+		assert.NotNil(cfg.Storage)
+		assert.Equal(StorageTypeMemory, cfg.Storage.Type)
+	})
+
+	t.Run("env vars bind without app.yml", func(t *testing.T) {
+		t.Setenv("STORAGE_TYPE", "dynamodb")
+		t.Setenv("ROUTER_HISTORY_ENABLED", "true")
+		t.Setenv("ROUTER_HISTORY_DURATION", "15m")
+
+		cfg := NewDefaultAppConfig("/test")
+		assert.NoError(env.Parse(cfg))
+
+		assert.Equal(StorageType("dynamodb"), cfg.Storage.Type)
+		assert.NotNil(cfg.History.Enabled)
+		assert.True(*cfg.History.Enabled)
+		assert.Equal(15*time.Minute, cfg.History.Duration)
 	})
 }
 
@@ -151,9 +171,10 @@ func TestRedisConfig(t *testing.T) {
 func TestAppConfig_WithStorage(t *testing.T) {
 	assert := assert2.New(t)
 
-	t.Run("app config without storage", func(t *testing.T) {
+	t.Run("app config default storage", func(t *testing.T) {
 		cfg := NewDefaultAppConfig("/test")
-		assert.Nil(cfg.Storage)
+		assert.NotNil(cfg.Storage)
+		assert.Equal(StorageTypeMemory, cfg.Storage.Type)
 	})
 
 	t.Run("app config with storage", func(t *testing.T) {

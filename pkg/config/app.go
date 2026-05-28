@@ -67,6 +67,7 @@ func NewDefaultAppConfig(baseDir string) *AppConfig {
 			FontSize:  14,
 		},
 		History: NewDefaultAppHistoryConfig(),
+		Storage: &StorageConfig{Type: StorageTypeMemory},
 		Extra:   make(map[string]any),
 	}
 }
