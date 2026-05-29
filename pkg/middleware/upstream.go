@@ -52,7 +52,7 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			svcCfg := params.GetServiceConfig(req)
-			cfg := svcCfg.Upstream
+			cfg := svcCfg.GetUpstream(getEndpointPath(req, svcCfg.Name), req.Method)
 			if cfg == nil || cfg.URL == "" {
 				next.ServeHTTP(w, req)
 				return
@@ -69,7 +69,7 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 				}
 			}
 
-			resp, err := getUpstreamResponse(log, svcCfg, params, req)
+			resp, err := getUpstreamResponse(log, svcCfg, cfg, params, req)
 
 			// If an upstream service returns a successful response, write it and return immediately
 			if err == nil && resp != nil {
@@ -154,9 +154,8 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 	}
 }
 
-func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, params *Params, req *http.Request) (*upstreamResponse, error) {
+func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, cfg *config.UpstreamConfig, params *Params, req *http.Request) (*upstreamResponse, error) {
 	log = RequestLog(log, req)
-	cfg := svcCfg.Upstream
 
 	timeout := config.DefaultUpstreamTimeout
 	if cfg.Timeout > 0 {

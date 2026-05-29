@@ -340,6 +340,16 @@ func (s *ServiceConfig) HistoryEnabled() bool {
 	return s.History == nil || s.History.Enabled == nil || *s.History.Enabled
 }
 
+// GetUpstream returns the effective upstream config for the given request path
+// and method. An endpoint-level Upstream replaces the service-level Upstream
+// when set; otherwise the service-level Upstream is returned.
+func (s *ServiceConfig) GetUpstream(requestPath, method string) *UpstreamConfig {
+	if ep := s.GetEndpointConfig(requestPath, method); ep != nil && ep.Upstream != nil {
+		return ep.Upstream
+	}
+	return s.Upstream
+}
+
 // GetEndpointConfig finds the matching endpoint config for a request path and method.
 // Returns nil if no match is found. When matched, the endpoint config completely
 // overrides service-level latency/error settings.
@@ -375,13 +385,15 @@ func (s *ServiceConfig) parseErrors() []*KeyValue[int, int] {
 	return parsePercentileErrors(s.Errors)
 }
 
-// EndpointConfig defines per-endpoint latency and error overrides.
+// EndpointConfig defines per-endpoint latency, error, and upstream overrides.
 // When an endpoint matches, its config completely replaces (not merges with)
-// the service-level latency/error settings.
+// the service-level latency/error settings. Upstream is independent: when set
+// here it replaces the service-level Upstream for this endpoint only.
 type EndpointConfig struct {
 	Latency   time.Duration            `yaml:"latency,omitempty"`
 	Latencies map[string]time.Duration `yaml:"latencies,omitempty"`
 	Errors    map[string]int           `yaml:"errors,omitempty"`
+	Upstream  *UpstreamConfig          `yaml:"upstream,omitempty"`
 
 	latencies []*KeyValue[int, time.Duration]
 	errors    []*KeyValue[int, int]

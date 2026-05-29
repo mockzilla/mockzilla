@@ -1014,6 +1014,84 @@ endpoints:
 	})
 }
 
+func TestServiceConfig_GetUpstream(t *testing.T) {
+	svcUp := &UpstreamConfig{URL: "https://service.example.com"}
+	epUp := &UpstreamConfig{URL: "https://endpoint.example.com"}
+
+	t.Run("Returns nil when neither service nor endpoint upstream is set", func(t *testing.T) {
+		cfg := &ServiceConfig{}
+		assert.Nil(t, cfg.GetUpstream("/foo", "GET"))
+	})
+
+	t.Run("Falls back to service upstream when no endpoint matches", func(t *testing.T) {
+		cfg := &ServiceConfig{Upstream: svcUp}
+		assert.Same(t, svcUp, cfg.GetUpstream("/foo", "GET"))
+	})
+
+	t.Run("Falls back to service upstream when endpoint has no upstream", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Upstream: svcUp,
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+			},
+		}
+		assert.Same(t, svcUp, cfg.GetUpstream("/foo", "GET"))
+	})
+
+	t.Run("Endpoint upstream replaces service upstream", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Upstream: svcUp,
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": {Upstream: epUp}},
+			},
+		}
+		assert.Same(t, epUp, cfg.GetUpstream("/foo", "GET"))
+	})
+
+	t.Run("Endpoint upstream applies only to matching method", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Upstream: svcUp,
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"POST": {Upstream: epUp}},
+			},
+		}
+		assert.Same(t, epUp, cfg.GetUpstream("/foo", "POST"))
+		assert.Same(t, svcUp, cfg.GetUpstream("/foo", "GET"))
+	})
+
+	t.Run("Endpoint upstream with no service upstream", func(t *testing.T) {
+		cfg := &ServiceConfig{
+			Endpoints: map[string]map[string]*EndpointConfig{
+				"/foo": {"GET": {Upstream: epUp}},
+			},
+		}
+		assert.Same(t, epUp, cfg.GetUpstream("/foo", "GET"))
+		assert.Nil(t, cfg.GetUpstream("/bar", "GET"))
+	})
+
+	t.Run("Parses endpoint upstream from YAML", func(t *testing.T) {
+		yamlData := []byte(`
+upstream:
+  url: https://staging.example.com
+endpoints:
+  /auth/token:
+    POST:
+      upstream:
+        url: https://prod.example.com
+`)
+		cfg, err := NewServiceConfigFromBytes(yamlData)
+		assert.NoError(t, err)
+
+		up := cfg.GetUpstream("/auth/token", "POST")
+		assert.NotNil(t, up)
+		assert.Equal(t, "https://prod.example.com", up.URL)
+
+		up = cfg.GetUpstream("/auth/token", "GET")
+		assert.NotNil(t, up)
+		assert.Equal(t, "https://staging.example.com", up.URL)
+	})
+}
+
 func TestServiceConfig_EndpointsYAML(t *testing.T) {
 	t.Run("Parses endpoints from YAML", func(t *testing.T) {
 		yamlData := []byte(`

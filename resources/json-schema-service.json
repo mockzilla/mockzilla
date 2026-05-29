@@ -161,8 +161,52 @@
       }
     },
     "upstream": {
+      "$ref": "#/definitions/upstream",
+      "description": "Upstream proxy configuration."
+    },
+    "endpoints": {
       "type": "object",
-      "description": "Upstream proxy configuration.",
+      "description": "Per-endpoint overrides keyed by path pattern, then HTTP method. Endpoint values fully replace the matching service-level setting (latency, errors, upstream).",
+      "additionalProperties": {
+        "type": "object",
+        "description": "HTTP methods for this path pattern.",
+        "additionalProperties": {
+          "$ref": "#/definitions/endpoint"
+        }
+      }
+    }
+  },
+  "definitions": {
+    "endpoint": {
+      "type": "object",
+      "description": "Per-endpoint override. Any field set here replaces the matching service-level setting for this path and method.",
+      "properties": {
+        "latency": {
+          "type": "string",
+          "description": "Fixed latency for this endpoint (e.g., '100ms')."
+        },
+        "latencies": {
+          "type": "object",
+          "description": "Percentile-based latencies for this endpoint.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "errors": {
+          "type": "object",
+          "description": "Percentile-based error injection for this endpoint.",
+          "additionalProperties": {
+            "type": "integer"
+          }
+        },
+        "upstream": {
+          "$ref": "#/definitions/upstream",
+          "description": "Upstream override for this endpoint only. Replaces (not merges with) the service-level upstream."
+        }
+      }
+    },
+    "upstream": {
+      "type": "object",
       "properties": {
         "url": {
           "type": "string",
@@ -193,9 +237,7 @@
           "default": "0"
         }
       }
-    }
-  },
-  "definitions": {
+    },
     "http-status-match": {
       "type": "object",
       "properties": {
