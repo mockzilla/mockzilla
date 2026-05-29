@@ -170,7 +170,7 @@ Percentiles are cumulative - `p10: 400` means requests between p5 and p10 (5%) r
 
 ## Endpoint-Level Overrides
 
-Latency and error settings can be configured per endpoint using the `endpoints` block. Endpoint-level config completely overrides the service-level settings for matched requests.
+Latency, errors, and upstream settings can be configured per endpoint using the `endpoints` block. Endpoint-level config completely overrides the matching service-level setting for matched requests. See [Per-Endpoint Upstream](#per-endpoint-upstream) for the upstream variant.
 
 ```yaml
 latency: 50ms  # service default
@@ -268,6 +268,23 @@ upstream:
 
 When configured, requests are proxied to the upstream server.
 If the upstream fails (timeout, network error, or error status), Mockzilla falls back to generating mock responses.
+
+### Per-Endpoint Upstream
+
+Override the upstream for a single path and method by setting `upstream:` inside an `endpoints` entry. 
+The endpoint upstream fully replaces the service-level upstream (URL, timeout, headers, fail-on, sticky-timeout) for matched requests. 
+Other endpoints continue to use the service-level upstream, or no upstream when none is set.
+
+```yaml
+upstream:
+  url: https://staging.example.com
+
+endpoints:
+  /auth/token:
+    POST:
+      upstream:
+        url: https://prod.example.com
+```
 
 ### Sticky Source
 
