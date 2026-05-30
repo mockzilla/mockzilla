@@ -178,14 +178,19 @@ func (r *Router) register(
 		}
 	}
 
-	// Inject the app-level default replay duration so a service's replay.duration
-	// overrides it and header-only replay still records with the app default.
+	// Inject the app-level default replay duration (a service's replay.duration
+	// overrides it) and push down an app-level disable so ROUTER_REPLAY_ENABLED=false
+	// stops recording, not just the explorer URL (a service's replay.enabled overrides).
 	if r.config.Replay != nil {
 		if cfg.Replay == nil {
 			cfg.Replay = &config.ReplayConfig{}
 		}
 		if cfg.Replay.Duration == 0 {
 			cfg.Replay.Duration = r.config.Replay.Duration
+		}
+		if r.config.Replay.Enabled != nil && !*r.config.Replay.Enabled && cfg.Replay.Enabled == nil {
+			disabled := false
+			cfg.Replay.Enabled = &disabled
 		}
 	}
 

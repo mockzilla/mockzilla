@@ -356,6 +356,12 @@ func (s *ServiceConfig) HistoryEnabled() bool {
 	return s.History == nil || s.History.Enabled == nil || *s.History.Enabled
 }
 
+// ReplayEnabled returns whether replay recording and serving is enabled.
+// Defaults to true when not explicitly set.
+func (s *ServiceConfig) ReplayEnabled() bool {
+	return s.Replay == nil || s.Replay.Enabled == nil || *s.Replay.Enabled
+}
+
 // GetUpstream returns the effective upstream config for the given request path
 // and method. An endpoint-level Upstream replaces the service-level Upstream
 // when set; otherwise the service-level Upstream is returned.
@@ -534,6 +540,9 @@ type CacheConfig struct {
 //	            - data.name
 //	            - data.address.zip
 type ReplayConfig struct {
+	// Enabled toggles replay recording and serving (defaults to true when nil).
+	Enabled *bool `yaml:"enabled,omitempty"`
+
 	// Duration is how long recordings are kept. Defaults to the app-level
 	// replay.duration when unset.
 	Duration time.Duration `yaml:"duration"`

@@ -331,6 +331,31 @@ func TestReplayHandler_clear(t *testing.T) {
 	})
 }
 
+func TestReplayHandler_serviceReplayDisabled(t *testing.T) {
+	t.Run("Returns 404 when service has replay disabled", func(t *testing.T) {
+		router := newTestRouter(t)
+
+		disabled := false
+		svcCfg := config.NewServiceConfig()
+		svcCfg.Replay = &config.ReplayConfig{Enabled: &disabled}
+
+		service := &mockService{
+			name:   "no-replay",
+			config: svcCfg,
+			routes: func(r chi.Router) {},
+		}
+		registerTestService(router, service)
+		_ = CreateReplayRoutes(router)
+
+		req := httptest.NewRequest(http.MethodGet, "/.replay?service=no-replay", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+		assert.Contains(t, w.Body.String(), "Replay disabled")
+	})
+}
+
 func TestReplayHandler_rootService(t *testing.T) {
 	t.Run("Returns recordings for root service via .root name", func(t *testing.T) {
 		router := newTestRouter(t)

@@ -19,6 +19,38 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 		_, _ = w.Write([]byte("fresh"))
 	})
 
+	t.Run("disabled service does not serve stored recording", func(t *testing.T) {
+		disabled := false
+		params := newTestParams(&config.ServiceConfig{
+			Name: "svc",
+			Replay: &config.ReplayConfig{
+				Enabled:    &disabled,
+				AutoReplay: true,
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
+				},
+			},
+		})
+
+		body := []byte(`{"name":"Jane"}`)
+		key := buildReplayKey(httptest.NewRequest(http.MethodPost, "/foo", nil), "/foo", "/foo", &config.ReplayMatch{Body: []string{"name"}}, body)
+		params.DB().Table("replay").Set(context.TODO(), key, &ReplayRecord{
+			Data:        []byte(`{"result":"stored"}`),
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json",
+			CreatedAt:   time.Now(),
+		}, 0)
+
+		mw := CreateReplayReadMiddleware(params)
+
+		w := NewBufferedResponseWriter()
+		req := httptest.NewRequest(http.MethodPost, "/svc/foo", strings.NewReader(`{"name":"Jane"}`))
+		req.Header.Set(headerReplayMatch, "name")
+		mw(handler).ServeHTTP(w, req)
+
+		assert.Equal("fresh", string(w.buf))
+	})
+
 	t.Run("no header passes through", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",

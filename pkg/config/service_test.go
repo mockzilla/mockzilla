@@ -1690,6 +1690,30 @@ func TestHistoryEnabled(t *testing.T) {
 	})
 }
 
+func TestReplayEnabled(t *testing.T) {
+	t.Run("true when Replay is nil", func(t *testing.T) {
+		cfg := &ServiceConfig{}
+		assert.True(t, cfg.ReplayEnabled())
+	})
+
+	t.Run("true when Enabled is nil", func(t *testing.T) {
+		cfg := &ServiceConfig{Replay: &ReplayConfig{}}
+		assert.True(t, cfg.ReplayEnabled())
+	})
+
+	t.Run("true when explicitly enabled", func(t *testing.T) {
+		enabled := true
+		cfg := &ServiceConfig{Replay: &ReplayConfig{Enabled: &enabled}}
+		assert.True(t, cfg.ReplayEnabled())
+	})
+
+	t.Run("false when explicitly disabled", func(t *testing.T) {
+		disabled := false
+		cfg := &ServiceConfig{Replay: &ReplayConfig{Enabled: &disabled}}
+		assert.False(t, cfg.ReplayEnabled())
+	})
+}
+
 func TestHistoryConfig_UnmarshalYAML(t *testing.T) {
 	t.Run("boolean shorthand false", func(t *testing.T) {
 		yamlData := []byte(`history: false`)
