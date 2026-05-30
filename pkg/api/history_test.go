@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -398,5 +399,38 @@ func TestHistoryHandler_serviceHistoryDisabled(t *testing.T) {
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
 		assert.Contains(t, w.Body.String(), "History disabled")
+	})
+}
+
+func TestHistoryHandler_listCap(t *testing.T) {
+	t.Run("Caps at 100 newest and flags truncated", func(t *testing.T) {
+		router := newTestRouter(t)
+		router.config.History.URL = "/.history"
+
+		service := &mockService{
+			name:   "test-service",
+			config: config.NewServiceConfig(),
+			routes: func(r chi.Router) {},
+		}
+		registerTestService(router, service)
+
+		database := router.GetDB("test-service")
+		for i := 0; i < maxSummaryItems+1; i++ {
+			database.History().Set(context.Background(), "/users", &db.HistoryRequest{
+				Method: "GET",
+				URL:    fmt.Sprintf("/test-service/users/%d", i),
+			}, &db.HistoryResponse{StatusCode: 200})
+		}
+		_ = CreateHistoryRoutes(router)
+
+		req := httptest.NewRequest(http.MethodGet, "/.history?service=test-service", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		var response HistorySummaryListResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Len(t, response.Items, maxSummaryItems)
+		assert.True(t, response.Truncated)
 	})
 }

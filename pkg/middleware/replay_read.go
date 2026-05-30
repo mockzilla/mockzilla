@@ -41,7 +41,7 @@ func CreateReplayReadMiddleware(params *Params) func(http.Handler) http.Handler 
 				return
 			}
 
-			rec := deserializeReplayRecord(val)
+			rec := DeserializeReplayRecord(val)
 			if rec == nil {
 				next.ServeHTTP(w, req)
 				return

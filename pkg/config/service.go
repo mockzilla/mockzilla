@@ -16,34 +16,86 @@ type KeyValue[K, V any] struct {
 	Value V
 }
 
+// BehaviorConfig holds the response-behavior knobs shared by a service and its
+// endpoints: upstream proxying, injected latency, and injected errors. It is
+// embedded (inline) into ServiceConfig and EndpointConfig so the YAML keys stay
+// flat (upstream, latency, latencies, errors) at both levels.
+type BehaviorConfig struct {
+	Upstream  *UpstreamConfig          `yaml:"upstream,omitempty"`
+	Latency   time.Duration            `yaml:"latency,omitempty"`
+	Latencies map[string]time.Duration `yaml:"latencies,omitempty"`
+	Errors    map[string]int           `yaml:"errors,omitempty"`
+
+	latencies []*KeyValue[int, time.Duration]
+	errors    []*KeyValue[int, int]
+}
+
+// GetLatency returns the percentile-sampled latency when latencies are
+// configured, otherwise the flat Latency.
+func (b *BehaviorConfig) GetLatency() time.Duration {
+	if len(b.latencies) == 0 {
+		return b.Latency
+	}
+
+	rnd := rand.Intn(100) + 1
+	for _, latencyKV := range b.latencies {
+		if rnd <= latencyKV.Key {
+			return latencyKV.Value
+		}
+	}
+
+	return 0
+}
+
+// GetError returns an error code sampled from the configured percentiles, or 0
+// when none are defined.
+func (b *BehaviorConfig) GetError() int {
+	if len(b.errors) == 0 {
+		return 0
+	}
+
+	rnd := rand.Intn(100) + 1
+	for _, errorKV := range b.errors {
+		if rnd <= errorKV.Key {
+			return errorKV.Value
+		}
+	}
+
+	return 0
+}
+
+// parse builds the cached percentile slices from the Latencies/Errors maps.
+func (b *BehaviorConfig) parse() {
+	if len(b.Latencies) > 0 {
+		b.latencies = parsePercentileLatencies(b.Latencies)
+	}
+	if len(b.Errors) > 0 {
+		b.errors = parsePercentileErrors(b.Errors)
+	}
+}
+
 // ServiceConfig defines the configuration for a service.
+// BehaviorConfig (inlined) carries the response-behavior knobs (upstream,
+// latency, latencies, errors) shared with EndpointConfig.
 // Name is the optional name of the service.
-// Upstream is the upstream configuration.
-// Latency is the default latency for the service.
-// Latencies is a map of percentiles to latencies.
-// Errors is a map of percentiles to error codes.
-// Validate is the validation configuration.
-// Cache is the cache configuration.
+// Cache is the cache configuration; Replay is the replay (VCR) configuration.
 // Mount is the URL prefix at which the service mounts. May contain
 // `/` to allow multi-segment prefixes (e.g. "pets/v2"). When empty,
 // the service mounts at "/<Name>".
 // SpecOptions allows OpenAPI spec simplifications for code generation.
+// Validate is the validation configuration.
 type ServiceConfig struct {
+	BehaviorConfig `yaml:",inline"`
+
 	Name        string                                `yaml:"name,omitempty"`
-	Upstream    *UpstreamConfig                       `yaml:"upstream,omitempty"`
-	Latency     time.Duration                         `yaml:"latency,omitempty"`
-	Latencies   map[string]time.Duration              `yaml:"latencies,omitempty"`
-	Errors      map[string]int                        `yaml:"errors,omitempty"`
 	Endpoints   map[string]map[string]*EndpointConfig `yaml:"endpoints,omitempty"`
 	Cache       *CacheConfig                          `yaml:"cache,omitempty"`
+	Replay      *ReplayConfig                         `yaml:"replay,omitempty"`
 	History     *HistoryConfig                        `yaml:"history,omitempty"`
 	Mount       string                                `yaml:"mount,omitempty"`
 	SpecOptions *SpecOptions                          `yaml:"spec,omitempty"`
 	Validate    *ValidateConfig                       `yaml:"validate,omitempty"`
 	Extra       map[string]any                        `yaml:"extra,omitempty"`
-
-	latencies []*KeyValue[int, time.Duration]
-	errors    []*KeyValue[int, int]
 }
 
 // DefaultValidationTimeout bounds a single validate call when the
@@ -111,8 +163,10 @@ func (v *ValidateConfig) TimeoutOrDefault() time.Duration {
 func NewServiceConfig() *ServiceConfig {
 	off := false
 	return &ServiceConfig{
-		Errors:      make(map[string]int),
-		Latencies:   make(map[string]time.Duration),
+		BehaviorConfig: BehaviorConfig{
+			Errors:    make(map[string]int),
+			Latencies: make(map[string]time.Duration),
+		},
 		Cache:       NewCacheConfig(),
 		History:     NewHistoryConfig(),
 		SpecOptions: NewSpecOptions(),
@@ -175,14 +229,8 @@ func (s *ServiceConfig) WithDefaults() *ServiceConfig {
 		s.Mount = defaults.Mount
 	}
 
-	// Parse latencies and errors if they haven't been parsed yet
-	if s.latencies == nil && len(s.Latencies) > 0 {
-		s.latencies = s.parseLatencies()
-	}
-
-	if s.errors == nil && len(s.Errors) > 0 {
-		s.errors = s.parseErrors()
-	}
+	// Parse latencies and errors into the cached percentile slices.
+	s.parse()
 
 	s.Endpoints = normalizeMethodKeys(s.Endpoints)
 	for _, methods := range s.Endpoints {
@@ -193,8 +241,8 @@ func (s *ServiceConfig) WithDefaults() *ServiceConfig {
 		}
 	}
 
-	if s.Cache != nil && s.Cache.Replay != nil {
-		s.Cache.Replay.Endpoints = normalizeMethodKeys(s.Cache.Replay.Endpoints)
+	if s.Replay != nil {
+		s.Replay.Endpoints = normalizeMethodKeys(s.Replay.Endpoints)
 	}
 
 	return s
@@ -225,6 +273,10 @@ func (s *ServiceConfig) OverwriteWith(other *ServiceConfig) *ServiceConfig {
 		s.Cache = other.Cache
 	}
 
+	if other.Replay != nil {
+		s.Replay = other.Replay
+	}
+
 	// Overwrite duration if set (non-zero)
 	if other.Latency != 0 {
 		s.Latency = other.Latency
@@ -239,7 +291,7 @@ func (s *ServiceConfig) OverwriteWith(other *ServiceConfig) *ServiceConfig {
 			s.Latencies[k] = v
 		}
 		// Re-parse latencies after merge
-		s.latencies = s.parseLatencies()
+		s.parse()
 	}
 
 	if other.Errors != nil {
@@ -250,7 +302,7 @@ func (s *ServiceConfig) OverwriteWith(other *ServiceConfig) *ServiceConfig {
 			s.Errors[k] = v
 		}
 		// Re-parse errors after merge
-		s.errors = s.parseErrors()
+		s.parse()
 	}
 
 	if other.History != nil {
@@ -298,42 +350,6 @@ func (s *ServiceConfig) OverwriteWith(other *ServiceConfig) *ServiceConfig {
 	return s
 }
 
-// GetLatency returns the latency.
-func (s *ServiceConfig) GetLatency() time.Duration {
-	if len(s.latencies) == 0 {
-		return s.Latency
-	}
-
-	rnd := rand.Intn(100) + 1
-	for _, latencyKV := range s.latencies {
-		if rnd <= latencyKV.Key {
-			return latencyKV.Value
-		}
-	}
-
-	return 0
-}
-
-// GetError returns the error based on the percentiles:
-//
-//	random number is generated between 1 and 100 to simulate the percentile.
-//
-// If no errors are defined, it returns 0.
-func (s *ServiceConfig) GetError() int {
-	if len(s.errors) == 0 {
-		return 0
-	}
-
-	rnd := rand.Intn(100) + 1
-	for _, errorKV := range s.errors {
-		if rnd <= errorKV.Key {
-			return errorKV.Value
-		}
-	}
-
-	return 0
-}
-
 // HistoryEnabled returns whether request history recording is enabled.
 // Defaults to true when not explicitly set.
 func (s *ServiceConfig) HistoryEnabled() bool {
@@ -377,67 +393,12 @@ func (s *ServiceConfig) GetEndpointConfig(requestPath, method string) *EndpointC
 	return nil
 }
 
-func (s *ServiceConfig) parseLatencies() []*KeyValue[int, time.Duration] {
-	return parsePercentileLatencies(s.Latencies)
-}
-
-func (s *ServiceConfig) parseErrors() []*KeyValue[int, int] {
-	return parsePercentileErrors(s.Errors)
-}
-
-// EndpointConfig defines per-endpoint latency, error, and upstream overrides.
-// When an endpoint matches, its config completely replaces (not merges with)
-// the service-level latency/error settings. Upstream is independent: when set
-// here it replaces the service-level Upstream for this endpoint only.
+// EndpointConfig defines per-endpoint behavior overrides. When an endpoint
+// matches, its config completely replaces (not merges with) the service-level
+// latency/error settings; Upstream, when set, replaces the service-level
+// Upstream for this endpoint only.
 type EndpointConfig struct {
-	Latency   time.Duration            `yaml:"latency,omitempty"`
-	Latencies map[string]time.Duration `yaml:"latencies,omitempty"`
-	Errors    map[string]int           `yaml:"errors,omitempty"`
-	Upstream  *UpstreamConfig          `yaml:"upstream,omitempty"`
-
-	latencies []*KeyValue[int, time.Duration]
-	errors    []*KeyValue[int, int]
-}
-
-// GetLatency returns the latency for this endpoint.
-func (e *EndpointConfig) GetLatency() time.Duration {
-	if len(e.latencies) == 0 {
-		return e.Latency
-	}
-
-	rnd := rand.Intn(100) + 1
-	for _, kv := range e.latencies {
-		if rnd <= kv.Key {
-			return kv.Value
-		}
-	}
-
-	return 0
-}
-
-// GetError returns the error code for this endpoint.
-func (e *EndpointConfig) GetError() int {
-	if len(e.errors) == 0 {
-		return 0
-	}
-
-	rnd := rand.Intn(100) + 1
-	for _, kv := range e.errors {
-		if rnd <= kv.Key {
-			return kv.Value
-		}
-	}
-
-	return 0
-}
-
-func (e *EndpointConfig) parse() {
-	if len(e.Latencies) > 0 {
-		e.latencies = parsePercentileLatencies(e.Latencies)
-	}
-	if len(e.Errors) > 0 {
-		e.errors = parsePercentileErrors(e.Errors)
-	}
+	BehaviorConfig `yaml:",inline"`
 }
 
 func parsePercentileLatencies(m map[string]time.Duration) []*KeyValue[int, time.Duration] {
@@ -547,14 +508,9 @@ func (h *HistoryConfig) UnmarshalYAML(unmarshal func(any) error) error {
 
 // CacheConfig defines the cache configuration for a service.
 // Requests is a flag whether to cache GET requests.
-// Replay is the replay configuration for recording and replaying API responses.
 type CacheConfig struct {
-	Requests bool          `yaml:"requests"`
-	Replay   *ReplayConfig `yaml:"replay,omitempty"`
+	Requests bool `yaml:"requests"`
 }
-
-// DefaultReplayTTL is the default time-to-live for replay recordings.
-const DefaultReplayTTL = 24 * time.Hour
 
 // ReplayConfig defines the replay (VCR-like) configuration for recording and replaying
 // API responses based on request body content.
@@ -566,21 +522,21 @@ const DefaultReplayTTL = 24 * time.Hour
 //
 // Example YAML:
 //
-//	cache:
-//	  replay:
-//	    ttl: 24h
-//	    auto-replay: true
-//	    upstream-only: false
-//	    endpoints:
-//	      /foo/{f-id}/bar/{b-id}:
-//	        POST:
-//	          match:
-//	            body:
-//	              - data.name
-//	              - data.address.zip
+//	replay:
+//	  duration: 24h
+//	  auto-replay: true
+//	  upstream-only: false
+//	  endpoints:
+//	    /foo/{f-id}/bar/{b-id}:
+//	      POST:
+//	        match:
+//	          body:
+//	            - data.name
+//	            - data.address.zip
 type ReplayConfig struct {
-	// TTL is how long recordings are kept. Default: 24h.
-	TTL time.Duration `yaml:"ttl"`
+	// Duration is how long recordings are kept. Defaults to the app-level
+	// replay.duration when unset.
+	Duration time.Duration `yaml:"duration"`
 
 	// UpstreamOnly when true only records responses from upstream services.
 	UpstreamOnly bool `yaml:"upstream-only"`
@@ -631,14 +587,6 @@ func (rm *ReplayMatch) AllFields() []string {
 	fields = append(fields, rm.Body...)
 	fields = append(fields, rm.Query...)
 	return fields
-}
-
-// WithDefaults fills zero-valued fields with defaults.
-func (rc *ReplayConfig) WithDefaults() *ReplayConfig {
-	if rc.TTL == 0 {
-		rc.TTL = DefaultReplayTTL
-	}
-	return rc
 }
 
 // GetEndpoint finds the matching endpoint config for a request path and method.

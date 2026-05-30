@@ -38,9 +38,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -75,9 +75,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -111,9 +111,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -144,9 +144,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -174,9 +174,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -200,9 +200,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -235,9 +235,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -262,13 +262,13 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 				Headers: map[string]string{
 					"Authorization": "Bearer configured",
 					"X-Custom":      "custom-value",
 				},
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -292,9 +292,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -320,9 +320,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "foo",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		resp := &db.HistoryResponse{
@@ -366,8 +366,8 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/foo", nil)
 
 		params := newTestParams(&config.ServiceConfig{
-			Name:     "test",
-			Upstream: &config.UpstreamConfig{},
+			Name:           "test",
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -389,9 +389,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -407,9 +407,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: "ht tps://example.com",
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -431,10 +431,10 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL:     upstreamServer.URL,
 				Timeout: 50 * time.Millisecond,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -457,9 +457,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -484,9 +484,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -509,9 +509,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -535,9 +535,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -559,10 +559,10 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL:    upstreamServer.URL,
 				FailOn: &config.HTTPStatusMatchConfig{},
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -584,9 +584,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -607,10 +607,10 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL:           upstreamServer.URL,
 				StickyTimeout: 30 * time.Second,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -647,10 +647,10 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL:           upstreamServer.URL,
 				StickyTimeout: 30 * time.Second,
-			},
+			}},
 		})
 
 		// Pre-set a sticky marker for this service
@@ -697,10 +697,10 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL:           upstreamServer.URL,
 				StickyTimeout: 30 * time.Second,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -729,9 +729,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)
@@ -763,12 +763,12 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test",
-			Upstream: &config.UpstreamConfig{
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
 				URL: upstreamServer.URL,
 				FailOn: &config.HTTPStatusMatchConfig{
 					{Range: "400-599"},
 				},
-			},
+			}},
 		})
 
 		f := CreateUpstreamRequestMiddleware(params)

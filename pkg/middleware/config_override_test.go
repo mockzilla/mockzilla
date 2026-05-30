@@ -110,7 +110,7 @@ func TestApplyOverrides(t *testing.T) {
 	})
 
 	t.Run("overrides Latency", func(t *testing.T) {
-		original := &config.ServiceConfig{Latency: 50 * time.Millisecond}
+		original := &config.ServiceConfig{BehaviorConfig: config.BehaviorConfig{Latency: 50 * time.Millisecond}}
 		result := applyOverrides(original, []configOverride{
 			{key: headerLatency, value: "200ms"},
 		})
@@ -118,7 +118,7 @@ func TestApplyOverrides(t *testing.T) {
 	})
 
 	t.Run("invalid latency ignored", func(t *testing.T) {
-		original := &config.ServiceConfig{Latency: 50 * time.Millisecond}
+		original := &config.ServiceConfig{BehaviorConfig: config.BehaviorConfig{Latency: 50 * time.Millisecond}}
 		result := applyOverrides(original, []configOverride{
 			{key: headerLatency, value: "invalid"},
 		})
@@ -127,7 +127,7 @@ func TestApplyOverrides(t *testing.T) {
 
 	t.Run("overrides Upstream-Url", func(t *testing.T) {
 		original := &config.ServiceConfig{
-			Upstream: &config.UpstreamConfig{URL: "http://old.com"},
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{URL: "http://old.com"}},
 		}
 		result := applyOverrides(original, []configOverride{
 			{key: headerUpstreamURL, value: "http://new.com"},
@@ -137,7 +137,7 @@ func TestApplyOverrides(t *testing.T) {
 
 	t.Run("empty Upstream-Url sets Upstream to nil", func(t *testing.T) {
 		original := &config.ServiceConfig{
-			Upstream: &config.UpstreamConfig{URL: "http://old.com"},
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{URL: "http://old.com"}},
 		}
 		result := applyOverrides(original, []configOverride{
 			{key: headerUpstreamURL, value: ""},
@@ -240,8 +240,8 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 
 	t.Run("no headers passes through unchanged", func(t *testing.T) {
 		original := &config.ServiceConfig{
-			Name:    "test",
-			Latency: 100 * time.Millisecond,
+			Name:           "test",
+			BehaviorConfig: config.BehaviorConfig{Latency: 100 * time.Millisecond},
 		}
 		params := newTestParams(original)
 
@@ -262,8 +262,8 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 
 	t.Run("overrides config for request duration", func(t *testing.T) {
 		original := &config.ServiceConfig{
-			Name:    "test",
-			Latency: 100 * time.Millisecond,
+			Name:           "test",
+			BehaviorConfig: config.BehaviorConfig{Latency: 100 * time.Millisecond},
 		}
 		params := newTestParams(original)
 
@@ -288,8 +288,8 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 
 	t.Run("original config unchanged after override", func(t *testing.T) {
 		original := &config.ServiceConfig{
-			Name:    "test",
-			Latency: 100 * time.Millisecond,
+			Name:           "test",
+			BehaviorConfig: config.BehaviorConfig{Latency: 100 * time.Millisecond},
 		}
 		params := newTestParams(original)
 
@@ -392,9 +392,9 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 
 	t.Run("multiple overrides applied", func(t *testing.T) {
 		original := &config.ServiceConfig{
-			Name:    "test",
-			Latency: 100 * time.Millisecond,
-			Cache:   &config.CacheConfig{Requests: true},
+			Name:           "test",
+			BehaviorConfig: config.BehaviorConfig{Latency: 100 * time.Millisecond},
+			Cache:          &config.CacheConfig{Requests: true},
 		}
 		params := newTestParams(original)
 

@@ -72,8 +72,8 @@ func CreateReplayWriteMiddleware(params *Params) func(http.Handler) http.Handler
 			// Check upstream-only: if configured, only record upstream responses.
 			// Return an error so the caller knows recording was skipped.
 			isFromUpstream := source == ResponseHeaderSourceUpstream
-			replayCfg := cfg.Cache != nil && cfg.Cache.Replay != nil
-			if replayCfg && cfg.Cache.Replay.UpstreamOnly && !isFromUpstream {
+			replayCfg := cfg.Replay != nil
+			if replayCfg && cfg.Replay.UpstreamOnly && !isFromUpstream {
 				w.Header().Set(ResponseHeaderSource, source)
 				http.Error(w, "replay: upstream-only is configured but response source is "+source, http.StatusBadGateway)
 				return
@@ -114,7 +114,7 @@ func CreateReplayWriteMiddleware(params *Params) func(http.Handler) http.Handler
 			// Resolve the config endpoint pattern (if any)
 			var resource string
 			if replayCfg {
-				resource, _ = cfg.Cache.Replay.GetEndpoint(endpointPath, req.Method)
+				resource, _ = cfg.Replay.GetEndpoint(endpointPath, req.Method)
 			}
 
 			rec := &ReplayRecord{

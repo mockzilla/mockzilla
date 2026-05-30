@@ -8,6 +8,7 @@
             homeUrl: "{{.AppConfig.BaseURL}}{{.AppConfig.HomeURL}}",
             serviceUrl: "{{.AppConfig.BaseURL}}{{.AppConfig.ServiceURL}}",
             historyUrl: "{{if .AppConfig.History.URL}}{{.AppConfig.BaseURL}}{{.AppConfig.History.URL}}{{end}}",
+            replayUrl: "{{if .AppConfig.Replay.URL}}{{.AppConfig.BaseURL}}{{.AppConfig.Replay.URL}}{{end}}",
             editor: {
                 theme: "{{.AppConfig.Editor.Theme}}",
                 darkTheme: "{{.AppConfig.Editor.DarkTheme}}",
@@ -32,6 +33,7 @@
         "./home.js": "{{.AppConfig.AssetsURL}}js/home.js?v={{.Version}}",
         "./resources.js": "{{.AppConfig.AssetsURL}}js/resources.js?v={{.Version}}",
         "./history.js": "{{.AppConfig.AssetsURL}}js/history.js?v={{.Version}}",
+        "./replay.js": "{{.AppConfig.AssetsURL}}js/replay.js?v={{.Version}}",
         "./configuration.js": "{{.AppConfig.AssetsURL}}js/configuration.js?v={{.Version}}",
         "./validators.js": "{{.AppConfig.AssetsURL}}js/validators.js?v={{.Version}}",
         "./presets.js": "{{.AppConfig.AssetsURL}}js/presets.js?v={{.Version}}"
@@ -79,10 +81,15 @@
                                 <span id="history-refresh" class="history-action-btn" title="Refresh"><i class="fa-solid fa-rotate-right"></i></span>
                                 <span id="history-clear" class="history-action-btn" title="Clear history"><i class="fa-solid fa-trash-can"></i></span>
                             </div>
+                            <div id="replay-actions" class="history-actions" style="display: none;">
+                                <span id="replay-refresh" class="history-action-btn" title="Refresh"><i class="fa-solid fa-rotate-right"></i></span>
+                                <span id="replay-clear" class="history-action-btn" title="Clear recordings"><i class="fa-solid fa-trash-can"></i></span>
+                            </div>
                         </div>
                         <div id="service-tabs" class="service-tabs panel-tabs" style="display: none;">
                             <a id="tab-resources" class="service-tab" href="#">Resources</a>
                             <a id="tab-history" class="service-tab" href="#">History</a>
+                            <a id="tab-replay" class="service-tab" href="#">Replay</a>
                             <a id="tab-configuration" class="service-tab" href="#">Configuration</a>
                         </div>
                         <div class="panel-body">
@@ -112,6 +119,19 @@
                                 </thead>
                                 <tbody id="history-table-body"></tbody>
                             </table>
+                            <table id="replay-table-list" style="display: none;">
+                                <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Method</th>
+                                    <th>Path</th>
+                                    <th>Status</th>
+                                    <th>Match</th>
+                                    <th>Time</th>
+                                </tr>
+                                </thead>
+                                <tbody id="replay-table-body"></tbody>
+                            </table>
                             <div id="configuration-editor-wrap" class="config-editor-wrap" style="display:none;">
                                 <button class="copy-btn" data-copy-target="configuration-editor" title="Copy to clipboard">Copy</button>
                                 <div id="configuration-editor" style="width:100%; height:100%;"></div>
@@ -126,6 +146,8 @@
                             <span id="refresh" title="Refresh" style="display:none;"><i class="fa-solid fa-rotate-right"></i></span>
                             <h4 id="resource-panel-title">Select a resource</h4>
                             <h4 id="history-detail-title" style="display:none;">Select an entry</h4>
+                            <h4 id="replay-detail-title" style="display:none;">Select a recording</h4>
+                            <span id="replay-delete" class="history-action-btn" title="Delete this recording" style="display:none;"><i class="fa-solid fa-trash-can"></i></span>
                             <div id="preset-controls" style="display:none;">
                                 <label for="preset-select" id="preset-label">Preset:</label>
                                 <select id="preset-select"></select>
@@ -147,6 +169,12 @@
                         <div class="panel-tabs" id="history-tabs" style="display:none;">
                             <a class="resource-tab" data-tab="details" href="#">Details</a>
                             <a class="resource-tab" data-tab="headers" href="#">Req. Headers</a>
+                            <a class="resource-tab" data-tab="request" href="#">Request</a>
+                            <a class="resource-tab" data-tab="response" href="#">Response</a>
+                            <a class="resource-tab" data-tab="resp-headers" href="#">Resp. Headers</a>
+                        </div>
+                        <div class="panel-tabs" id="replay-tabs" style="display:none;">
+                            <a class="resource-tab" data-tab="details" href="#">Details</a>
                             <a class="resource-tab" data-tab="request" href="#">Request</a>
                             <a class="resource-tab" data-tab="response" href="#">Response</a>
                             <a class="resource-tab" data-tab="resp-headers" href="#">Resp. Headers</a>
@@ -331,6 +359,27 @@
 
                                 <div class="tab-pane" data-tab="response" id="history-resp-body-container">
                                     <div id="history-resp-body" style="width:100%;height:100%;"></div>
+                                </div>
+                            </div>
+
+                            <div id="replay-detail" style="display: none;">
+                                <div class="tab-pane" data-tab="details">
+                                    <div id="replay-summary-content"></div>
+                                </div>
+
+                                <div class="tab-pane" data-tab="request" id="replay-req-body-container">
+                                    <div id="replay-req-body" style="width:100%;height:100%;"></div>
+                                </div>
+
+                                <div class="tab-pane" data-tab="resp-headers">
+                                    <table class="response-headers-table">
+                                        <thead><tr><th>Header</th><th>Value</th></tr></thead>
+                                        <tbody id="replay-resp-headers-body"></tbody>
+                                    </table>
+                                </div>
+
+                                <div class="tab-pane" data-tab="response" id="replay-resp-body-container">
+                                    <div id="replay-resp-body" style="width:100%;height:100%;"></div>
                                 </div>
                             </div>
                         </div>

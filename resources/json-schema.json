@@ -62,6 +62,27 @@
             }
           }
         },
+        "replay": {
+          "type": "object",
+          "description": "Replay recording defaults and the Replay Explorer UI.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable the replay explorer API and UI tab.",
+              "default": true
+            },
+            "url": {
+              "type": "string",
+              "description": "URL prefix for the replay explorer API.",
+              "default": "/.replay"
+            },
+            "duration": {
+              "type": "string",
+              "description": "Default recording TTL (e.g., '24h'). A service's replay.duration overrides it.",
+              "default": "24h"
+            }
+          }
+        },
         "editor": {
           "type": "object",
           "description": "Editor configuration for the UI.",
@@ -186,6 +207,61 @@
               "type": "boolean",
               "description": "Cache GET requests.",
               "default": true
+            }
+          }
+        },
+        "replay": {
+          "type": "object",
+          "description": "Replay (VCR-like) configuration: record API responses and replay them on subsequent requests matching specific request fields. Recording lifetime defaults to the app-level replay.duration.",
+          "properties": {
+            "duration": {
+              "type": "string",
+              "description": "Time-to-live for recordings (e.g., '24h', '1h30m'). Overrides the app-level replay.duration default.",
+              "default": "24h"
+            },
+            "upstream-only": {
+              "type": "boolean",
+              "description": "Only record responses from upstream services.",
+              "default": false
+            },
+            "auto-replay": {
+              "type": "boolean",
+              "description": "Activate replay for configured endpoints without requiring the X-Mockzilla-Replay header.",
+              "default": false
+            },
+            "endpoints": {
+              "type": "object",
+              "description": "Map of path patterns to HTTP methods and their match configurations.",
+              "additionalProperties": {
+                "type": "object",
+                "description": "HTTP methods for this path pattern.",
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "match": {
+                      "type": "object",
+                      "description": "Request fields that form the replay key.",
+                      "properties": {
+                        "path": {
+                          "type": "array",
+                          "description": "Path variable names to include in the key.",
+                          "items": { "type": "string" }
+                        },
+                        "body": {
+                          "type": "array",
+                          "description": "Request body fields (JSON dotted paths or form-encoded keys).",
+                          "items": { "type": "string" }
+                        },
+                        "query": {
+                          "type": "array",
+                          "description": "Query-string parameters.",
+                          "items": { "type": "string" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         },

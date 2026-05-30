@@ -22,11 +22,9 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	t.Run("no header passes through", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		})
@@ -83,11 +81,9 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	t.Run("miss passes through", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		})
@@ -104,11 +100,9 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	t.Run("hit returns stored response", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		})
@@ -141,11 +135,9 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	t.Run("header value overrides config match fields", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		})
@@ -187,12 +179,10 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	t.Run("auto-replay activates without header", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					AutoReplay: true,
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				AutoReplay: true,
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		})
@@ -221,11 +211,9 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	t.Run("missing match field passes through", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name", "missing_field"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name", "missing_field"}}}},
 				},
 			},
 		})
@@ -242,11 +230,9 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	t.Run("corrupted record passes through", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		})
@@ -269,12 +255,10 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	t.Run("path variable matching produces different recordings", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					AutoReplay: true,
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/pay/{paymentMethod}": {"POST": {Match: &config.ReplayMatch{Path: []string{"paymentMethod"}, Body: []string{"ref"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				AutoReplay: true,
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/pay/{paymentMethod}": {"POST": {Match: &config.ReplayMatch{Path: []string{"paymentMethod"}, Body: []string{"ref"}}}},
 				},
 			},
 		})
@@ -317,12 +301,10 @@ func TestCreateReplayReadMiddleware(t *testing.T) {
 	t.Run("auto-replay skips non-configured endpoints", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					AutoReplay: true,
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				AutoReplay: true,
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		})

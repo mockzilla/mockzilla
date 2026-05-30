@@ -194,6 +194,7 @@ func runAppMode(args []string) int {
 	_ = api.CreateHomeRoutes(router)
 	_ = api.CreateServiceRoutes(router)
 	_ = api.CreateHistoryRoutes(router)
+	_ = api.CreateReplayRoutes(router)
 	_ = api.CreateServiceConfigRoutes(router)
 
 	// Auto-discover and register all services
