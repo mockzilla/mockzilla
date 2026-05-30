@@ -274,14 +274,15 @@ upstream:
 
 cache:
   requests: true
-  replay:
-    upstream-only: true
-    endpoints:
-      /search:
-        POST:
-          match:
-            body:
-              - query
+
+replay:
+  upstream-only: true
+  endpoints:
+    /search:
+      POST:
+        match:
+          body:
+            - query
 ```
 
 This configuration:

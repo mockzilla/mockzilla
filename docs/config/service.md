@@ -118,16 +118,18 @@ endpoints:
 # Caching behavior
 cache:
   requests: true  # Cache GET request responses
-  replay:
-    ttl: 24h
-    auto-replay: false
-    upstream-only: false
-    endpoints:
-      /path/{id}:
-        POST:
-          match:
-            body:
-              - data.name
+
+# Replay (record / playback) — see replay.md for full options
+replay:
+  duration: 24h
+  auto-replay: false
+  upstream-only: false
+  endpoints:
+    /path/{id}:
+      POST:
+        match:
+          body:
+            - data.name
 
 # OpenAPI spec simplification
 spec:
@@ -220,16 +222,15 @@ Cached responses are returned for identical GET requests, improving performance.
 Record and replay API responses based on request fields. See [Replay](../replay.md) for full documentation.
 
 ```yaml
-cache:
-  replay:
-    ttl: 24h
-    auto-replay: false
-    endpoints:
-      /search:
-        POST:
-          match:
-            body:
-              - query
+replay:
+  duration: 24h
+  auto-replay: false
+  endpoints:
+    /search:
+      POST:
+        match:
+          body:
+            - query
 ```
 
 ## Spec Simplification

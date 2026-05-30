@@ -190,15 +190,16 @@ export const applySelection = (targetEl, selectionClassName) => {
 export const setActiveView = (view) => {
     const cp = document.querySelector('.content-panels');
     if (!cp) return;
-    cp.classList.remove('view-resources', 'view-history', 'view-config');
+    cp.classList.remove('view-resources', 'view-history', 'view-replay', 'view-config');
     if (view) cp.classList.add(`view-${view}`);
 
     const hint = document.getElementById('right-pane-hint');
     if (hint) {
         if (view === 'history') hint.textContent = 'Select an entry from the list';
+        else if (view === 'replay') hint.textContent = 'Select a recording from the list';
         else if (view === 'resources') hint.textContent = 'Select a resource from the list';
         else hint.textContent = '';
-        hint.style.display = view === 'resources' || view === 'history' ? '' : 'none';
+        hint.style.display = view === 'resources' || view === 'history' || view === 'replay' ? '' : 'none';
     }
 };
 
@@ -216,22 +217,30 @@ export const resetContents = () => {
     document.getElementById('fixed-service-table-body').innerHTML = '';
     document.getElementById('history-table-list').style.display = 'none';
     document.getElementById('history-table-body').innerHTML = '';
+    document.getElementById('replay-table-list').style.display = 'none';
+    document.getElementById('replay-table-body').innerHTML = '';
     // Hide the wrap; the inner #configuration-editor must keep display:''
     // so ace can size it. Setting display:none on the editor element directly
     // sticks even after the wrap becomes visible, leaving an invisible editor.
     const _cfgWrap = document.getElementById('configuration-editor-wrap');
     if (_cfgWrap) _cfgWrap.style.display = 'none';
     document.getElementById('history-actions').style.display = 'none';
+    document.getElementById('replay-actions').style.display = 'none';
 
     // RIGHT pane: hide swappable bodies, reset titles
     config.generatorCont.style.display = 'none';
     document.getElementById('resource-edit-container').style.display = 'none';
     document.getElementById('history-detail').style.display = 'none';
+    document.getElementById('replay-detail').style.display = 'none';
     document.getElementById('resource-result').innerHTML = '';
     document.getElementById('resource-panel-title').textContent = 'Select a resource';
     document.getElementById('resource-panel-title').style.display = '';
     document.getElementById('history-detail-title').style.display = 'none';
     document.getElementById('history-detail-title').textContent = 'Select an entry';
+    document.getElementById('replay-detail-title').style.display = 'none';
+    document.getElementById('replay-detail-title').textContent = 'Select a recording';
+    const replayDelBtn = document.getElementById('replay-delete');
+    if (replayDelBtn) replayDelBtn.style.display = 'none';
     config.resourceRefreshBtn.style.display = 'none';
     const presetCtl = document.getElementById('preset-controls');
     if (presetCtl) presetCtl.style.display = 'none';
@@ -239,6 +248,8 @@ export const resetContents = () => {
     if (tabs) tabs.style.display = 'none';
     const hTabs = document.getElementById('history-tabs');
     if (hTabs) hTabs.style.display = 'none';
+    const rTabs = document.getElementById('replay-tabs');
+    if (rTabs) rTabs.style.display = 'none';
     const cfgWrap = document.getElementById('configuration-editor-wrap');
     if (cfgWrap) cfgWrap.style.display = 'none';
     const hint = document.getElementById('right-pane-hint');

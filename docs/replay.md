@@ -3,21 +3,25 @@
 Record API responses and replay them on subsequent requests that match specific request fields. Works like VCR - record once, replay on match.
 
 ```yaml
-cache:
-  replay:
-    ttl: 24h
-    auto-replay: false
-    upstream-only: false
-    endpoints:
-      /foo/{f-id}/bar/{b-id}:
-        POST:
-          match:
-            path:
-              - f-id
-            body:
-              - data.name
-              - data.address.zip
+replay:
+  duration: 24h
+  auto-replay: false
+  upstream-only: false
+  endpoints:
+    /foo/{f-id}/bar/{b-id}:
+      POST:
+        match:
+          path:
+            - f-id
+          body:
+            - data.name
+            - data.address.zip
 ```
+
+Replay is a top-level service config block. The recording lifetime (`duration`)
+defaults to the app-level `replay.duration`; set it here to override per service.
+See [App config](config/app.md) for the app-level `replay` block (URL and default
+duration).
 
 ## How It Works
 
@@ -64,15 +68,14 @@ Unqualified fields in the header (without `path:`, `body:`, or `query:` prefix) 
 **Auto-replay:** Set `auto-replay: true` in config to activate for configured endpoints without requiring the header.
 
 ```yaml
-cache:
-  replay:
-    auto-replay: true
-    endpoints:
-      /users:
-        POST:
-          match:
-            body:
-              - email
+replay:
+  auto-replay: true
+  endpoints:
+    /users:
+      POST:
+        match:
+          body:
+            - email
 ```
 
 ## Endpoint Configuration
@@ -262,7 +265,7 @@ The replay key is a SHA-256 hash of: `METHOD:pattern_path|body:field1=value1|pat
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `ttl` | duration | `24h` | How long recordings are kept |
+| `duration` | duration | app-level `replay.duration` (`24h`) | How long recordings are kept; overrides the app-level default |
 | `upstream-only` | bool | `false` | Only record responses from upstream services |
 | `auto-replay` | bool | `false` | Activate for configured endpoints without the header |
 | `endpoints` | map | - | Path patterns with optional methods and match fields |
@@ -272,16 +275,15 @@ The replay key is a SHA-256 hash of: `METHOD:pattern_path|body:field1=value1|pat
 When `upstream-only: true`, only responses from upstream services are recorded. If the response is not from upstream (e.g., generated or cached), the middleware returns a `502 Bad Gateway` error instead of passing the response through. This makes it explicit to the caller that the recording was skipped.
 
 ```yaml
-cache:
-  replay:
-    upstream-only: true
-    endpoints:
-      /external-api/search:
-        POST:
-          match:
-            body:
-              - term
-              - filters.category
+replay:
+  upstream-only: true
+  endpoints:
+    /external-api/search:
+      POST:
+        match:
+          body:
+            - term
+            - filters.category
 ```
 
 ## Example: Full Configuration
@@ -292,47 +294,47 @@ upstream:
   url: https://api.example.com
 cache:
   requests: true
-  replay:
-    ttl: 12h
-    upstream-only: true
-    auto-replay: false
-    endpoints:
-      # JSON body match
-      /search:
-        POST:
-          match:
-            body:
-              - term
-              - filters.category
-      # Multiple methods with different match fields
-      /users/{user-id}/orders:
-        POST:
-          match:
-            body:
-              - items[0].product_id
-              - shipping.method
-        PUT:
-          match:
-            body:
-              - order_id
-      # Path variable + body match
-      /pay/{paymentMethodName}:
-        POST:
-          match:
-            path:
-              - paymentMethodName
-            body:
-              - biller
-              - reference
-            query:
-              - channel
-      # Query string only
-      /lookup:
-        GET:
-          match:
-            query:
-              - account_id
-              - type
-      # Path only - match by method + path, any HTTP method
-      /health:
+replay:
+  duration: 12h
+  upstream-only: true
+  auto-replay: false
+  endpoints:
+    # JSON body match
+    /search:
+      POST:
+        match:
+          body:
+            - term
+            - filters.category
+    # Multiple methods with different match fields
+    /users/{user-id}/orders:
+      POST:
+        match:
+          body:
+            - items[0].product_id
+            - shipping.method
+      PUT:
+        match:
+          body:
+            - order_id
+    # Path variable + body match
+    /pay/{paymentMethodName}:
+      POST:
+        match:
+          path:
+            - paymentMethodName
+          body:
+            - biller
+            - reference
+          query:
+            - channel
+    # Query string only
+    /lookup:
+      GET:
+        match:
+          query:
+            - account_id
+            - type
+    # Path only - match by method + path, any HTTP method
+    /health:
 ```

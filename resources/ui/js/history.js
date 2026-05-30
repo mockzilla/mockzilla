@@ -60,10 +60,13 @@ const showTabs = (service) => {
     config.tabResources.href = `#/services/${service}`;
     config.tabHistory.href = `#/history/${service}`;
     config.tabHistory.style.display = config.historyEnabled ? '' : 'none';
+    config.tabReplay.href = `#/replay/${service}`;
+    config.tabReplay.style.display = config.replayEnabled ? '' : 'none';
     config.tabConfiguration.href = `#/configuration/${service}`;
     config.tabConfiguration.style.display = config.configEnabled ? '' : 'none';
     config.tabResources.classList.remove('active');
     config.tabHistory.classList.add('active');
+    config.tabReplay.classList.remove('active');
     config.tabConfiguration.classList.remove('active');
 };
 
@@ -180,7 +183,7 @@ const showDetail = (entry) => {
     }
 };
 
-const renderEntries = (items, service) => {
+const renderEntries = (items, service, truncated) => {
     const tbody = document.getElementById('history-table-body');
     tbody.innerHTML = '';
 
@@ -252,6 +255,18 @@ const renderEntries = (items, service) => {
 
         tbody.appendChild(row);
     });
+
+    if (truncated) {
+        const note = document.createElement('tr');
+        const cell = document.createElement('td');
+        cell.colSpan = 6;
+        cell.textContent = `Showing newest ${items.length} entries`;
+        cell.style.textAlign = 'center';
+        cell.style.color = 'var(--text-muted)';
+        cell.style.fontSize = '12px';
+        note.appendChild(cell);
+        tbody.appendChild(note);
+    }
 };
 
 const fetchAndRender = (service) => {
@@ -259,7 +274,7 @@ const fetchAndRender = (service) => {
     return fetch(historyApiUrl)
         .then(res => res.json())
         .then(data => {
-            renderEntries(data.items, service);
+            renderEntries(data.items, service, data.truncated);
         })
         .catch(err => {
             console.error('Failed to fetch history:', err);

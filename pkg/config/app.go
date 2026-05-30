@@ -28,6 +28,7 @@ type AppConfig struct {
 	Paths             Paths             `yaml:"-"`
 	Editor            *EditorConfig     `yaml:"editor"`
 	History           *AppHistoryConfig `yaml:"history"`
+	Replay            *AppReplayConfig  `yaml:"replay"`
 	Storage           *StorageConfig    `yaml:"storage"`
 	Extra             map[string]any    `yaml:"extra"`
 }
@@ -35,6 +36,9 @@ type AppConfig struct {
 const (
 	DefaultHistoryURL      = "/.history"
 	DefaultHistoryDuration = 60 * time.Minute
+
+	DefaultReplayURL      = "/.replay"
+	DefaultReplayDuration = 24 * time.Hour
 )
 
 // NewDefaultAppHistoryConfig creates the default history config.
@@ -52,6 +56,23 @@ type AppHistoryConfig struct {
 	Duration time.Duration `yaml:"duration" env:"ROUTER_HISTORY_DURATION"`
 }
 
+// NewDefaultAppReplayConfig creates the default replay config.
+func NewDefaultAppReplayConfig() *AppReplayConfig {
+	return &AppReplayConfig{
+		URL:      DefaultReplayURL,
+		Duration: DefaultReplayDuration,
+	}
+}
+
+// AppReplayConfig configures replay recording and the replay explorer at the
+// application level. Duration is the default replay-recording TTL; a service's
+// replay.duration overrides it. Enabled gates the explorer URL (like history).
+type AppReplayConfig struct {
+	Enabled  *bool         `yaml:"enabled" env:"ROUTER_REPLAY_ENABLED"`
+	URL      string        `yaml:"url"`
+	Duration time.Duration `yaml:"duration" env:"ROUTER_REPLAY_DURATION"`
+}
+
 // NewDefaultAppConfig creates a new default app config in case the config file is missing, not found or any other error.
 func NewDefaultAppConfig(baseDir string) *AppConfig {
 	return &AppConfig{
@@ -67,6 +88,7 @@ func NewDefaultAppConfig(baseDir string) *AppConfig {
 			FontSize:  14,
 		},
 		History: NewDefaultAppHistoryConfig(),
+		Replay:  NewDefaultAppReplayConfig(),
 		Storage: &StorageConfig{Type: StorageTypeMemory},
 		Extra:   make(map[string]any),
 	}
@@ -85,9 +107,8 @@ func NewAppConfigFromBytes(bts []byte, baseDir string) (*AppConfig, error) {
 	if cfg.History == nil {
 		cfg.History = NewDefaultAppHistoryConfig()
 	}
-	// When explicitly disabled, clear the URL so downstream checks are simple.
-	if cfg.History.Enabled != nil && !*cfg.History.Enabled {
-		cfg.History.URL = ""
+	if cfg.Replay == nil {
+		cfg.Replay = NewDefaultAppReplayConfig()
 	}
 	if cfg.Storage == nil {
 		cfg.Storage = &StorageConfig{}
@@ -98,6 +119,15 @@ func NewAppConfigFromBytes(bts []byte, baseDir string) (*AppConfig, error) {
 
 	if err := env.Parse(cfg); err != nil {
 		return nil, fmt.Errorf("applying env overrides: %w", err)
+	}
+
+	// When explicitly disabled (via YAML or env), clear the URL so downstream
+	// checks are simple. After env.Parse so ROUTER_*_ENABLED=false also applies.
+	if cfg.History.Enabled != nil && !*cfg.History.Enabled {
+		cfg.History.URL = ""
+	}
+	if cfg.Replay.Enabled != nil && !*cfg.Replay.Enabled {
+		cfg.Replay.URL = ""
 	}
 
 	// Extract driver-specific config from the YAML section matching the storage type.

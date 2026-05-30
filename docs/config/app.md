@@ -82,6 +82,27 @@ Setting `enabled: false` hides the History tab from the UI and disables the hist
 
 The `ROUTER_HISTORY_DURATION` environment variable overrides `history.duration`.
 
+## Replay Configuration
+
+Configure replay recording defaults and the Replay Explorer UI.
+
+```yaml
+replay:
+  enabled: true
+  url: /.replay
+  duration: 24h
+```
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `replay.enabled` | bool | `true` | Enable the replay explorer API and UI tab |
+| `replay.url` | string | `/.replay` | URL prefix for the replay explorer API |
+| `replay.duration` | duration | `24h` | Default recording TTL; a service's `replay.duration` overrides it |
+
+Setting `enabled: false` hides the Replay tab from the UI and disables the replay explorer API endpoints. Replay recording itself is activated per request (via the `X-Mockzilla-Replay` header or a service's `auto-replay`); see [Replay](../replay.md).
+
+The `ROUTER_REPLAY_DURATION` environment variable overrides `replay.duration`.
+
 ## Storage Configuration
 
 Configure shared storage for features like history persistence across restarts.
@@ -111,6 +132,7 @@ Environment variables override file values:
 | `APP_BASE_URL` | `baseURL` |
 | `APP_INTERNAL_URL` | `internalURL` |
 | `ROUTER_HISTORY_DURATION` | `history.duration` |
+| `ROUTER_REPLAY_DURATION` | `replay.duration` |
 
 ## Example
 

@@ -575,6 +575,7 @@ pre, .code {
 
 .resource-filter-row { margin-bottom: 8px; }
 .content-panels.view-history .resource-filter-row,
+.content-panels.view-replay .resource-filter-row,
 .content-panels.view-config .resource-filter-row { display: none; }
 
 .resource-tab {
@@ -601,7 +602,7 @@ pre, .code {
 .tab-pane.active { display: block; height: 100%; }
 
 /* Editor-based tab-panes also need the body to flex so the editor fills available height */
-#generator-container, #history-detail { height: 100%; }
+#generator-container, #history-detail, #replay-detail { height: 100%; }
 
 /* Resource edit table */
 .resource-edit-table { width: 100%; }
@@ -735,13 +736,15 @@ pre, .code {
 #history-container { flex: 1; min-height: 0; }
 
 /* History table */
-#history-table-list {
+#history-table-list,
+#replay-table-list {
     width: calc(100% + 24px);
     margin-left: -12px;
     margin-right: -12px;
     border-collapse: collapse;
 }
-#history-table-list th {
+#history-table-list th,
+#replay-table-list th {
     text-align: left;
     font-size: 11px;
     font-weight: 600;
@@ -751,19 +754,33 @@ pre, .code {
     padding: 8px 10px;
     border-bottom: 2px solid var(--border);
 }
-#history-table-list th:nth-child(1) { width: 40px; text-align: center; }
-#history-table-list th:nth-child(2) { width: 70px; text-align: center; }
-#history-table-list th:nth-child(4) { width: 60px; text-align: center; }
+/* Shared columns: 1=# | 2=Method | 4=Status | 6=Time */
+#history-table-list th:nth-child(1),
+#replay-table-list th:nth-child(1) { width: 40px; text-align: center; }
+#history-table-list th:nth-child(2),
+#replay-table-list th:nth-child(2) { width: 70px; text-align: center; }
+#history-table-list th:nth-child(4),
+#replay-table-list th:nth-child(4) { width: 60px; text-align: center; }
+#history-table-list th:nth-child(6),
+#replay-table-list th:nth-child(6) { width: 70px; text-align: right; }
+/* Col 5: history = Duration (right); replay = Match (left). Both fixed-width so
+   PATH (col 3) is the only flexible column and the table stays aligned. */
 #history-table-list th:nth-child(5) { width: 70px; text-align: right; }
-#history-table-list th:nth-child(6) { width: 70px; text-align: right; }
+#replay-table-list th:nth-child(5) { width: 160px; text-align: left; }
 
-#history-table-list td { padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
-#history-table-list td:nth-child(1) { text-align: center; }
-#history-table-list td:nth-child(2) { text-align: center; }
+#history-table-list td,
+#replay-table-list td { padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+#history-table-list td:nth-child(1),
+#replay-table-list td:nth-child(1) { text-align: center; }
+#history-table-list td:nth-child(2),
+#replay-table-list td:nth-child(2) { text-align: center; }
 
-#history-table-body tr { cursor: pointer; }
-#history-table-body tr:hover { background: var(--hover-bg); }
-#history-table-body tr.selected-resource { background: var(--selected-bg); }
+#history-table-body tr,
+#replay-table-body tr { cursor: pointer; }
+#history-table-body tr:hover,
+#replay-table-body tr:hover { background: var(--hover-bg); }
+#history-table-body tr.selected-resource,
+#replay-table-body tr.selected-resource { background: var(--selected-bg); }
 
 /* Status code colors */
 .history-status { font-weight: 600; text-align: center; }
@@ -786,6 +803,25 @@ pre, .code {
 
 /* History duration and source columns */
 .history-duration { text-align: right; color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+
+/* Replay match column (key fields) and match-values heading */
+.replay-match {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: monospace;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.replay-match-heading {
+    margin: 12px 0 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
 
 /* Response status badge */
 .response-status-badge {

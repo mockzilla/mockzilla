@@ -178,6 +178,17 @@ func (r *Router) register(
 		}
 	}
 
+	// Inject the app-level default replay duration so a service's replay.duration
+	// overrides it and header-only replay still records with the app default.
+	if r.config.Replay != nil {
+		if cfg.Replay == nil {
+			cfg.Replay = &config.ReplayConfig{}
+		}
+		if cfg.Replay.Duration == 0 {
+			cfg.Replay.Duration = r.config.Replay.Duration
+		}
+	}
+
 	serviceDB := r.storage.NewDB(cfg.Name, r.config.History.Duration)
 	handler := handlerFactory(serviceDB)
 	mwParams := middleware.NewParams(cfg, serviceDB)
@@ -332,6 +343,9 @@ func loadAppConfig(baseDir string) *config.AppConfig {
 		if cfg.History != nil && cfg.History.Enabled != nil && !*cfg.History.Enabled {
 			cfg.History.URL = ""
 		}
+		if cfg.Replay != nil && cfg.Replay.Enabled != nil && !*cfg.Replay.Enabled {
+			cfg.Replay.URL = ""
+		}
 		return cfg
 	}
 
@@ -347,6 +361,9 @@ func loadAppConfig(baseDir string) *config.AppConfig {
 	}
 	if cfg.History != nil && cfg.History.Enabled != nil && !*cfg.History.Enabled {
 		cfg.History.URL = ""
+	}
+	if cfg.Replay != nil && cfg.Replay.Enabled != nil && !*cfg.Replay.Enabled {
+		cfg.Replay.URL = ""
 	}
 
 	return cfg

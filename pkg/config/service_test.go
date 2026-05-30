@@ -106,8 +106,10 @@ errors:
 func TestServiceConfig_GetLatency(t *testing.T) {
 	t.Run("Returns default latency when no percentiles defined", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latency:   100 * time.Millisecond,
-			latencies: []*KeyValue[int, time.Duration]{},
+			BehaviorConfig: BehaviorConfig{
+				Latency:   100 * time.Millisecond,
+				latencies: []*KeyValue[int, time.Duration]{},
+			},
 		}
 
 		latency := cfg.GetLatency()
@@ -116,11 +118,13 @@ func TestServiceConfig_GetLatency(t *testing.T) {
 
 	t.Run("Returns latency based on percentiles", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latency: 100 * time.Millisecond,
-			latencies: []*KeyValue[int, time.Duration]{
-				{Key: 50, Value: 50 * time.Millisecond},
-				{Key: 90, Value: 100 * time.Millisecond},
-				{Key: 99, Value: 200 * time.Millisecond},
+			BehaviorConfig: BehaviorConfig{
+				Latency: 100 * time.Millisecond,
+				latencies: []*KeyValue[int, time.Duration]{
+					{Key: 50, Value: 50 * time.Millisecond},
+					{Key: 90, Value: 100 * time.Millisecond},
+					{Key: 99, Value: 200 * time.Millisecond},
+				},
 			},
 		}
 
@@ -142,8 +146,10 @@ func TestServiceConfig_GetLatency(t *testing.T) {
 	t.Run("Returns 0 when random exceeds all percentiles", func(t *testing.T) {
 		// Use a percentile that can never match (Key: 0 means 0% chance)
 		cfg := &ServiceConfig{
-			latencies: []*KeyValue[int, time.Duration]{
-				{Key: 0, Value: 50 * time.Millisecond},
+			BehaviorConfig: BehaviorConfig{
+				latencies: []*KeyValue[int, time.Duration]{
+					{Key: 0, Value: 50 * time.Millisecond},
+				},
 			},
 		}
 
@@ -156,7 +162,9 @@ func TestServiceConfig_GetLatency(t *testing.T) {
 func TestServiceConfig_GetError(t *testing.T) {
 	t.Run("Returns 0 when no errors defined", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			errors: []*KeyValue[int, int]{},
+			BehaviorConfig: BehaviorConfig{
+				errors: []*KeyValue[int, int]{},
+			},
 		}
 
 		errorCode := cfg.GetError()
@@ -165,10 +173,12 @@ func TestServiceConfig_GetError(t *testing.T) {
 
 	t.Run("Returns error based on percentiles", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			errors: []*KeyValue[int, int]{
-				{Key: 10, Value: 400},
-				{Key: 20, Value: 500},
-				{Key: 30, Value: 503},
+			BehaviorConfig: BehaviorConfig{
+				errors: []*KeyValue[int, int]{
+					{Key: 10, Value: 400},
+					{Key: 20, Value: 500},
+					{Key: 30, Value: 503},
+				},
 			},
 		}
 
@@ -186,158 +196,178 @@ func TestServiceConfig_GetError(t *testing.T) {
 func TestServiceConfig_parseLatencies(t *testing.T) {
 	t.Run("Parses percentile latencies", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latencies: map[string]time.Duration{
-				"p50": 50 * time.Millisecond,
-				"p90": 100 * time.Millisecond,
-				"p99": 200 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{
+					"p50": 50 * time.Millisecond,
+					"p90": 100 * time.Millisecond,
+					"p99": 200 * time.Millisecond,
+				},
 			},
 		}
 
-		latencies := cfg.parseLatencies()
+		cfg.parse()
 		expected := []*KeyValue[int, time.Duration]{
 			{Key: 50, Value: 50 * time.Millisecond},
 			{Key: 90, Value: 100 * time.Millisecond},
 			{Key: 99, Value: 200 * time.Millisecond},
 		}
-		assert.Equal(t, expected, latencies)
+		assert.Equal(t, expected, cfg.latencies)
 	})
 
 	t.Run("Sorts latencies by percentile", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latencies: map[string]time.Duration{
-				"p99": 200 * time.Millisecond,
-				"p50": 50 * time.Millisecond,
-				"p90": 100 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{
+					"p99": 200 * time.Millisecond,
+					"p50": 50 * time.Millisecond,
+					"p90": 100 * time.Millisecond,
+				},
 			},
 		}
 
-		latencies := cfg.parseLatencies()
+		cfg.parse()
 		expected := []*KeyValue[int, time.Duration]{
 			{Key: 50, Value: 50 * time.Millisecond},
 			{Key: 90, Value: 100 * time.Millisecond},
 			{Key: 99, Value: 200 * time.Millisecond},
 		}
-		assert.Equal(t, expected, latencies)
+		assert.Equal(t, expected, cfg.latencies)
 	})
 
 	t.Run("Ignores non-percentile keys", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latencies: map[string]time.Duration{
-				"p50":     50 * time.Millisecond,
-				"default": 100 * time.Millisecond,
-				"max":     200 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{
+					"p50":     50 * time.Millisecond,
+					"default": 100 * time.Millisecond,
+					"max":     200 * time.Millisecond,
+				},
 			},
 		}
 
-		latencies := cfg.parseLatencies()
+		cfg.parse()
 		expected := []*KeyValue[int, time.Duration]{
 			{Key: 50, Value: 50 * time.Millisecond},
 		}
-		assert.Equal(t, expected, latencies)
+		assert.Equal(t, expected, cfg.latencies)
 	})
 
 	t.Run("Ignores invalid percentile values", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latencies: map[string]time.Duration{
-				"p50":  50 * time.Millisecond,
-				"pabc": 100 * time.Millisecond,
-				"p":    200 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{
+					"p50":  50 * time.Millisecond,
+					"pabc": 100 * time.Millisecond,
+					"p":    200 * time.Millisecond,
+				},
 			},
 		}
 
-		latencies := cfg.parseLatencies()
+		cfg.parse()
 		expected := []*KeyValue[int, time.Duration]{
 			{Key: 50, Value: 50 * time.Millisecond},
 		}
-		assert.Equal(t, expected, latencies)
+		assert.Equal(t, expected, cfg.latencies)
 	})
 
 	t.Run("Returns empty slice for empty latencies", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latencies: map[string]time.Duration{},
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{},
+			},
 		}
 
-		latencies := cfg.parseLatencies()
-		assert.Empty(t, latencies)
+		cfg.parse()
+		assert.Empty(t, cfg.latencies)
 	})
 }
 
 func TestServiceConfig_parseErrors(t *testing.T) {
 	t.Run("Parses percentile errors", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Errors: map[string]int{
-				"p10": 400,
-				"p20": 500,
-				"p30": 503,
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{
+					"p10": 400,
+					"p20": 500,
+					"p30": 503,
+				},
 			},
 		}
 
-		errors := cfg.parseErrors()
+		cfg.parse()
 		expected := []*KeyValue[int, int]{
 			{Key: 10, Value: 400},
 			{Key: 20, Value: 500},
 			{Key: 30, Value: 503},
 		}
-		assert.Equal(t, expected, errors)
+		assert.Equal(t, expected, cfg.errors)
 	})
 
 	t.Run("Sorts errors by percentile", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Errors: map[string]int{
-				"p30": 503,
-				"p10": 400,
-				"p20": 500,
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{
+					"p30": 503,
+					"p10": 400,
+					"p20": 500,
+				},
 			},
 		}
 
-		errors := cfg.parseErrors()
+		cfg.parse()
 		expected := []*KeyValue[int, int]{
 			{Key: 10, Value: 400},
 			{Key: 20, Value: 500},
 			{Key: 30, Value: 503},
 		}
-		assert.Equal(t, expected, errors)
+		assert.Equal(t, expected, cfg.errors)
 	})
 
 	t.Run("Ignores non-percentile keys", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Errors: map[string]int{
-				"p10":     400,
-				"default": 500,
-				"max":     503,
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{
+					"p10":     400,
+					"default": 500,
+					"max":     503,
+				},
 			},
 		}
 
-		errors := cfg.parseErrors()
+		cfg.parse()
 		expected := []*KeyValue[int, int]{
 			{Key: 10, Value: 400},
 		}
-		assert.Equal(t, expected, errors)
+		assert.Equal(t, expected, cfg.errors)
 	})
 
 	t.Run("Ignores invalid percentile values", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Errors: map[string]int{
-				"p10":  400,
-				"pabc": 500,
-				"p":    503,
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{
+					"p10":  400,
+					"pabc": 500,
+					"p":    503,
+				},
 			},
 		}
 
-		errors := cfg.parseErrors()
+		cfg.parse()
 		expected := []*KeyValue[int, int]{
 			{Key: 10, Value: 400},
 		}
-		assert.Equal(t, expected, errors)
+		assert.Equal(t, expected, cfg.errors)
 	})
 
 	t.Run("Returns empty slice for empty errors", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Errors: map[string]int{},
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{},
+			},
 		}
 
-		errors := cfg.parseErrors()
-		assert.Empty(t, errors)
+		cfg.parse()
+		assert.Empty(t, cfg.errors)
 	})
 }
 
@@ -364,7 +394,7 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 
 	t.Run("Fills nil Errors map with defaults", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Errors: nil,
+			BehaviorConfig: BehaviorConfig{Errors: nil},
 		}
 
 		result := cfg.WithDefaults()
@@ -375,7 +405,7 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 
 	t.Run("Fills nil Latencies map with defaults", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latencies: nil,
+			BehaviorConfig: BehaviorConfig{Latencies: nil},
 		}
 
 		result := cfg.WithDefaults()
@@ -404,7 +434,7 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 			"p20": 500,
 		}
 		cfg := &ServiceConfig{
-			Errors: customErrors,
+			BehaviorConfig: BehaviorConfig{Errors: customErrors},
 		}
 
 		result := cfg.WithDefaults()
@@ -419,7 +449,7 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 			"p90": 100 * time.Millisecond,
 		}
 		cfg := &ServiceConfig{
-			Latencies: customLatencies,
+			BehaviorConfig: BehaviorConfig{Latencies: customLatencies},
 		}
 
 		result := cfg.WithDefaults()
@@ -441,9 +471,11 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 
 	t.Run("Parses latencies when map is provided", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latencies: map[string]time.Duration{
-				"p50": 50 * time.Millisecond,
-				"p90": 100 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{
+					"p50": 50 * time.Millisecond,
+					"p90": 100 * time.Millisecond,
+				},
 			},
 		}
 
@@ -455,9 +487,11 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 
 	t.Run("Parses errors when map is provided", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Errors: map[string]int{
-				"p10": 400,
-				"p20": 500,
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{
+					"p10": 400,
+					"p20": 500,
+				},
 			},
 		}
 
@@ -469,11 +503,10 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 
 	t.Run("Fills all nil fields at once", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Name:      "test-service",
-			Cache:     nil,
-			Errors:    nil,
-			Latencies: nil,
-			Mount:     "",
+			Name:           "test-service",
+			Cache:          nil,
+			BehaviorConfig: BehaviorConfig{Errors: nil, Latencies: nil},
+			Mount:          "",
 		}
 
 		result := cfg.WithDefaults()
@@ -500,7 +533,7 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 			URL: "http://example.com",
 		}
 		cfg := &ServiceConfig{
-			Upstream: customUpstream,
+			BehaviorConfig: BehaviorConfig{Upstream: customUpstream},
 		}
 
 		result := cfg.WithDefaults()
@@ -510,7 +543,7 @@ func TestServiceConfig_WithDefaults(t *testing.T) {
 
 	t.Run("Leaves Upstream nil if not set", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Upstream: nil,
+			BehaviorConfig: BehaviorConfig{Upstream: nil},
 		}
 
 		result := cfg.WithDefaults()
@@ -561,13 +594,17 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Overwrites Upstream when other has non-nil Upstream", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Upstream: &UpstreamConfig{
-				URL: "http://original.com",
+			BehaviorConfig: BehaviorConfig{
+				Upstream: &UpstreamConfig{
+					URL: "http://original.com",
+				},
 			},
 		}
 		other := &ServiceConfig{
-			Upstream: &UpstreamConfig{
-				URL: "http://overwritten.com",
+			BehaviorConfig: BehaviorConfig{
+				Upstream: &UpstreamConfig{
+					URL: "http://overwritten.com",
+				},
 			},
 		}
 
@@ -581,10 +618,10 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 			URL: "http://original.com",
 		}
 		cfg := &ServiceConfig{
-			Upstream: originalUpstream,
+			BehaviorConfig: BehaviorConfig{Upstream: originalUpstream},
 		}
 		other := &ServiceConfig{
-			Upstream: nil,
+			BehaviorConfig: BehaviorConfig{Upstream: nil},
 		}
 
 		result := cfg.OverwriteWith(other)
@@ -611,10 +648,10 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Overwrites Latency when other has non-zero Latency", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latency: 100 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond},
 		}
 		other := &ServiceConfig{
-			Latency: 200 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{Latency: 200 * time.Millisecond},
 		}
 
 		result := cfg.OverwriteWith(other)
@@ -624,10 +661,10 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Does not overwrite Latency when other has zero Latency", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latency: 100 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond},
 		}
 		other := &ServiceConfig{
-			Latency: 0,
+			BehaviorConfig: BehaviorConfig{Latency: 0},
 		}
 
 		result := cfg.OverwriteWith(other)
@@ -637,15 +674,19 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Merges Latencies maps", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latencies: map[string]time.Duration{
-				"p50": 50 * time.Millisecond,
-				"p90": 100 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{
+					"p50": 50 * time.Millisecond,
+					"p90": 100 * time.Millisecond,
+				},
 			},
 		}
 		other := &ServiceConfig{
-			Latencies: map[string]time.Duration{
-				"p90": 150 * time.Millisecond, // Override existing
-				"p99": 200 * time.Millisecond, // Add new
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{
+					"p90": 150 * time.Millisecond, // Override existing
+					"p99": 200 * time.Millisecond, // Add new
+				},
 			},
 		}
 
@@ -659,15 +700,19 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Merges Errors maps", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Errors: map[string]int{
-				"p10": 400,
-				"p20": 500,
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{
+					"p10": 400,
+					"p20": 500,
+				},
 			},
 		}
 		other := &ServiceConfig{
-			Errors: map[string]int{
-				"p20": 503, // Override existing
-				"p30": 502, // Add new
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{
+					"p20": 503, // Override existing
+					"p30": 502, // Add new
+				},
 			},
 		}
 
@@ -681,11 +726,13 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Creates Latencies map if nil before merge", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latencies: nil,
+			BehaviorConfig: BehaviorConfig{Latencies: nil},
 		}
 		other := &ServiceConfig{
-			Latencies: map[string]time.Duration{
-				"p50": 50 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{
+					"p50": 50 * time.Millisecond,
+				},
 			},
 		}
 
@@ -698,11 +745,13 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Creates Errors map if nil before merge", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Errors: nil,
+			BehaviorConfig: BehaviorConfig{Errors: nil},
 		}
 		other := &ServiceConfig{
-			Errors: map[string]int{
-				"p10": 400,
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{
+					"p10": 400,
+				},
 			},
 		}
 
@@ -715,16 +764,20 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Re-parses latencies after merge", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Latencies: map[string]time.Duration{
-				"p50": 50 * time.Millisecond,
-			},
-			latencies: []*KeyValue[int, time.Duration]{
-				{Key: 50, Value: 50 * time.Millisecond},
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{
+					"p50": 50 * time.Millisecond,
+				},
+				latencies: []*KeyValue[int, time.Duration]{
+					{Key: 50, Value: 50 * time.Millisecond},
+				},
 			},
 		}
 		other := &ServiceConfig{
-			Latencies: map[string]time.Duration{
-				"p90": 100 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{
+				Latencies: map[string]time.Duration{
+					"p90": 100 * time.Millisecond,
+				},
 			},
 		}
 
@@ -736,16 +789,20 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Re-parses errors after merge", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Errors: map[string]int{
-				"p10": 400,
-			},
-			errors: []*KeyValue[int, int]{
-				{Key: 10, Value: 400},
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{
+					"p10": 400,
+				},
+				errors: []*KeyValue[int, int]{
+					{Key: 10, Value: 400},
+				},
 			},
 		}
 		other := &ServiceConfig{
-			Errors: map[string]int{
-				"p20": 500,
+			BehaviorConfig: BehaviorConfig{
+				Errors: map[string]int{
+					"p20": 500,
+				},
 			},
 		}
 
@@ -782,14 +839,14 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 
 	t.Run("Overwrites multiple fields at once", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Name:    "original",
-			Latency: 100 * time.Millisecond,
-			Mount:   "/original",
+			Name:           "original",
+			BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond},
+			Mount:          "/original",
 		}
 		other := &ServiceConfig{
-			Name:    "overwritten",
-			Latency: 200 * time.Millisecond,
-			Mount:   "/overwritten",
+			Name:           "overwritten",
+			BehaviorConfig: BehaviorConfig{Latency: 200 * time.Millisecond},
+			Mount:          "/overwritten",
 			Cache: &CacheConfig{
 				Requests: false,
 			},
@@ -843,7 +900,7 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 func TestEndpointConfig_GetLatency(t *testing.T) {
 	t.Run("Returns fixed latency when no percentiles defined", func(t *testing.T) {
 		ep := &EndpointConfig{
-			Latency: 500 * time.Millisecond,
+			BehaviorConfig: BehaviorConfig{Latency: 500 * time.Millisecond},
 		}
 		assert.Equal(t, 500*time.Millisecond, ep.GetLatency())
 	})
@@ -855,9 +912,11 @@ func TestEndpointConfig_GetLatency(t *testing.T) {
 
 	t.Run("Returns latency based on percentiles", func(t *testing.T) {
 		ep := &EndpointConfig{
-			latencies: []*KeyValue[int, time.Duration]{
-				{Key: 50, Value: 50 * time.Millisecond},
-				{Key: 100, Value: 200 * time.Millisecond},
+			BehaviorConfig: BehaviorConfig{
+				latencies: []*KeyValue[int, time.Duration]{
+					{Key: 50, Value: 50 * time.Millisecond},
+					{Key: 100, Value: 200 * time.Millisecond},
+				},
 			},
 		}
 
@@ -874,8 +933,10 @@ func TestEndpointConfig_GetLatency(t *testing.T) {
 		// rolls fall through and the function returns 0 (the implicit
 		// "no extra latency" remainder).
 		ep := &EndpointConfig{
-			latencies: []*KeyValue[int, time.Duration]{
-				{Key: 50, Value: 50 * time.Millisecond},
+			BehaviorConfig: BehaviorConfig{
+				latencies: []*KeyValue[int, time.Duration]{
+					{Key: 50, Value: 50 * time.Millisecond},
+				},
 			},
 		}
 
@@ -896,9 +957,11 @@ func TestEndpointConfig_GetError(t *testing.T) {
 
 	t.Run("Returns error based on percentiles", func(t *testing.T) {
 		ep := &EndpointConfig{
-			errors: []*KeyValue[int, int]{
-				{Key: 50, Value: 500},
-				{Key: 100, Value: 503},
+			BehaviorConfig: BehaviorConfig{
+				errors: []*KeyValue[int, int]{
+					{Key: 50, Value: 500},
+					{Key: 100, Value: 503},
+				},
 			},
 		}
 
@@ -920,7 +983,7 @@ func TestServiceConfig_GetEndpointConfig(t *testing.T) {
 	t.Run("Returns nil for non-matching path", func(t *testing.T) {
 		cfg := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+				"/foo": {"GET": {BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond}}},
 			},
 		}
 		assert.Nil(t, cfg.GetEndpointConfig("/bar", "GET"))
@@ -929,7 +992,7 @@ func TestServiceConfig_GetEndpointConfig(t *testing.T) {
 	t.Run("Returns nil for non-matching method", func(t *testing.T) {
 		cfg := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+				"/foo": {"GET": {BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond}}},
 			},
 		}
 		assert.Nil(t, cfg.GetEndpointConfig("/foo", "POST"))
@@ -938,7 +1001,7 @@ func TestServiceConfig_GetEndpointConfig(t *testing.T) {
 	t.Run("Matches exact path and method", func(t *testing.T) {
 		cfg := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+				"/foo": {"GET": {BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond}}},
 			},
 		}
 		ep := cfg.GetEndpointConfig("/foo", "GET")
@@ -949,7 +1012,7 @@ func TestServiceConfig_GetEndpointConfig(t *testing.T) {
 	t.Run("Matches parameterized path", func(t *testing.T) {
 		cfg := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/pets/{id}": {"GET": {Latency: 200 * time.Millisecond}},
+				"/pets/{id}": {"GET": {BehaviorConfig: BehaviorConfig{Latency: 200 * time.Millisecond}}},
 			},
 		}
 		ep := cfg.GetEndpointConfig("/pets/123", "GET")
@@ -961,8 +1024,8 @@ func TestServiceConfig_GetEndpointConfig(t *testing.T) {
 		cfg := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
 				"/foo": {
-					"GET":  {Latency: 100 * time.Millisecond},
-					"POST": {Latency: 500 * time.Millisecond},
+					"GET":  {BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond}},
+					"POST": {BehaviorConfig: BehaviorConfig{Latency: 500 * time.Millisecond}},
 				},
 			},
 		}
@@ -1024,15 +1087,15 @@ func TestServiceConfig_GetUpstream(t *testing.T) {
 	})
 
 	t.Run("Falls back to service upstream when no endpoint matches", func(t *testing.T) {
-		cfg := &ServiceConfig{Upstream: svcUp}
+		cfg := &ServiceConfig{BehaviorConfig: BehaviorConfig{Upstream: svcUp}}
 		assert.Same(t, svcUp, cfg.GetUpstream("/foo", "GET"))
 	})
 
 	t.Run("Falls back to service upstream when endpoint has no upstream", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Upstream: svcUp,
+			BehaviorConfig: BehaviorConfig{Upstream: svcUp},
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+				"/foo": {"GET": {BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond}}},
 			},
 		}
 		assert.Same(t, svcUp, cfg.GetUpstream("/foo", "GET"))
@@ -1040,9 +1103,9 @@ func TestServiceConfig_GetUpstream(t *testing.T) {
 
 	t.Run("Endpoint upstream replaces service upstream", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Upstream: svcUp,
+			BehaviorConfig: BehaviorConfig{Upstream: svcUp},
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"GET": {Upstream: epUp}},
+				"/foo": {"GET": {BehaviorConfig: BehaviorConfig{Upstream: epUp}}},
 			},
 		}
 		assert.Same(t, epUp, cfg.GetUpstream("/foo", "GET"))
@@ -1050,9 +1113,9 @@ func TestServiceConfig_GetUpstream(t *testing.T) {
 
 	t.Run("Endpoint upstream applies only to matching method", func(t *testing.T) {
 		cfg := &ServiceConfig{
-			Upstream: svcUp,
+			BehaviorConfig: BehaviorConfig{Upstream: svcUp},
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"POST": {Upstream: epUp}},
+				"/foo": {"POST": {BehaviorConfig: BehaviorConfig{Upstream: epUp}}},
 			},
 		}
 		assert.Same(t, epUp, cfg.GetUpstream("/foo", "POST"))
@@ -1062,7 +1125,7 @@ func TestServiceConfig_GetUpstream(t *testing.T) {
 	t.Run("Endpoint upstream with no service upstream", func(t *testing.T) {
 		cfg := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"GET": {Upstream: epUp}},
+				"/foo": {"GET": {BehaviorConfig: BehaviorConfig{Upstream: epUp}}},
 			},
 		}
 		assert.Same(t, epUp, cfg.GetUpstream("/foo", "GET"))
@@ -1152,8 +1215,10 @@ func TestServiceConfig_WithDefaults_Endpoints(t *testing.T) {
 			Endpoints: map[string]map[string]*EndpointConfig{
 				"/foo": {
 					"GET": {
-						Latencies: map[string]time.Duration{"p50": 50 * time.Millisecond},
-						Errors:    map[string]int{"p10": 400},
+						BehaviorConfig: BehaviorConfig{
+							Latencies: map[string]time.Duration{"p50": 50 * time.Millisecond},
+							Errors:    map[string]int{"p10": 400},
+						},
 					},
 				},
 			},
@@ -1180,17 +1245,17 @@ func TestServiceConfig_OverwriteWith_Endpoints(t *testing.T) {
 		cfg := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
 				"/foo": {
-					"GET": {Latency: 100 * time.Millisecond},
+					"GET": {BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond}},
 				},
 			},
 		}
 		other := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
 				"/foo": {
-					"POST": {Latency: 200 * time.Millisecond},
+					"POST": {BehaviorConfig: BehaviorConfig{Latency: 200 * time.Millisecond}},
 				},
 				"/bar": {
-					"GET": {Latency: 300 * time.Millisecond},
+					"GET": {BehaviorConfig: BehaviorConfig{Latency: 300 * time.Millisecond}},
 				},
 			},
 		}
@@ -1206,12 +1271,12 @@ func TestServiceConfig_OverwriteWith_Endpoints(t *testing.T) {
 	t.Run("Other endpoint overrides same path+method", func(t *testing.T) {
 		cfg := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+				"/foo": {"GET": {BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond}}},
 			},
 		}
 		other := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"GET": {Latency: 999 * time.Millisecond}},
+				"/foo": {"GET": {BehaviorConfig: BehaviorConfig{Latency: 999 * time.Millisecond}}},
 			},
 		}
 
@@ -1223,7 +1288,7 @@ func TestServiceConfig_OverwriteWith_Endpoints(t *testing.T) {
 		cfg := &ServiceConfig{}
 		other := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+				"/foo": {"GET": {BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond}}},
 			},
 		}
 
@@ -1234,7 +1299,7 @@ func TestServiceConfig_OverwriteWith_Endpoints(t *testing.T) {
 	t.Run("Does not touch endpoints when other has nil", func(t *testing.T) {
 		cfg := &ServiceConfig{
 			Endpoints: map[string]map[string]*EndpointConfig{
-				"/foo": {"GET": {Latency: 100 * time.Millisecond}},
+				"/foo": {"GET": {BehaviorConfig: BehaviorConfig{Latency: 100 * time.Millisecond}}},
 			},
 		}
 		other := &ServiceConfig{}
@@ -1304,20 +1369,6 @@ func TestExtractPathValues(t *testing.T) {
 			assert.Equal(t, tt.expected, ExtractPathValues(tt.request, tt.pattern))
 		})
 	}
-}
-
-func TestReplayConfig_WithDefaults(t *testing.T) {
-	t.Run("sets TTL to default when zero", func(t *testing.T) {
-		rc := &ReplayConfig{}
-		rc.WithDefaults()
-		assert.Equal(t, DefaultReplayTTL, rc.TTL)
-	})
-
-	t.Run("does not override non-zero TTL", func(t *testing.T) {
-		rc := &ReplayConfig{TTL: 1 * time.Hour}
-		rc.WithDefaults()
-		assert.Equal(t, 1*time.Hour, rc.TTL)
-	})
 }
 
 func TestReplayMatch_AllFields(t *testing.T) {
@@ -1447,19 +1498,18 @@ func TestReplayConfig_GetEndpoint(t *testing.T) {
 
 	t.Run("method keys are case-insensitive via WithDefaults", func(t *testing.T) {
 		yamlData := []byte(`
-cache:
-  replay:
-    endpoints:
-      /pay:
-        post:
-          match:
-            body:
-              - reference
+replay:
+  endpoints:
+    /pay:
+      post:
+        match:
+          body:
+            - reference
 `)
 		cfg, err := NewServiceConfigFromBytes(yamlData)
 		assert.NoError(t, err)
 
-		_, ep := cfg.Cache.Replay.GetEndpoint("/pay", "POST")
+		_, ep := cfg.Replay.GetEndpoint("/pay", "POST")
 		assert.NotNil(t, ep)
 		assert.Equal(t, []string{"reference"}, ep.Match.Body)
 	})
@@ -1494,26 +1544,26 @@ func TestCacheConfig_ReplayParsing(t *testing.T) {
 		yamlData := []byte(`
 cache:
   requests: true
-  replay:
-    ttl: 12h
-    upstream-only: true
-    endpoints:
-      /foo/{f-id}/bar/{b-id}:
-        POST:
-          match:
-            body:
-              - data.name
-              - data.address.zip
+replay:
+  duration: 12h
+  upstream-only: true
+  endpoints:
+    /foo/{f-id}/bar/{b-id}:
+      POST:
+        match:
+          body:
+            - data.name
+            - data.address.zip
 `)
 		cfg, err := NewServiceConfigFromBytes(yamlData)
 		assert.NoError(t, err)
 		assert.NotNil(t, cfg.Cache)
-		assert.NotNil(t, cfg.Cache.Replay)
-		assert.Equal(t, 12*time.Hour, cfg.Cache.Replay.TTL)
-		assert.True(t, cfg.Cache.Replay.UpstreamOnly)
-		assert.Len(t, cfg.Cache.Replay.Endpoints, 1)
+		assert.NotNil(t, cfg.Replay)
+		assert.Equal(t, 12*time.Hour, cfg.Replay.Duration)
+		assert.True(t, cfg.Replay.UpstreamOnly)
+		assert.Len(t, cfg.Replay.Endpoints, 1)
 
-		methods := cfg.Cache.Replay.Endpoints["/foo/{f-id}/bar/{b-id}"]
+		methods := cfg.Replay.Endpoints["/foo/{f-id}/bar/{b-id}"]
 		assert.NotNil(t, methods)
 		assert.NotNil(t, methods["POST"])
 		assert.Equal(t, []string{"data.name", "data.address.zip"}, methods["POST"].Match.Body)
@@ -1521,19 +1571,18 @@ cache:
 
 	t.Run("parses replay config with query match", func(t *testing.T) {
 		yamlData := []byte(`
-cache:
-  replay:
-    endpoints:
-      /search:
-        GET:
-          match:
-            query:
-              - q
-              - page
+replay:
+  endpoints:
+    /search:
+      GET:
+        match:
+          query:
+            - q
+            - page
 `)
 		cfg, err := NewServiceConfigFromBytes(yamlData)
 		assert.NoError(t, err)
-		ep := cfg.Cache.Replay.Endpoints["/search"]["GET"]
+		ep := cfg.Replay.Endpoints["/search"]["GET"]
 		assert.NotNil(t, ep)
 		assert.Equal(t, []string{"q", "page"}, ep.Match.Query)
 		assert.Empty(t, ep.Match.Body)
@@ -1543,16 +1592,16 @@ cache:
 		yamlData := []byte(`
 cache:
   requests: true
-  replay:
-    endpoints:
-      /test:
-        GET:
+replay:
+  endpoints:
+    /test:
+      GET:
 `)
 		cfg, err := NewServiceConfigFromBytes(yamlData)
 		assert.NoError(t, err)
-		assert.NotNil(t, cfg.Cache.Replay)
-		assert.Equal(t, time.Duration(0), cfg.Cache.Replay.TTL)
-		assert.False(t, cfg.Cache.Replay.UpstreamOnly)
+		assert.NotNil(t, cfg.Replay)
+		assert.Equal(t, time.Duration(0), cfg.Replay.Duration)
+		assert.False(t, cfg.Replay.UpstreamOnly)
 	})
 
 	t.Run("nil replay when not specified", func(t *testing.T) {
@@ -1562,42 +1611,40 @@ cache:
 `)
 		cfg, err := NewServiceConfigFromBytes(yamlData)
 		assert.NoError(t, err)
-		assert.Nil(t, cfg.Cache.Replay)
+		assert.Nil(t, cfg.Replay)
 	})
 
 	t.Run("parses auto-replay", func(t *testing.T) {
 		yamlData := []byte(`
-cache:
-  replay:
-    auto-replay: true
-    endpoints:
-      /foo:
-        POST:
-          match:
-            body:
-              - name
+replay:
+  auto-replay: true
+  endpoints:
+    /foo:
+      POST:
+        match:
+          body:
+            - name
 `)
 		cfg, err := NewServiceConfigFromBytes(yamlData)
 		assert.NoError(t, err)
-		assert.True(t, cfg.Cache.Replay.AutoReplay)
+		assert.True(t, cfg.Replay.AutoReplay)
 	})
 
 	t.Run("parses replay config with path match", func(t *testing.T) {
 		yamlData := []byte(`
-cache:
-  replay:
-    endpoints:
-      /pay/{paymentMethodName}/tx/{txId}:
-        POST:
-          match:
-            path:
-              - paymentMethodName
-            body:
-              - reference
+replay:
+  endpoints:
+    /pay/{paymentMethodName}/tx/{txId}:
+      POST:
+        match:
+          path:
+            - paymentMethodName
+          body:
+            - reference
 `)
 		cfg, err := NewServiceConfigFromBytes(yamlData)
 		assert.NoError(t, err)
-		ep := cfg.Cache.Replay.Endpoints["/pay/{paymentMethodName}/tx/{txId}"]["POST"]
+		ep := cfg.Replay.Endpoints["/pay/{paymentMethodName}/tx/{txId}"]["POST"]
 		assert.NotNil(t, ep)
 		assert.Equal(t, []string{"paymentMethodName"}, ep.Match.Path)
 		assert.Equal(t, []string{"reference"}, ep.Match.Body)
@@ -1605,18 +1652,17 @@ cache:
 
 	t.Run("auto-replay defaults to false", func(t *testing.T) {
 		yamlData := []byte(`
-cache:
-  replay:
-    endpoints:
-      /foo:
-        POST:
-          match:
-            body:
-              - name
+replay:
+  endpoints:
+    /foo:
+      POST:
+        match:
+          body:
+            - name
 `)
 		cfg, err := NewServiceConfigFromBytes(yamlData)
 		assert.NoError(t, err)
-		assert.False(t, cfg.Cache.Replay.AutoReplay)
+		assert.False(t, cfg.Replay.AutoReplay)
 	})
 }
 

@@ -8,10 +8,13 @@ const showTabs = (service) => {
     config.tabResources.href = `#/services/${service}`;
     config.tabHistory.href = `#/history/${service}`;
     config.tabHistory.style.display = config.historyEnabled ? '' : 'none';
+    config.tabReplay.href = `#/replay/${service}`;
+    config.tabReplay.style.display = config.replayEnabled ? '' : 'none';
     config.tabConfiguration.href = `#/configuration/${service}`;
     config.tabConfiguration.style.display = config.configEnabled ? '' : 'none';
     config.tabResources.classList.remove('active');
     config.tabHistory.classList.remove('active');
+    config.tabReplay.classList.remove('active');
     config.tabConfiguration.classList.add('active');
 };
 

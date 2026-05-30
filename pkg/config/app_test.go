@@ -24,6 +24,9 @@ func TestNewDefaultAppConfig(t *testing.T) {
 		assert.NotNil(cfg.History)
 		assert.Equal(DefaultHistoryDuration, cfg.History.Duration)
 		assert.Equal("/.history", cfg.History.URL)
+		assert.NotNil(cfg.Replay)
+		assert.Equal(DefaultReplayDuration, cfg.Replay.Duration)
+		assert.Equal("/.replay", cfg.Replay.URL)
 		assert.False(cfg.DisableUI)
 
 		// Check paths
@@ -45,6 +48,7 @@ func TestNewDefaultAppConfig(t *testing.T) {
 		t.Setenv("STORAGE_TYPE", "dynamodb")
 		t.Setenv("ROUTER_HISTORY_ENABLED", "true")
 		t.Setenv("ROUTER_HISTORY_DURATION", "15m")
+		t.Setenv("ROUTER_REPLAY_DURATION", "30m")
 
 		cfg := NewDefaultAppConfig("/test")
 		assert.NoError(env.Parse(cfg))
@@ -53,6 +57,7 @@ func TestNewDefaultAppConfig(t *testing.T) {
 		assert.NotNil(cfg.History.Enabled)
 		assert.True(*cfg.History.Enabled)
 		assert.Equal(15*time.Minute, cfg.History.Duration)
+		assert.Equal(30*time.Minute, cfg.Replay.Duration)
 	})
 }
 
@@ -204,6 +209,8 @@ contextAreaPrefix: ctx-
 disableUI: true
 history:
   duration: 10m
+replay:
+  duration: 2h
 editor:
   theme: monokai
   fontSize: 14
@@ -217,6 +224,7 @@ editor:
 		assert.Equal("ctx-", cfg.ContextAreaPrefix)
 		assert.True(cfg.DisableUI)
 		assert.Equal(10*time.Minute, cfg.History.Duration)
+		assert.Equal(2*time.Hour, cfg.Replay.Duration)
 		assert.Equal("monokai", cfg.Editor.Theme)
 		assert.Equal(14, cfg.Editor.FontSize)
 		assert.Equal("/base", cfg.Paths.Base)
@@ -232,6 +240,7 @@ title: Custom Title
 		assert.Equal(2200, cfg.Port)                               // default
 		assert.Equal("/", cfg.HomeURL)                             // default
 		assert.Equal(DefaultHistoryDuration, cfg.History.Duration) // default
+		assert.Equal(DefaultReplayDuration, cfg.Replay.Duration)   // default
 	})
 
 	t.Run("parses storage config", func(t *testing.T) {

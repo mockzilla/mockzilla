@@ -43,9 +43,15 @@ type HistoryListResponse struct {
 // continue to compile while the projection logic lives in the storage layer.
 type HistorySummary = db.HistorySummary
 
+// maxSummaryItems caps how many newest summaries the history and replay list
+// endpoints return, so a high-traffic service can't produce an unbounded
+// response or DOM. Older items are dropped (newest-first) and Truncated is set.
+const maxSummaryItems = 100
+
 // HistorySummaryListResponse is the response for history list endpoint.
 type HistorySummaryListResponse struct {
-	Items []*HistorySummary `json:"items"`
+	Items     []*HistorySummary `json:"items"`
+	Truncated bool              `json:"truncated,omitempty"`
 }
 
 // getService looks up the service by name and checks that history is enabled for it.
@@ -98,7 +104,15 @@ func (h *HistoryHandler) list(w http.ResponseWriter, r *http.Request) {
 	if summaries == nil {
 		summaries = make([]*HistorySummary, 0)
 	}
-	NewJSONResponse(w).Send(&HistorySummaryListResponse{Items: summaries})
+
+	// Cap to the newest maxSummaryItems. Summaries are oldest-first, so keep the
+	// tail; the UI renders newest-first.
+	truncated := false
+	if len(summaries) > maxSummaryItems {
+		summaries = summaries[len(summaries)-maxSummaryItems:]
+		truncated = true
+	}
+	NewJSONResponse(w).Send(&HistorySummaryListResponse{Items: summaries, Truncated: truncated})
 }
 
 func (h *HistoryHandler) clear(w http.ResponseWriter, r *http.Request) {

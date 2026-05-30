@@ -4,6 +4,7 @@ import * as services from './services.js';
 import * as home from './home.js';
 import * as resources from './resources.js';
 import * as history from './history.js';
+import * as replay from './replay.js';
 import * as configuration from './configuration.js';
 
 const pageMap = new Map([
@@ -14,6 +15,10 @@ const pageMap = new Map([
 
 if (appConfig.historyUrl) {
     pageMap.set('#/history/:name*', history.show);
+}
+
+if (appConfig.replayUrl) {
+    pageMap.set('#/replay/:name*', replay.show);
 }
 
 if (!appConfig.disableConfigUI) {
@@ -190,6 +195,7 @@ async function onLoad() {
 
     setupTabGroup('resource-tabs', 'generator-container', 'resource-tab', 'response');
     setupTabGroup('history-tabs', 'history-detail', 'history-tab', 'response');
+    setupTabGroup('replay-tabs', 'replay-detail', 'replay-tab', 'response');
 }
 
 window.addEventListener('hashchange', _ => {

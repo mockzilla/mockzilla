@@ -48,11 +48,9 @@ func TestResolveReplayParams(t *testing.T) {
 	t.Run("no header and no auto-replay returns nil", func(t *testing.T) {
 		cfg := &config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		}
@@ -66,11 +64,9 @@ func TestResolveReplayParams(t *testing.T) {
 	t.Run("header with values overrides config", func(t *testing.T) {
 		cfg := &config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		}
@@ -85,11 +81,9 @@ func TestResolveReplayParams(t *testing.T) {
 	t.Run("empty header falls back to config match", func(t *testing.T) {
 		cfg := &config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name", "zip"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name", "zip"}}}},
 				},
 			},
 		}
@@ -123,11 +117,9 @@ func TestResolveReplayParams(t *testing.T) {
 	t.Run("empty header skips when method not configured", func(t *testing.T) {
 		cfg := &config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo/{id}/bar": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo/{id}/bar": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		}
@@ -142,12 +134,10 @@ func TestResolveReplayParams(t *testing.T) {
 	t.Run("auto-replay activates for configured endpoint", func(t *testing.T) {
 		cfg := &config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					AutoReplay: true,
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				AutoReplay: true,
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		}
@@ -161,12 +151,10 @@ func TestResolveReplayParams(t *testing.T) {
 	t.Run("auto-replay skips non-configured endpoint", func(t *testing.T) {
 		cfg := &config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					AutoReplay: true,
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				AutoReplay: true,
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		}
@@ -180,12 +168,10 @@ func TestResolveReplayParams(t *testing.T) {
 	t.Run("header overrides auto-replay config", func(t *testing.T) {
 		cfg := &config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					AutoReplay: true,
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				AutoReplay: true,
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		}
@@ -200,11 +186,9 @@ func TestResolveReplayParams(t *testing.T) {
 	t.Run("parameterized pattern path returned", func(t *testing.T) {
 		cfg := &config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/foo/{id}/bar": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo/{id}/bar": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
 				},
 			},
 		}
@@ -219,11 +203,9 @@ func TestResolveReplayParams(t *testing.T) {
 	t.Run("returns endpoint path for path variable extraction", func(t *testing.T) {
 		cfg := &config.ServiceConfig{
 			Name: "svc",
-			Cache: &config.CacheConfig{
-				Replay: &config.ReplayConfig{
-					Endpoints: map[string]map[string]*config.ReplayEndpoint{
-						"/pay/{paymentMethod}/tx/{txId}": {"POST": {Match: &config.ReplayMatch{Path: []string{"paymentMethod"}, Body: []string{"ref"}}}},
-					},
+			Replay: &config.ReplayConfig{
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/pay/{paymentMethod}/tx/{txId}": {"POST": {Match: &config.ReplayMatch{Path: []string{"paymentMethod"}, Body: []string{"ref"}}}},
 				},
 			},
 		}
@@ -440,7 +422,7 @@ func TestDeserializeReplayRecord(t *testing.T) {
 	assert := assert2.New(t)
 
 	t.Run("nil returns nil", func(t *testing.T) {
-		assert.Nil(deserializeReplayRecord(nil))
+		assert.Nil(DeserializeReplayRecord(nil))
 	})
 
 	t.Run("direct *ReplayRecord", func(t *testing.T) {
@@ -448,7 +430,7 @@ func TestDeserializeReplayRecord(t *testing.T) {
 			Data:       []byte("test"),
 			StatusCode: 200,
 		}
-		result := deserializeReplayRecord(rec)
+		result := DeserializeReplayRecord(rec)
 		assert.Equal(rec, result)
 	})
 
@@ -463,7 +445,7 @@ func TestDeserializeReplayRecord(t *testing.T) {
 			"createdAt":      "2024-01-01T00:00:00Z",
 		}
 
-		result := deserializeReplayRecord(m)
+		result := DeserializeReplayRecord(m)
 		assert.NotNil(result)
 		assert.Equal(200, result.StatusCode)
 		assert.Equal("application/json", result.ContentType)
@@ -471,7 +453,7 @@ func TestDeserializeReplayRecord(t *testing.T) {
 	})
 
 	t.Run("incompatible type returns nil", func(t *testing.T) {
-		result := deserializeReplayRecord("not a record")
+		result := DeserializeReplayRecord("not a record")
 		assert.Nil(result)
 	})
 
@@ -488,7 +470,7 @@ func TestDeserializeReplayRecord(t *testing.T) {
 		}
 
 		// Direct pointer
-		result := deserializeReplayRecord(original)
+		result := DeserializeReplayRecord(original)
 		assert.Equal(original, result)
 	})
 }

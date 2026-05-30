@@ -134,7 +134,7 @@ func resolveReplayParams(req *http.Request, cfg *config.ServiceConfig) (match *c
 	}
 
 	// Check if auto-replay is enabled
-	autoReplay := cfg.Cache != nil && cfg.Cache.Replay != nil && cfg.Cache.Replay.AutoReplay
+	autoReplay := cfg.Replay != nil && cfg.Replay.AutoReplay
 
 	if !headerPresent && !autoReplay {
 		return nil, "", ""
@@ -145,8 +145,8 @@ func resolveReplayParams(req *http.Request, cfg *config.ServiceConfig) (match *c
 	// Try to get pattern path and config match from replay config
 	var configMatch *config.ReplayMatch
 	endpointConfigured := false
-	if cfg.Cache != nil && cfg.Cache.Replay != nil {
-		pattern, ep := cfg.Cache.Replay.GetEndpoint(endpointPath, req.Method)
+	if cfg.Replay != nil {
+		pattern, ep := cfg.Replay.GetEndpoint(endpointPath, req.Method)
 		if ep != nil {
 			patternPath = pattern
 			configMatch = ep.Match
@@ -250,17 +250,18 @@ func getEndpointPath(req *http.Request, serviceName string) string {
 	return path
 }
 
-// replayTTL returns the configured replay TTL for a service, falling back to the default.
+// replayTTL returns the configured replay recording TTL for a service, falling
+// back to the app-level default duration.
 func replayTTL(cfg *config.ServiceConfig) time.Duration {
-	if cfg.Cache != nil && cfg.Cache.Replay != nil && cfg.Cache.Replay.TTL > 0 {
-		return cfg.Cache.Replay.TTL
+	if cfg.Replay != nil && cfg.Replay.Duration > 0 {
+		return cfg.Replay.Duration
 	}
-	return config.DefaultReplayTTL
+	return config.DefaultReplayDuration
 }
 
-// deserializeReplayRecord converts a value retrieved from the DB table into a ReplayRecord.
+// DeserializeReplayRecord converts a value retrieved from the DB table into a ReplayRecord.
 // Handles both direct *ReplayRecord (memory backend) and map[string]any (Redis backend).
-func deserializeReplayRecord(val any) *ReplayRecord {
+func DeserializeReplayRecord(val any) *ReplayRecord {
 	if val == nil {
 		return nil
 	}
