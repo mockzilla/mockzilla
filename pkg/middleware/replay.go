@@ -120,11 +120,16 @@ func splitFields(s string) []string {
 //   - Empty header value ("") - activates only when the endpoint is configured for this method.
 //     Without config there is no pattern path for placeholders and no match fields to fall back to.
 //   - Auto-replay (no header) - activates only for configured endpoints.
+//   - Disabled (replay.enabled=false) - always skip.
 //   - Otherwise - skip.
 //
 // Returns the match config, the pattern path (for key building), and the actual endpoint path
 // (for extracting path variable values).
 func resolveReplayParams(req *http.Request, cfg *config.ServiceConfig) (match *config.ReplayMatch, patternPath, endpointPath string) {
+	if !cfg.ReplayEnabled() {
+		return nil, "", ""
+	}
+
 	// Check header presence (not just value - empty header is valid)
 	headerValues, headerPresent := req.Header[http.CanonicalHeaderKey(headerReplayMatch)]
 

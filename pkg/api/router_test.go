@@ -1051,6 +1051,36 @@ cache:
 	})
 }
 
+func TestRouter_RegisterService_ReplayDisablePushdown(t *testing.T) {
+	t.Run("app-level disable propagates to service without own setting", func(t *testing.T) {
+		router := newTestRouter(t)
+		disabled := false
+		router.config.Replay.Enabled = &disabled
+
+		svcCfg := config.NewServiceConfig()
+		svcCfg.Name = "svc"
+		service := &mockService{name: "svc", config: svcCfg, routes: func(r chi.Router) {}}
+		registerTestService(router, service)
+
+		assert.False(t, router.GetServices()["svc"].Config.ReplayEnabled())
+	})
+
+	t.Run("service opt-in overrides app-level disable", func(t *testing.T) {
+		router := newTestRouter(t)
+		disabled := false
+		router.config.Replay.Enabled = &disabled
+
+		enabled := true
+		svcCfg := config.NewServiceConfig()
+		svcCfg.Name = "svc"
+		svcCfg.Replay = &config.ReplayConfig{Enabled: &enabled}
+		service := &mockService{name: "svc", config: svcCfg, routes: func(r chi.Router) {}}
+		registerTestService(router, service)
+
+		assert.True(t, router.GetServices()["svc"].Config.ReplayEnabled())
+	})
+}
+
 func TestLoadAppConfig(t *testing.T) {
 	t.Run("loads config from file", func(t *testing.T) {
 		tmpDir := t.TempDir()

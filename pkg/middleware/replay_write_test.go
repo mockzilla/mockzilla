@@ -15,6 +15,34 @@ import (
 func TestCreateReplayWriteMiddleware(t *testing.T) {
 	assert := assert2.New(t)
 
+	t.Run("disabled service does not record even with header", func(t *testing.T) {
+		disabled := false
+		params := newTestParams(&config.ServiceConfig{
+			Name: "svc",
+			Replay: &config.ReplayConfig{
+				Enabled:    &disabled,
+				AutoReplay: true,
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
+				},
+			},
+		})
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte("ok"))
+		})
+		mw := CreateReplayWriteMiddleware(params)
+
+		w := NewBufferedResponseWriter()
+		req := httptest.NewRequest(http.MethodPost, "/svc/foo", strings.NewReader(`{"name":"test"}`))
+		req.Header.Set(headerReplayMatch, "name")
+		mw(handler).ServeHTTP(w, req)
+		waitForAsync()
+
+		assert.Equal("ok", string(w.buf))
+		data := params.DB().Table("replay").Data(context.TODO())
+		assert.Empty(data)
+	})
+
 	t.Run("no header passes through", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "svc",

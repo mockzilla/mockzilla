@@ -66,7 +66,8 @@ func NewDefaultAppReplayConfig() *AppReplayConfig {
 
 // AppReplayConfig configures replay recording and the replay explorer at the
 // application level. Duration is the default replay-recording TTL; a service's
-// replay.duration overrides it. Enabled gates the explorer URL (like history).
+// replay.duration overrides it. Enabled=false stops replay recording and serving
+// for all services and hides the explorer URL; a service's replay.enabled overrides.
 type AppReplayConfig struct {
 	Enabled  *bool         `yaml:"enabled" env:"ROUTER_REPLAY_ENABLED"`
 	URL      string        `yaml:"url"`

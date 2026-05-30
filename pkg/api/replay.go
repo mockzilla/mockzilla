@@ -65,8 +65,14 @@ func (h *ReplayHandler) getService(w http.ResponseWriter, r *http.Request) db.DB
 		serviceName = ""
 	}
 
-	if h.router.GetServices()[serviceName] == nil {
+	svc := h.router.GetServices()[serviceName]
+	if svc == nil {
 		http.Error(w, "Service not found", http.StatusNotFound)
+		return nil
+	}
+
+	if svc.Config != nil && !svc.Config.ReplayEnabled() {
+		http.Error(w, "Replay disabled for this service", http.StatusNotFound)
 		return nil
 	}
 

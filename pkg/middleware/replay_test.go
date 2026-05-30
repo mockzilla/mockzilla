@@ -148,6 +148,26 @@ func TestResolveReplayParams(t *testing.T) {
 		assert.Equal("/foo", pattern)
 	})
 
+	t.Run("disabled service skips even with header and auto-replay", func(t *testing.T) {
+		disabled := false
+		cfg := &config.ServiceConfig{
+			Name: "svc",
+			Replay: &config.ReplayConfig{
+				Enabled:    &disabled,
+				AutoReplay: true,
+				Endpoints: map[string]map[string]*config.ReplayEndpoint{
+					"/foo": {"POST": {Match: &config.ReplayMatch{Body: []string{"name"}}}},
+				},
+			},
+		}
+		req := httptest.NewRequest(http.MethodPost, "/svc/foo", nil)
+		req.Header.Set(headerReplayMatch, "age")
+
+		match, pattern, _ := resolveReplayParams(req, cfg)
+		assert.Nil(match)
+		assert.Empty(pattern)
+	})
+
 	t.Run("auto-replay skips non-configured endpoint", func(t *testing.T) {
 		cfg := &config.ServiceConfig{
 			Name: "svc",
