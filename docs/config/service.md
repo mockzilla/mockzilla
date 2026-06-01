@@ -54,6 +54,7 @@ This allows multiple APIs to coexist on the same server without route conflicts.
 ```yaml
 history:
   enabled: true           # Record request/response history (default: true)
+  duration: 60m           # How long to keep entries (default: app-level history.duration)
   mask-headers:            # Header names to mask in history entries
     - Authorization
     - Cookie
@@ -62,6 +63,8 @@ history:
 ```
 
 When enabled (default), incoming requests and their responses are recorded in the service's history table. This data is available via the DB Explorer UI or the history API.
+
+**Duration:** `duration` sets how long entries are kept before expiring. When unset, the service inherits the app-level `history.duration` (see [App Configuration](app.md)).
 
 **Header masking:** Headers matching `mask-headers` patterns have their values replaced with asterisks, keeping only the last 4 characters visible. For example, `Bearer sk-proj-abc123` becomes `***********c123`.
 
@@ -86,6 +89,7 @@ The boolean shorthand `history: false` is also supported for backward compatibil
 # Request/response history
 history:
   enabled: true
+  duration: 60m
   mask-headers:
     - Authorization
     - Cookie

@@ -864,17 +864,20 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 	t.Run("Overwrites History when other has non-nil History", func(t *testing.T) {
 		cfg := &ServiceConfig{
 			History: &HistoryConfig{
+				Duration:    10 * time.Minute,
 				MaskHeaders: []string{"Authorization"},
 			},
 		}
 		other := &ServiceConfig{
 			History: &HistoryConfig{
+				Duration:    30 * time.Minute,
 				MaskHeaders: []string{"X-Api-Key"},
 			},
 		}
 
 		result := cfg.OverwriteWith(other)
 
+		assert.Equal(t, 30*time.Minute, result.History.Duration)
 		assert.Equal(t, []string{"X-Api-Key"}, result.History.MaskHeaders)
 	})
 
@@ -1765,6 +1768,22 @@ history:
 		assert.NoError(t, err)
 		assert.NotNil(t, cfg.History)
 		assert.Nil(t, cfg.History.Enabled)
+		assert.Equal(t, []string{"Authorization"}, cfg.History.MaskHeaders)
+	})
+
+	t.Run("object form with duration", func(t *testing.T) {
+		yamlData := []byte(`
+history:
+  duration: 30m
+  mask-headers:
+    - Authorization
+`)
+		var cfg ServiceConfig
+		err := yaml.Unmarshal(yamlData, &cfg)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, cfg.History)
+		assert.Equal(t, 30*time.Minute, cfg.History.Duration)
 		assert.Equal(t, []string{"Authorization"}, cfg.History.MaskHeaders)
 	})
 }

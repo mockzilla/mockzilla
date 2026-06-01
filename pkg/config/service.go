@@ -459,6 +459,8 @@ func normalizeMethodKeys[T any](endpoints map[string]map[string]T) map[string]ma
 // HistoryConfig controls request/response history recording for a service.
 //
 // Enabled toggles recording on or off (defaults to true when nil).
+// Duration is how long entries are kept before expiring; it overrides the
+// app-level history.duration, falling back to it when unset.
 // MaskHeaders lists header names whose values should be masked before saving,
 // showing only the last 4 characters (matched case-insensitively).
 //
@@ -466,6 +468,7 @@ func normalizeMethodKeys[T any](endpoints map[string]map[string]T) map[string]ma
 //
 //	history:
 //	  enabled: true
+//	  duration: 30m
 //	  mask-headers:
 //	    - Authorization
 //	    - X-Api-Key
@@ -475,8 +478,9 @@ func normalizeMethodKeys[T any](endpoints map[string]map[string]T) map[string]ma
 //	history:
 //	  enabled: false
 type HistoryConfig struct {
-	Enabled     *bool    `yaml:"enabled,omitempty"`
-	MaskHeaders []string `yaml:"mask-headers,omitempty"`
+	Enabled     *bool         `yaml:"enabled,omitempty"`
+	Duration    time.Duration `yaml:"duration,omitempty"`
+	MaskHeaders []string      `yaml:"mask-headers,omitempty"`
 }
 
 // defaultMaskHeaders is the default set of header names masked in history entries.

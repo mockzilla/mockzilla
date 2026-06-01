@@ -1081,6 +1081,63 @@ func TestRouter_RegisterService_ReplayDisablePushdown(t *testing.T) {
 	})
 }
 
+func TestRouter_RegisterService_HistoryDuration(t *testing.T) {
+	t.Run("inherits app-level duration when service has none", func(t *testing.T) {
+		router := newTestRouter(t)
+		router.config.History.Duration = 90 * time.Minute
+
+		svcCfg := config.NewServiceConfig()
+		svcCfg.Name = "svc"
+		service := &mockService{name: "svc", config: svcCfg, routes: func(r chi.Router) {}}
+		registerTestService(router, service)
+
+		assert.Equal(t, 90*time.Minute, router.GetServices()["svc"].Config.History.Duration)
+	})
+
+	t.Run("service duration overrides app-level", func(t *testing.T) {
+		router := newTestRouter(t)
+		router.config.History.Duration = 90 * time.Minute
+
+		svcCfg := config.NewServiceConfig()
+		svcCfg.Name = "svc"
+		svcCfg.History.Duration = 5 * time.Minute
+		service := &mockService{name: "svc", config: svcCfg, routes: func(r chi.Router) {}}
+		registerTestService(router, service)
+
+		assert.Equal(t, 5*time.Minute, router.GetServices()["svc"].Config.History.Duration)
+	})
+}
+
+func TestRouter_RegisterService_HistoryDisablePushdown(t *testing.T) {
+	t.Run("app-level disable propagates to service without own setting", func(t *testing.T) {
+		router := newTestRouter(t)
+		disabled := false
+		router.config.History.Enabled = &disabled
+
+		svcCfg := config.NewServiceConfig()
+		svcCfg.Name = "svc"
+		service := &mockService{name: "svc", config: svcCfg, routes: func(r chi.Router) {}}
+		registerTestService(router, service)
+
+		assert.False(t, router.GetServices()["svc"].Config.HistoryEnabled())
+	})
+
+	t.Run("service opt-in overrides app-level disable", func(t *testing.T) {
+		router := newTestRouter(t)
+		disabled := false
+		router.config.History.Enabled = &disabled
+
+		enabled := true
+		svcCfg := config.NewServiceConfig()
+		svcCfg.Name = "svc"
+		svcCfg.History.Enabled = &enabled
+		service := &mockService{name: "svc", config: svcCfg, routes: func(r chi.Router) {}}
+		registerTestService(router, service)
+
+		assert.True(t, router.GetServices()["svc"].Config.HistoryEnabled())
+	})
+}
+
 func TestLoadAppConfig(t *testing.T) {
 	t.Run("loads config from file", func(t *testing.T) {
 		tmpDir := t.TempDir()
