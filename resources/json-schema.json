@@ -57,7 +57,7 @@
             },
             "duration": {
               "type": "string",
-              "description": "Duration to keep request history (e.g., '60m', '2h').",
+              "description": "Duration to keep request history (e.g., '60m', '2h'). A service's history.duration overrides it.",
               "default": "60m"
             }
           }
@@ -157,6 +157,11 @@
               "type": "boolean",
               "description": "Enable history recording.",
               "default": true
+            },
+            "duration": {
+              "type": "string",
+              "description": "Time-to-live for history entries (e.g., '60m', '2h'). Overrides the app-level history.duration default.",
+              "default": "60m"
             },
             "mask-headers": {
               "type": "array",

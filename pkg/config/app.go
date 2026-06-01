@@ -50,6 +50,9 @@ func NewDefaultAppHistoryConfig() *AppHistoryConfig {
 }
 
 // AppHistoryConfig configures request/response history at the application level.
+// Duration is the default history-recording TTL; a service's history.duration
+// overrides it. Enabled=false stops history recording for all services and hides
+// the history URL; a service's history.enabled overrides.
 type AppHistoryConfig struct {
 	Enabled  *bool         `yaml:"enabled" env:"ROUTER_HISTORY_ENABLED"`
 	URL      string        `yaml:"url"`

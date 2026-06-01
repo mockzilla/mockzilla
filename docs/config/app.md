@@ -76,7 +76,7 @@ history:
 |--------|------|---------|-------------|
 | `history.enabled` | bool | `true` | Enable history API and UI tab |
 | `history.url` | string | `/.history` | URL prefix for history API endpoints |
-| `history.duration` | duration | `60m` | How long to keep request history in memory |
+| `history.duration` | duration | `60m` | How long to keep request history in memory; a service's `history.duration` overrides it |
 
 Setting `enabled: false` hides the History tab from the UI and disables the history API endpoints. History recording per service is controlled separately via [service configuration](service.md).
 

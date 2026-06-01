@@ -148,7 +148,7 @@ type Storage interface {
 }
 ```
 
-**Note:** Storage is cleared periodically based on `historyDuration` setting (default: 5 minutes).
+**Note:** `history.duration` sets how long entries are retained (default `60m`, configurable per service, `0` = no expiry). Enforcement depends on the storage driver: the in-memory driver filters out entries older than the duration on read and never actively sweeps them (memory is reclaimed only on clear or restart); the Redis driver applies the duration as the key TTL and lets Redis expire them. Mockzilla runs no background cleanup loop of its own.
 
 ## History Transform
 

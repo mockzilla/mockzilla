@@ -169,11 +169,18 @@ func (r *Router) register(
 		opt(options)
 	}
 
-	if r.config.History != nil && r.config.History.Enabled != nil && !*r.config.History.Enabled {
-		disabled := false
+	// Inject the app-level default history duration (a service's history.duration
+	// overrides it) and push down an app-level disable so ROUTER_HISTORY_ENABLED=false
+	// stops recording for every service (a service's history.enabled overrides).
+	if r.config.History != nil {
 		if cfg.History == nil {
-			cfg.History = &config.HistoryConfig{Enabled: &disabled}
-		} else if cfg.History.Enabled == nil {
+			cfg.History = &config.HistoryConfig{}
+		}
+		if cfg.History.Duration == 0 {
+			cfg.History.Duration = r.config.History.Duration
+		}
+		if r.config.History.Enabled != nil && !*r.config.History.Enabled && cfg.History.Enabled == nil {
+			disabled := false
 			cfg.History.Enabled = &disabled
 		}
 	}
@@ -194,7 +201,7 @@ func (r *Router) register(
 		}
 	}
 
-	serviceDB := r.storage.NewDB(cfg.Name, r.config.History.Duration)
+	serviceDB := r.storage.NewDB(cfg.Name, cfg.History.Duration)
 	handler := handlerFactory(serviceDB)
 	mwParams := middleware.NewParams(cfg, serviceDB)
 

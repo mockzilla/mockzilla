@@ -16,6 +16,11 @@
           "description": "Enable history recording.",
           "default": true
         },
+        "duration": {
+          "type": "string",
+          "description": "Time-to-live for history entries (e.g., '60m', '2h'). Overrides the app-level history.duration default.",
+          "default": "60m"
+        },
         "mask-headers": {
           "type": "array",
           "description": "Header name patterns to mask in history entries. Supports trailing wildcard (e.g., 'X-Internal-*').",
