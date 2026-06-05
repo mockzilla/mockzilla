@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/caarlos0/env/v11"
+	"github.com/joho/godotenv"
 	"github.com/lmittmann/tint"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
@@ -104,6 +105,9 @@ func BuildSetup(args []string) (*Setup, error) {
 		slog.Warn("Failed to load app.yml, using defaults", "error", err)
 		appCfg = config.NewDefaultAppConfig(baseDir)
 	}
+
+	// Load .env before env.Parse so a self-host .env (e.g. basic auth) is honored.
+	_ = godotenv.Load(".env")
 
 	// Env vars override the file/default values via struct tags.
 	if err := env.Parse(appCfg); err != nil {

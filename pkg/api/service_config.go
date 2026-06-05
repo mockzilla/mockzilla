@@ -25,6 +25,7 @@ func CreateServiceConfigRoutes(router *Router) error {
 	url = "/" + strings.Trim(url, "/")
 
 	router.Route(url, func(r chi.Router) {
+		r.Use(uiAuth(router))
 		r.Get("/", handler.get)
 	})
 

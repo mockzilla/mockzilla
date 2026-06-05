@@ -24,6 +24,7 @@ func CreateReplayRoutes(router *Router) error {
 	url := "/" + strings.Trim(router.Config().Replay.URL, "/")
 
 	router.Route(url, func(r chi.Router) {
+		r.Use(uiAuth(router))
 		r.Get("/", handler.list)
 		r.Delete("/", handler.clear)
 	})

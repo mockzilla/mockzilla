@@ -38,7 +38,7 @@ func CreateHomeRoutes(router *Router) error {
 		router.Get(strings.TrimSuffix(url, "/"), homeRedirect)
 	}
 
-	router.Get(url, createUIHandler(router))
+	router.With(uiAuth(router)).Get(url, createUIHandler(router))
 	router.Get("/robots.txt", robotsHandler(router.Config()))
 
 	if trimmed == "" {
