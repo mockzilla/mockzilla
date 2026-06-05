@@ -30,6 +30,7 @@ type AppConfig struct {
 	History           *AppHistoryConfig `yaml:"history"`
 	Replay            *AppReplayConfig  `yaml:"replay"`
 	Storage           *StorageConfig    `yaml:"storage"`
+	BasicAuth         *BasicAuthConfig  `yaml:"basicAuth"`
 	Extra             map[string]any    `yaml:"extra"`
 }
 
@@ -77,6 +78,17 @@ type AppReplayConfig struct {
 	Duration time.Duration `yaml:"duration" env:"ROUTER_REPLAY_DURATION"`
 }
 
+// BasicAuthConfig gates the API Explorer UI with HTTP Basic Auth. It is active
+// only when User and a password (PasswordHash or Password) are set. PasswordHash
+// is the control-plane path: the platform stamps a SHA-256 hash so plaintext
+// never reaches the sim. Password is the self-host convenience and is compared
+// directly. The hash wins when both are present.
+type BasicAuthConfig struct {
+	User         string `yaml:"user" env:"MOCKZILLA_BASIC_AUTH_USER"`
+	Password     string `yaml:"password" env:"MOCKZILLA_BASIC_AUTH_PASSWORD"`
+	PasswordHash string `yaml:"passwordHash" env:"MOCKZILLA_BASIC_AUTH_PASSWORD_HASH"`
+}
+
 // NewDefaultAppConfig creates a new default app config in case the config file is missing, not found or any other error.
 func NewDefaultAppConfig(baseDir string) *AppConfig {
 	return &AppConfig{
@@ -91,10 +103,11 @@ func NewDefaultAppConfig(baseDir string) *AppConfig {
 			DarkTheme: "cobalt",
 			FontSize:  14,
 		},
-		History: NewDefaultAppHistoryConfig(),
-		Replay:  NewDefaultAppReplayConfig(),
-		Storage: &StorageConfig{Type: StorageTypeMemory},
-		Extra:   make(map[string]any),
+		History:   NewDefaultAppHistoryConfig(),
+		Replay:    NewDefaultAppReplayConfig(),
+		Storage:   &StorageConfig{Type: StorageTypeMemory},
+		BasicAuth: &BasicAuthConfig{},
+		Extra:     make(map[string]any),
 	}
 }
 
@@ -119,6 +132,9 @@ func NewAppConfigFromBytes(bts []byte, baseDir string) (*AppConfig, error) {
 	}
 	if cfg.Storage.Redis == nil {
 		cfg.Storage.Redis = &RedisConfig{}
+	}
+	if cfg.BasicAuth == nil {
+		cfg.BasicAuth = &BasicAuthConfig{}
 	}
 
 	if err := env.Parse(cfg); err != nil {
