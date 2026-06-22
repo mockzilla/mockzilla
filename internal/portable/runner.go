@@ -49,6 +49,7 @@ type Setup struct {
 
 	handlers    map[string]*swappableHandler
 	flags       flags
+	listener    net.Listener
 	validatorWG sync.WaitGroup
 }
 
@@ -86,9 +87,9 @@ type FailedService struct {
 	Err  error
 }
 
-// BuildSetup runs the portable startup pipeline up to port binding. Does NOT
-// call configureLogger; Run does that, but in-process callers keep their own
-// slog config.
+// BuildSetup runs the portable startup pipeline, binding the listener before
+// registering services. Does NOT call configureLogger; Run does that, but
+// in-process callers keep their own slog config.
 func BuildSetup(args []string) (*Setup, error) {
 	fl, positional := parseFlags(args)
 
@@ -151,11 +152,19 @@ func BuildSetup(args []string) (*Setup, error) {
 		return nil, fmt.Errorf("convenience flags (--latency/--mount/--errors/--context) require exactly one service, got %d", len(services))
 	}
 
+	// Bind before registering services so connections that arrive during the
+	// spec parse queue in the backlog instead of being refused.
+	listener, err := bindListener(appCfg)
+	if err != nil {
+		return nil, err
+	}
+
 	handlers := make(map[string]*swappableHandler)
 	setup := &Setup{
 		Router:   router,
 		AppCfg:   appCfg,
 		Services: services,
+		listener: listener,
 		handlers: handlers,
 		flags:    fl,
 	}
@@ -185,11 +194,6 @@ func Run(args []string) int {
 		return exitCodeError
 	}
 
-	listener, err := bindListener(setup.AppCfg)
-	if err != nil {
-		return exitCodeError
-	}
-
 	if setup.flags.readyStamp {
 		emitReadyStamp(setup.AppCfg, setup.Router)
 	}
@@ -203,7 +207,7 @@ func Run(args []string) int {
 
 	go func() {
 		slog.Info(fmt.Sprintf("Mockzilla portable mode on http://localhost:%d%s", setup.AppCfg.Port, setup.AppCfg.HomeURL))
-		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		if err := server.Serve(setup.listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			slog.Error("Server failed", "error", err)
 			os.Exit(1)
 		}
