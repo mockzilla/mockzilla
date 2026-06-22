@@ -17,17 +17,7 @@ import (
 // These namespaces are used during the Load() call to organize and resolve context data,
 // but are discarded in the returned array since only the values are needed for replacement.
 func LoadServiceContext(serviceCtx []byte, defaultContexts []map[string]map[string]any) []map[string]any {
-	combinedCtx := contexts.Load(
-		map[string][]byte{"service": serviceCtx},
-		defaultContexts)
-
-	// names not needed anymore
-	return []map[string]any{
-		combinedCtx["service"],
-		combinedCtx["common"],
-		combinedCtx["fake"],
-		combinedCtx["words"],
-	}
+	return contexts.LoadOrdered(serviceCtx, defaultContexts)
 }
 
 // LoadDefaultContexts loads the built-in replacement contexts (common, fake, words).

@@ -210,7 +210,7 @@ func RegisterAPIRouter(router *api.Router) {
 	}
 
 	// Create the generator with service contexts
-	orderedCtx := generator.LoadServiceContext(contextSrc, router.GetContexts())
+	orderedCtx := router.ServiceContext(serviceName, contextSrc)
 	gen, err := generator.NewGenerator(orderedCtx, router.GetContexts())
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed to create generator for %s", serviceName),

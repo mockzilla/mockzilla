@@ -357,6 +357,24 @@ nested:
 	})
 }
 
+func TestLoadOrdered(t *testing.T) {
+	t.Parallel()
+	assert := assert2.New(t)
+
+	defaults := []map[string]map[string]any{
+		{"common": {"id": "common-id"}},
+		{"fake": {"email": "fake@example.com"}},
+		{"words": {"word": "lorem"}},
+	}
+	ordered := LoadOrdered([]byte("svc: from-service\n"), defaults)
+
+	assert.Len(ordered, 4) // service, common, fake, words
+	assert.Equal("from-service", ordered[0]["svc"])
+	assert.Equal("common-id", ordered[1]["id"])
+	assert.Equal("fake@example.com", ordered[2]["email"])
+	assert.Equal("lorem", ordered[3]["word"])
+}
+
 func TestProcessFunctions(t *testing.T) {
 	t.Parallel()
 	assert := assert2.New(t)
