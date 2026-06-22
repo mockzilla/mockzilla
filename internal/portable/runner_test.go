@@ -1,7 +1,9 @@
 package portable
 
 import (
+	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -9,6 +11,7 @@ import (
 	"sync"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/stretchr/testify/assert"
@@ -454,4 +457,31 @@ func TestIntegration_StaticFallbackWithMount(t *testing.T) {
 			assert.JSONEq(t, `{"hi":"there"}`, string(body))
 		})
 	}
+}
+
+func TestBuildSetupBindsListenerBeforeServing(t *testing.T) {
+	dir := t.TempDir()
+	spec := filepath.Join(dir, "openapi.yml")
+	require.NoError(t, os.WriteFile(spec, []byte("openapi: 3.0.0\ninfo:\n  title: t\n  version: \"1\"\npaths: {}\n"), 0o644))
+
+	setup, err := BuildSetup([]string{spec, "--port", "0"})
+	require.NoError(t, err)
+	require.NotNil(t, setup.listener, "BuildSetup must bind the listener before registering services")
+	t.Cleanup(func() { _ = setup.listener.Close() })
+
+	addr := fmt.Sprintf("127.0.0.1:%d", setup.listener.Addr().(*net.TCPAddr).Port)
+
+	// Bound before Serve, so a connection here queues in the backlog, not refused.
+	conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+	require.NoError(t, err)
+	_ = conn.Close()
+
+	srv := &http.Server{Handler: setup.Router}
+	go func() { _ = srv.Serve(setup.listener) }()
+	t.Cleanup(func() { _ = srv.Close() })
+
+	resp, err := http.Get("http://" + addr + "/healthz")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = resp.Body.Close() })
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
 }
