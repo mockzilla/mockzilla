@@ -141,6 +141,36 @@ func TestRouter_GetContexts(t *testing.T) {
 	assert.Len(t, contexts, 3) // common, fake, words
 }
 
+func TestRouter_ServiceContext(t *testing.T) {
+	router := newTestRouter(t)
+	ordered := router.ServiceContext("svc", []byte("foo: bar\n"))
+
+	assert.Len(t, ordered, 4) // service, common, fake, words
+	assert.Equal(t, "bar", ordered[0]["foo"], "service context is the highest-precedence layer")
+}
+
+func TestRouter_ServiceContext_Provider(t *testing.T) {
+	var gotName string
+	var gotCtx []byte
+	var gotDefaults []map[string]map[string]any
+	sentinel := []map[string]any{{"sentinel": true}}
+
+	router := NewRouter(
+		WithConfigOption(config.NewDefaultAppConfig(t.TempDir())),
+		WithServiceContextProvider(func(name string, serviceCtx []byte, defaults []map[string]map[string]any) []map[string]any {
+			gotName, gotCtx, gotDefaults = name, serviceCtx, defaults
+			return sentinel
+		}),
+	)
+
+	got := router.ServiceContext("adyen/v71", []byte("k: v\n"))
+
+	assert.Equal(t, "adyen/v71", gotName, "provider receives the service name")
+	assert.Equal(t, []byte("k: v\n"), gotCtx, "provider receives the service context bytes")
+	assert.Len(t, gotDefaults, 3, "provider receives the router's default contexts")
+	assert.Equal(t, sentinel, got, "provider output is returned verbatim")
+}
+
 func TestRouter_RegisterService(t *testing.T) {
 	t.Run("Registers service with routes", func(t *testing.T) {
 		router := newTestRouter(t)

@@ -101,6 +101,15 @@ func Load(files map[string][]byte, parsed []map[string]map[string]any) map[strin
 	return result
 }
 
+// LoadOrdered loads a single service context over the default contexts and
+// returns the replacement maps in resolution order: service, common, fake,
+// words. It is the shared basis for generator.LoadServiceContext and
+// api.Router.ServiceContext.
+func LoadOrdered(serviceCtx []byte, defaultContexts []map[string]map[string]any) []map[string]any {
+	c := Load(map[string][]byte{"service": serviceCtx}, defaultContexts)
+	return []map[string]any{c["service"], c["common"], c["fake"], c["words"]}
+}
+
 // processFunctions recursively processes all string values and converts function prefixes to FakeFunc.
 // It handles nested maps to support structures like fake.internet.url: "fake:internet.url"
 // The full path is already embedded in the string value (e.g., "fake:internet.url") from the generated fake.yml

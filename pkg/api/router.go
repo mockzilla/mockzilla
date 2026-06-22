@@ -22,9 +22,10 @@ import (
 type Router struct {
 	chi.Router
 
-	config   *config.AppConfig
-	contexts []map[string]map[string]any
-	storage  db.Storage
+	config             *config.AppConfig
+	contexts           []map[string]map[string]any
+	serviceCtxProvider ServiceContextFunc
+	storage            db.Storage
 
 	mu        sync.RWMutex
 	services  map[string]*ServiceItem
@@ -145,6 +146,18 @@ func (r *Router) GetDB(serviceName string) db.DB {
 // GetContexts returns the list of contexts
 func (r *Router) GetContexts() []map[string]map[string]any {
 	return r.contexts
+}
+
+// ServiceContext builds the ordered replacement context a service's generator
+// resolves values against. When a provider is set (WithServiceContextProvider)
+// it may layer extra contexts under the service's own - e.g. a brand default
+// shared across API versions; otherwise it's the plain service-over-defaults
+// order (service, common, fake, words).
+func (r *Router) ServiceContext(serviceName string, serviceCtx []byte) []map[string]any {
+	if r.serviceCtxProvider != nil {
+		return r.serviceCtxProvider(serviceName, serviceCtx, r.contexts)
+	}
+	return contexts.LoadOrdered(serviceCtx, r.contexts)
 }
 
 func (r *Router) register(
@@ -299,6 +312,20 @@ type RouterOption func(*Router)
 func WithConfigOption(cfg *config.AppConfig) RouterOption {
 	return func(r *Router) {
 		r.config = cfg
+	}
+}
+
+// ServiceContextFunc builds the ordered replacement context for a service from
+// its own context bytes and the router's default contexts. Returns the maps in
+// resolution order (highest precedence first).
+type ServiceContextFunc func(serviceName string, serviceCtx []byte, defaults []map[string]map[string]any) []map[string]any
+
+// WithServiceContextProvider overrides how per-service replacement contexts are
+// built, letting a consumer layer shared contexts (e.g. a brand default applied
+// to every API version) under each service's own context.
+func WithServiceContextProvider(fn ServiceContextFunc) RouterOption {
+	return func(r *Router) {
+		r.serviceCtxProvider = fn
 	}
 }
 
