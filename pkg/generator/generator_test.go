@@ -75,6 +75,42 @@ func TestGenerator_Generate(t *testing.T) {
 		assert.False(res.IsError)
 	})
 
+	t.Run("response header area priority", func(t *testing.T) {
+		// in-response-header > in-response > in-header > root
+		areaGen, err := NewGenerator(LoadServiceContext([]byte(`
+x-one: "root"
+x-two: "root"
+x-three: "root"
+x-four: "root"
+in-header:
+  x-one: "header"
+  x-two: "header"
+  x-three: "header"
+in-response:
+  x-one: "response"
+  x-two: "response"
+in-response-header:
+  x-one: "response-header"
+`), nil), nil)
+		assert.NoError(err)
+
+		res := areaGen.Response(&schema.ResponseSchema{
+			ContentType: "application/json",
+			Body:        &schema.Schema{Type: "object", Properties: map[string]*schema.Schema{}, Nullable: true},
+			Headers: map[string]*schema.Schema{
+				"X-One":   {Type: "string"},
+				"X-Two":   {Type: "string"},
+				"X-Three": {Type: "string"},
+				"X-Four":  {Type: "string"},
+			},
+		}, nil)
+
+		assert.Equal("response-header", res.Headers.Get("x-one"))
+		assert.Equal("response", res.Headers.Get("x-two"))
+		assert.Equal("header", res.Headers.Get("x-three"))
+		assert.Equal("root", res.Headers.Get("x-four"))
+	})
+
 	t.Run("xml response uses schema name as root element", func(t *testing.T) {
 		respSchema := &schema.ResponseSchema{
 			ContentType: "application/xml",

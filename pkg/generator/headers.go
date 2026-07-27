@@ -32,11 +32,17 @@ func generateHeaders(headers map[string]*schema.Schema, valueReplacer replacer.V
 			continue
 		}
 
+		// Response headers are read-only content: without the flag the
+		// `in-response-header` area never matches and `readOnly` header
+		// schemas - the ones that belong in a response - get filtered out.
 		state := replacer.NewReplaceState(append([]replacer.ReplaceStateOption{
-			replacer.WithName(name), replacer.WithHeader(),
+			replacer.WithName(name), replacer.WithHeader(), replacer.WithReadOnly(),
 		}, opts...)...)
 
 		value := generateContentFromSchema(s, valueReplacer, state)
+		if value == nil {
+			continue
+		}
 		res.Set(name, fmt.Sprintf("%v", value))
 	}
 	return res
