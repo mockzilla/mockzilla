@@ -4,6 +4,7 @@ package replacer
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"net"
 	"strconv"
 	"strings"
@@ -272,6 +273,24 @@ func TestReplaceInResponse(t *testing.T) {
 			},
 		})
 		assert.Equal(100, res)
+	})
+
+	t.Run("request-ref-in-response-area", func(t *testing.T) {
+		state := NewReplaceState(WithName("currency"), WithReadOnly(),
+			WithRequestPayload(testRequestPayload(t)))
+		res := replaceInResponse(&ReplaceContext{
+			faker:      fake,
+			state:      state,
+			areaPrefix: "in-",
+			data: []map[string]any{
+				{
+					"in-response": map[string]any{
+						"currency": contexts.RequestRef{Path: "order.payment.amount.currency"},
+					},
+				},
+			},
+		})
+		assert.Equal("EUR", res)
 	})
 
 	t.Run("falls-through-when-no-match", func(t *testing.T) {
@@ -694,6 +713,104 @@ func TestReplaceFromContext(t *testing.T) {
 		})
 		assert.Nil(res)
 	})
+
+	t.Run("request-ref-resolved-from-payload", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString}
+		state := NewReplaceStateWithName("charge").WithOptions(
+			WithName("currency"),
+			WithRequestPayload(testRequestPayload(t)))
+
+		res := replaceFromContext(&ReplaceContext{
+			faker:  fake,
+			schema: s,
+			state:  state,
+			data: []map[string]any{
+				{
+					"charge": map[string]any{
+						"currency": contexts.RequestRef{Path: "order.payment.amount.currency"},
+					},
+				},
+			},
+		})
+		assert.Equal("EUR", res)
+	})
+
+	t.Run("request-ref-fills-uuid-format", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Format: "uuid"}
+		state := NewReplaceStateWithName("id").WithOptions(
+			WithRequestPayload(map[string]any{"id": "550e8400-e29b-41d4-a716-446655440000"}))
+
+		res := replaceFromContext(&ReplaceContext{
+			faker:  fake,
+			schema: s,
+			state:  state,
+			data: []map[string]any{
+				{"id": contexts.RequestRef{Path: "id"}},
+			},
+		})
+		assert.Equal("550e8400-e29b-41d4-a716-446655440000", res)
+	})
+
+	t.Run("request-ref-falls-through-to-next-context", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString}
+		state := NewReplaceStateWithName("currency").WithOptions(
+			WithRequestPayload(testRequestPayload(t)))
+
+		res := replaceFromContext(&ReplaceContext{
+			faker:  fake,
+			schema: s,
+			state:  state,
+			data: []map[string]any{
+				{"currency": contexts.RequestRef{Path: "order.missing.currency"}},
+				{"currency": "USD"},
+			},
+		})
+		assert.Equal("USD", res)
+	})
+}
+
+func TestResolveRequestRef(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("non-ref-value-passes-through", func(t *testing.T) {
+		ctx := &ReplaceContext{state: NewReplaceState()}
+		assert.Equal("USD", resolveRequestRef(ctx, "USD"))
+		assert.Nil(resolveRequestRef(ctx, nil))
+	})
+
+	t.Run("no-payload", func(t *testing.T) {
+		ctx := &ReplaceContext{state: NewReplaceState()}
+		assert.Nil(resolveRequestRef(ctx, contexts.RequestRef{Path: "order.id"}))
+	})
+
+	t.Run("dotted-path", func(t *testing.T) {
+		ctx := &ReplaceContext{state: NewReplaceState(WithRequestPayload(testRequestPayload(t)))}
+		assert.Equal("EUR", resolveRequestRef(ctx, contexts.RequestRef{Path: "order.payment.amount.currency"}))
+		assert.Equal(10.5, resolveRequestRef(ctx, contexts.RequestRef{Path: "order.payment.amount.value"}))
+	})
+
+	t.Run("array-index", func(t *testing.T) {
+		ctx := &ReplaceContext{state: NewReplaceState(WithRequestPayload(testRequestPayload(t)))}
+		assert.Equal("USD", resolveRequestRef(ctx, contexts.RequestRef{Path: "order.amounts[0].currency"}))
+		assert.Equal("GBP", resolveRequestRef(ctx, contexts.RequestRef{Path: "order.amounts[1].currency"}))
+		assert.Nil(resolveRequestRef(ctx, contexts.RequestRef{Path: "order.amounts[9].currency"}))
+	})
+}
+
+func testRequestPayload(t *testing.T) any {
+	t.Helper()
+
+	var payload any
+	err := json.Unmarshal([]byte(`{
+		"order": {
+			"payment": {"amount": {"currency": "EUR", "value": 10.5}},
+			"amounts": [{"currency": "USD"}, {"currency": "GBP"}]
+		}
+	}`), &payload)
+	if err != nil {
+		t.Fatalf("invalid test payload: %v", err)
+	}
+	return payload
 }
 
 func TestCastToSchemaFormat(t *testing.T) {

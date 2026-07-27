@@ -27,6 +27,9 @@ import (
 // RecursionHit is set to true when a circular reference is detected during generation.
 // This allows parent objects to know that a child returned nil due to recursion,
 // not because it was legitimately optional.
+//
+// RequestPayload is the decoded body of the incoming request, used to resolve
+// `request:` context values. It is nil when no request is available.
 type ReplaceState struct {
 	NamePath           []string
 	ElementIndex       int
@@ -37,6 +40,7 @@ type ReplaceState struct {
 	IsContentWriteOnly bool
 	SchemaStack        map[*schema.Schema]bool
 	RecursionHit       bool
+	RequestPayload     any
 	mu                 sync.Mutex
 }
 
@@ -64,6 +68,7 @@ func (s *ReplaceState) NewFrom(src *ReplaceState) *ReplaceState {
 		ContentType:        src.ContentType,
 		IsContentReadOnly:  src.IsContentReadOnly,
 		IsContentWriteOnly: src.IsContentWriteOnly,
+		RequestPayload:     src.RequestPayload,
 
 		// Share the same map to track recursion across the tree
 		SchemaStack: src.SchemaStack,
@@ -127,5 +132,11 @@ func WithReadOnly() ReplaceStateOption {
 func WithWriteOnly() ReplaceStateOption {
 	return func(state *ReplaceState) {
 		state.IsContentWriteOnly = true
+	}
+}
+
+func WithRequestPayload(value any) ReplaceStateOption {
+	return func(state *ReplaceState) {
+		state.RequestPayload = value
 	}
 }

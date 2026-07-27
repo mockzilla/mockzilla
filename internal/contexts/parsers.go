@@ -15,7 +15,7 @@ import (
 // The function operates in three phases:
 //  1. Parse phase: Parses YAML files and extracts aliases and raw data
 //  2. Alias resolution phase: Resolves all aliases across namespaces
-//  3. function processing phase: Processes function prefixes (fake, func, botify, join)
+//  3. function processing phase: Processes function prefixes (fake, func, botify, join, request)
 //
 // Parameters:
 //   - files: Map of namespace names to YAML file contents
@@ -34,6 +34,7 @@ import (
 //   - func:name:arg1,arg2 - Calls a registered function with two arguments (e.g., func:int_between:1,10)
 //   - botify:pattern - Generates random strings based on pattern (? for letter, # for digit)
 //   - join:separator,ns.key1,ns.key2 - Joins values from multiple keys with separator
+//   - request:dotted.path - Takes the value from the incoming request payload
 //
 // Example:
 //
@@ -175,6 +176,10 @@ func processFunctions(allResults map[string]map[string]any, ctx map[string]any) 
 				res, ok = parseJoinContextFunc(parts, convertedResult)
 				if ok {
 					ctx[key] = res
+				}
+			case "request":
+				if path := v[len(RequestPrefix):]; path != "" {
+					ctx[key] = RequestRef{Path: path}
 				}
 			}
 		case map[string]any:

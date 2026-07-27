@@ -15,6 +15,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/factory"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	validator "github.com/pb33f/libopenapi-validator"
 	"github.com/stretchr/testify/assert"
@@ -116,6 +117,47 @@ func TestHandler_handleRequest(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code)
 		assert.True(t, json.Valid(w.Body.Bytes()))
+	})
+}
+
+func TestHandler_handleRequest_requestContext(t *testing.T) {
+	specBytes := loadTestSpec(t, "petstore.yml")
+	h, err := newHandler(specBytes, factory.WithServiceContext([]byte(`
+name: "request:pets[0].name"
+id: "request:order.id"
+`)))
+	require.NoError(t, err)
+
+	r := chi.NewRouter()
+	h.RegisterRoutes(r)
+
+	post := func(contentType, body string) map[string]any {
+		req := httptest.NewRequest(http.MethodPost, "/pets", strings.NewReader(body))
+		req.Header.Set("Content-Type", contentType)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+
+		var res map[string]any
+		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &res))
+		return res
+	}
+
+	t.Run("response takes values from the json request body", func(t *testing.T) {
+		res := post("application/json", `{"pets":[{"name":"Rex"}],"order":{"id":42}}`)
+		assert.Equal(t, "Rex", res["name"])
+		assert.Equal(t, float64(42), res["id"])
+	})
+
+	t.Run("response takes values from the form request body", func(t *testing.T) {
+		res := post("application/x-www-form-urlencoded", "pets[0][name]=Rex&order[id]=42")
+		assert.Equal(t, "Rex", res["name"])
+		assert.Equal(t, float64(42), res["id"])
+	})
+
+	t.Run("unresolved paths fall back to generated values", func(t *testing.T) {
+		res := post("application/json", `{}`)
+		assert.NotEmpty(t, res["name"])
+		assert.NotEqual(t, "Rex", res["name"])
 	})
 }
 

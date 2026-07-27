@@ -239,6 +239,23 @@ fullname: "join:,ns1.first,ns1.second"`),
 		assert2.Regexp(t, "^[a-z]{3}[0-9]{3}$", val)
 	})
 
+	t.Run("request reference", func(t *testing.T) {
+		res := Load(map[string][]byte{
+			"ns1": []byte(`currency: "request:order.payment.amount.currency"
+charge:
+  currency: "request:order.amounts[0].currency"
+empty: "request:"`),
+		}, nil)
+
+		assert2.Equal(t, RequestRef{Path: "order.payment.amount.currency"}, res["ns1"]["currency"])
+		assert2.Equal(t,
+			RequestRef{Path: "order.amounts[0].currency"},
+			res["ns1"]["charge"].(map[string]any)["currency"])
+
+		// nothing to resolve, kept as-is so the mistake is visible in the output
+		assert2.Equal(t, "request:", res["ns1"]["empty"])
+	})
+
 	t.Run("nested fake functions", func(t *testing.T) {
 		res := Load(map[string][]byte{
 			"fake": []byte(`

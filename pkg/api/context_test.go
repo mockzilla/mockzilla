@@ -3,8 +3,10 @@ package api
 import (
 	"context"
 	"encoding/base64"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	assert2 "github.com/stretchr/testify/assert"
@@ -96,6 +98,71 @@ func TestContextReplacementsMiddleware(t *testing.T) {
 		stored := RequestFromGoContext(capturedCtx)
 		assert.NotNil(stored)
 		assert.Equal("/pets", stored.URL.Path)
+	})
+
+	t.Run("json body buffered and still readable by the handler", func(t *testing.T) {
+		const payload = `{"order":{"currency":"EUR"}}`
+
+		var handlerBody []byte
+		var capturedCtx context.Context
+		handler := ContextReplacementsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			handlerBody, _ = io.ReadAll(r.Body)
+			capturedCtx = r.Context()
+		}))
+
+		r := httptest.NewRequest(http.MethodPost, "/orders", strings.NewReader(payload))
+		r.Header.Set("Content-Type", "application/json")
+		handler.ServeHTTP(httptest.NewRecorder(), r)
+
+		assert.Equal(payload, string(handlerBody))
+
+		// the buffered copy outlives the handler draining the body
+		stored := RequestFromGoContext(capturedCtx)
+		assert.Equal(payload, string(RequestBody(stored)))
+	})
+
+	t.Run("upload body is not buffered", func(t *testing.T) {
+		var capturedCtx context.Context
+		handler := ContextReplacementsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			capturedCtx = r.Context()
+		}))
+
+		r := httptest.NewRequest(http.MethodPost, "/upload", strings.NewReader("binary"))
+		r.Header.Set("Content-Type", "application/octet-stream")
+		handler.ServeHTTP(httptest.NewRecorder(), r)
+
+		assert.Nil(RequestBodyFromGoContext(capturedCtx))
+	})
+}
+
+func TestRequestBody(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("nil request", func(t *testing.T) {
+		assert.Nil(RequestBody(nil))
+	})
+
+	t.Run("reads and restores the body", func(t *testing.T) {
+		const payload = `{"currency":"EUR"}`
+		r := httptest.NewRequest(http.MethodPost, "/orders", strings.NewReader(payload))
+		r.Header.Set("Content-Type", "application/json")
+
+		assert.Equal(payload, string(RequestBody(r)))
+
+		rest, err := io.ReadAll(r.Body)
+		assert.NoError(err)
+		assert.Equal(payload, string(rest))
+	})
+
+	t.Run("body without a navigable content type", func(t *testing.T) {
+		r := httptest.NewRequest(http.MethodPost, "/upload", strings.NewReader("binary"))
+		r.Header.Set("Content-Type", "application/octet-stream")
+		assert.Nil(RequestBody(r))
+	})
+
+	t.Run("no body", func(t *testing.T) {
+		r := httptest.NewRequest(http.MethodGet, "/orders", nil)
+		assert.Nil(RequestBody(r))
 	})
 }
 
