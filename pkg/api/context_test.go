@@ -83,6 +83,20 @@ func TestContextReplacementsMiddleware(t *testing.T) {
 		ctx := UserContextFromGoContext(capturedCtx)
 		assert.Equal("active", ctx["status"])
 	})
+
+	t.Run("request stored on context", func(t *testing.T) {
+		var capturedCtx context.Context
+		handler := ContextReplacementsMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			capturedCtx = r.Context()
+		}))
+
+		r := httptest.NewRequest(http.MethodGet, "/pets", nil)
+		handler.ServeHTTP(httptest.NewRecorder(), r)
+
+		stored := RequestFromGoContext(capturedCtx)
+		assert.NotNil(stored)
+		assert.Equal("/pets", stored.URL.Path)
+	})
 }
 
 func TestUserContextFromGoContext(t *testing.T) {
@@ -96,5 +110,19 @@ func TestUserContextFromGoContext(t *testing.T) {
 		data := map[string]any{"foo": "bar"}
 		ctx := context.WithValue(context.Background(), userContextKey, data)
 		assert.Equal(data, UserContextFromGoContext(ctx))
+	})
+}
+
+func TestRequestFromGoContext(t *testing.T) {
+	assert := assert2.New(t)
+
+	t.Run("empty context returns nil", func(t *testing.T) {
+		assert.Nil(RequestFromGoContext(context.Background()))
+	})
+
+	t.Run("returns stored request", func(t *testing.T) {
+		r := httptest.NewRequest(http.MethodGet, "/", nil)
+		ctx := context.WithValue(context.Background(), requestContextKey, r)
+		assert.Same(r, RequestFromGoContext(ctx))
 	})
 }

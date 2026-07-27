@@ -34,9 +34,6 @@ type service struct {
 }
 {{- end }}
 
-// Ensure service implements ServiceInterface.
-var _ {{ $modelsPrefix }}ServiceInterface = (*{{ $serviceName }})(nil)
-
 {{- block "service-constructor" . }}
 
 // newService creates a new service instance.
@@ -51,17 +48,9 @@ func newService(params *api.ServiceParams) *service {
 {{- if and (not $config.Generate.OmitDescription) $op.Summary }}
 {{ toGoComment $op.Summary "" }}
 {{- end }}
-{{- if $op.HasRequestOptions }}
 func ({{ $receiver }} *{{ $serviceName }}) {{ $op.ID }}(ctx context.Context, opts *{{ $modelsPrefix }}{{ $op.ID | ucFirst }}ServiceRequestOptions) ({{ if $op.Response.Success }}*{{ $modelsPrefix }}{{ $op.ID | ucFirst }}ResponseData, error{{ else }}error{{ end }}) {
 	// TODO: Implement your business logic here.
 	// Return nil, nil to use the generated mock response.
 	return nil, nil
 }
-{{- else }}
-func ({{ $receiver }} *{{ $serviceName }}) {{ $op.ID }}(ctx context.Context) ({{ if $op.Response.Success }}*{{ $modelsPrefix }}{{ $op.ID | ucFirst }}ResponseData, error{{ else }}error{{ end }}) {
-	// TODO: Implement your business logic here.
-	// Return nil, nil to use the generated mock response.
-	return nil, nil
-}
-{{- end }}
 {{- end }}

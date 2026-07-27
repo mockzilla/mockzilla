@@ -17,16 +17,13 @@ type service struct {
 	params *api.ServiceParams
 }
 
-// Ensure service implements ServiceInterface.
-var _ ServiceInterface = (*service)(nil)
-
 // newService creates a new service instance.
 func newService(params *api.ServiceParams) *service {
 	return &service{params: params}
 }
 
 // ListUsers handles GET /users
-func (s *service) ListUsers(ctx context.Context) (*ListUsersResponseData, error) {
+func (s *service) ListUsers(ctx context.Context, opts *ListUsersServiceRequestOptions) (*ListUsersResponseData, error) {
 	// TODO: Implement your business logic here.
 	// Return nil, nil to use the generated mock response.
 	return nil, nil
@@ -54,7 +51,7 @@ func (s *service) GetUserProfile(ctx context.Context, opts *GetUserProfileServic
 }
 
 // ExportUsers handles GET /users/export
-func (s *service) ExportUsers(ctx context.Context) (*ExportUsersResponseData, error) {
+func (s *service) ExportUsers(ctx context.Context, opts *ExportUsersServiceRequestOptions) (*ExportUsersResponseData, error) {
 	// TODO: Implement your business logic here.
 	// Return nil, nil to use the generated mock response.
 	return nil, nil
@@ -89,7 +86,7 @@ func (s *service) GetUserProblem(ctx context.Context, opts *GetUserProblemServic
 }
 
 // StreamUsers handles GET /users/stream
-func (s *service) StreamUsers(ctx context.Context) (*StreamUsersResponseData, error) {
+func (s *service) StreamUsers(ctx context.Context, opts *StreamUsersServiceRequestOptions) (*StreamUsersResponseData, error) {
 	// TODO: Implement your business logic here.
 	// Return nil, nil to use the generated mock response.
 	return nil, nil

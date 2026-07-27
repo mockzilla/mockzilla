@@ -834,6 +834,30 @@ func (h *serviceHandler) Generate(w http.ResponseWriter, r *http.Request) {
 // Generator Service (fallback to mock responses)
 // ============================================================================
 
+// ListUsersServiceRequestOptions holds all parameters for the ListUsers operation.
+type ListUsersServiceRequestOptions struct {
+	// RawRequest provides access to the underlying HTTP request for custom content type handling.
+	RawRequest *http.Request
+	// GenerateResponse generates a sample response with random data satisfying the OpenAPI schema.
+	GenerateResponse func() (*ListUsersResponseData, error)
+}
+
+// ExportUsersServiceRequestOptions holds all parameters for the ExportUsers operation.
+type ExportUsersServiceRequestOptions struct {
+	// RawRequest provides access to the underlying HTTP request for custom content type handling.
+	RawRequest *http.Request
+	// GenerateResponse generates a sample response with random data satisfying the OpenAPI schema.
+	GenerateResponse func() (*ExportUsersResponseData, error)
+}
+
+// StreamUsersServiceRequestOptions holds all parameters for the StreamUsers operation.
+type StreamUsersServiceRequestOptions struct {
+	// RawRequest provides access to the underlying HTTP request for custom content type handling.
+	RawRequest *http.Request
+	// GenerateResponse generates a sample response with random data satisfying the OpenAPI schema.
+	GenerateResponse func() (*StreamUsersResponseData, error)
+}
+
 // generatorService implements ServiceInterface with generator fallback.
 // It delegates to the user's service first; if that returns nil, it generates a mock response.
 type generatorService struct {
@@ -847,23 +871,28 @@ var _ ServiceInterface = (*generatorService)(nil)
 
 // ListUsers handles GET /users
 func (s *generatorService) ListUsers(ctx context.Context) (*ListUsersResponseData, error) {
-	// Call user's service first
-	if resp, err := s.service.ListUsers(ctx); resp != nil || err != nil {
+	opts := &ListUsersServiceRequestOptions{RawRequest: api.RequestFromGoContext(ctx)}
+	// Inject GenerateResponse so user service can call it
+	opts.GenerateResponse = func() (*ListUsersResponseData, error) {
+		respSchema := s.registry.GetResponseSchema("/users", "GET")
+		if respSchema == nil {
+			return NewListUsersResponseData(nil), nil
+		}
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		var body ListUsersResponse
+		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
+			return nil, err
+		}
+		return NewListUsersResponseData(&body).WithHeaders(res.Headers), nil
+	}
+
+	// Call user's service
+	if resp, err := s.service.ListUsers(ctx, opts); resp != nil || err != nil {
 		return resp, err
 	}
 
 	// Fallback to generator
-	respSchema := s.registry.GetResponseSchema("/users", "GET")
-	if respSchema == nil {
-		return NewListUsersResponseData(nil), nil
-	}
-
-	res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
-	var body ListUsersResponse
-	if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
-		return nil, err
-	}
-	return NewListUsersResponseData(&body).WithHeaders(res.Headers), nil
+	return opts.GenerateResponse()
 }
 
 // GetUser handles GET /users/{id}
@@ -939,19 +968,24 @@ func (s *generatorService) GetUserProfile(ctx context.Context, opts *GetUserProf
 
 // ExportUsers handles GET /users/export
 func (s *generatorService) ExportUsers(ctx context.Context) (*ExportUsersResponseData, error) {
-	// Call user's service first
-	if resp, err := s.service.ExportUsers(ctx); resp != nil || err != nil {
+	opts := &ExportUsersServiceRequestOptions{RawRequest: api.RequestFromGoContext(ctx)}
+	// Inject GenerateResponse so user service can call it
+	opts.GenerateResponse = func() (*ExportUsersResponseData, error) {
+		respSchema := s.registry.GetResponseSchema("/users/export", "GET")
+		if respSchema == nil {
+			return NewExportUsersResponseData(nil), nil
+		}
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		return NewExportUsersResponseData(res.Body).WithHeaders(res.Headers), nil
+	}
+
+	// Call user's service
+	if resp, err := s.service.ExportUsers(ctx, opts); resp != nil || err != nil {
 		return resp, err
 	}
 
 	// Fallback to generator
-	respSchema := s.registry.GetResponseSchema("/users/export", "GET")
-	if respSchema == nil {
-		return NewExportUsersResponseData(nil), nil
-	}
-
-	res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
-	return NewExportUsersResponseData(res.Body).WithHeaders(res.Headers), nil
+	return opts.GenerateResponse()
 }
 
 // GetUserConfig handles GET /users/{id}/config
@@ -1052,19 +1086,24 @@ func (s *generatorService) GetUserProblem(ctx context.Context, opts *GetUserProb
 
 // StreamUsers handles GET /users/stream
 func (s *generatorService) StreamUsers(ctx context.Context) (*StreamUsersResponseData, error) {
-	// Call user's service first
-	if resp, err := s.service.StreamUsers(ctx); resp != nil || err != nil {
+	opts := &StreamUsersServiceRequestOptions{RawRequest: api.RequestFromGoContext(ctx)}
+	// Inject GenerateResponse so user service can call it
+	opts.GenerateResponse = func() (*StreamUsersResponseData, error) {
+		respSchema := s.registry.GetResponseSchema("/users/stream", "GET")
+		if respSchema == nil {
+			return NewStreamUsersResponseData(nil), nil
+		}
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		return NewStreamUsersResponseData(res.Body).WithHeaders(res.Headers), nil
+	}
+
+	// Call user's service
+	if resp, err := s.service.StreamUsers(ctx, opts); resp != nil || err != nil {
 		return resp, err
 	}
 
 	// Fallback to generator
-	respSchema := s.registry.GetResponseSchema("/users/stream", "GET")
-	if respSchema == nil {
-		return NewStreamUsersResponseData(nil), nil
-	}
-
-	res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
-	return NewStreamUsersResponseData(res.Body).WithHeaders(res.Headers), nil
+	return opts.GenerateResponse()
 }
 
 // GetUserPdf handles GET /users/{id}/pdf

@@ -272,6 +272,21 @@ func (h *serviceHandler) Generate(w http.ResponseWriter, r *http.Request) {
 // Generator Service (fallback to mock responses)
 // ============================================================================
 
+{{- range $operations }}{{ $op := . }}
+{{- if not $op.HasRequestOptions }}
+
+// {{ $op.ID | ucFirst }}ServiceRequestOptions holds all parameters for the {{ $op.ID }} operation.
+type {{ $op.ID | ucFirst }}ServiceRequestOptions struct {
+	// RawRequest provides access to the underlying HTTP request for custom content type handling.
+	RawRequest *http.Request
+	{{- if $op.Response.Success }}
+	// GenerateResponse generates a sample response with random data satisfying the OpenAPI schema.
+	GenerateResponse func() (*{{ $op.ID | ucFirst }}ResponseData, error)
+	{{- end }}
+}
+{{- end }}
+{{- end }}
+
 // generatorService implements ServiceInterface with generator fallback.
 // It delegates to the user's service first; if that returns nil, it generates a mock response.
 type generatorService struct {
@@ -289,8 +304,10 @@ var _ {{ $modelsPrefix }}ServiceInterface = (*generatorService)(nil)
 {{- if and (not $config.Generate.OmitDescription) $op.Summary }}
 {{ toGoComment $op.Summary "" }}
 {{- end }}
-{{- if $op.HasRequestOptions }}
-func (s *generatorService) {{ $op.ID }}(ctx context.Context, opts *{{ $modelsPrefix }}{{ $op.ID | ucFirst }}ServiceRequestOptions) ({{ if $op.Response.Success }}*{{ $modelsPrefix }}{{ $op.ID | ucFirst }}ResponseData, error{{ else }}error{{ end }}) {
+func (s *generatorService) {{ $op.ID }}(ctx context.Context{{ if $op.HasRequestOptions }}, opts *{{ $modelsPrefix }}{{ $op.ID | ucFirst }}ServiceRequestOptions{{ end }}) ({{ if $op.Response.Success }}*{{ $modelsPrefix }}{{ $op.ID | ucFirst }}ResponseData, error{{ else }}error{{ end }}) {
+	{{- if not $op.HasRequestOptions }}
+	opts := &{{ $modelsPrefix }}{{ $op.ID | ucFirst }}ServiceRequestOptions{RawRequest: api.RequestFromGoContext(ctx)}
+	{{- end }}
 	{{- if $op.Response.Success }}
 	// Inject GenerateResponse so user service can call it
 	opts.GenerateResponse = func() (*{{ $modelsPrefix }}{{ $op.ID | ucFirst }}ResponseData, error) {
@@ -331,48 +348,6 @@ func (s *generatorService) {{ $op.ID }}(ctx context.Context, opts *{{ $modelsPre
 	return nil
 	{{- end }}
 }
-{{- else }}
-func (s *generatorService) {{ $op.ID }}(ctx context.Context) ({{ if $op.Response.Success }}*{{ $modelsPrefix }}{{ $op.ID | ucFirst }}ResponseData, error{{ else }}error{{ end }}) {
-	// Call user's service first
-	if resp, err := s.service.{{ $op.ID }}(ctx); resp != nil || err != nil {
-		return resp, err
-	}
-
-	// Fallback to generator
-	respSchema := s.registry.GetResponseSchema("{{ $op.Path }}", "{{ $op.Method }}")
-	if respSchema == nil {
-		{{- if $op.Response.Success }}
-		return {{ $modelsPrefix }}New{{ $op.ID | ucFirst }}ResponseData(nil), nil
-		{{- else }}
-		return nil
-		{{- end }}
-	}
-
-	res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
-	{{- if $op.Response.Success }}
-	{{- $bodyType := $op.Response.Success.ResponseName -}}
-	{{- if eq $bodyType "struct{}" }}
-	return {{ $modelsPrefix }}New{{ $op.ID | ucFirst }}ResponseData(nil).WithHeaders(res.Headers), nil
-	{{- else if $op.Response.Success.IsRaw }}
-	return {{ $modelsPrefix }}New{{ $op.ID | ucFirst }}ResponseData(res.Body).WithHeaders(res.Headers), nil
-	{{- else }}
-	{{- if $modelsPrefix }}{{ $bodyType = printf "%s%s" $modelsPrefix $bodyType }}{{ end }}
-	var body {{ $bodyType }}
-	if err := api.UnmarshalResponseInto(res.Body, "{{ $op.Response.Success.ContentType | escapeGoString }}", &body); err != nil {
-		return nil, err
-	}
-	{{- if eq $op.Response.Success.Schema.GoType "[]byte" }}
-	return {{ $modelsPrefix }}New{{ $op.ID | ucFirst }}ResponseData(body).WithHeaders(res.Headers), nil
-	{{- else }}
-	return {{ $modelsPrefix }}New{{ $op.ID | ucFirst }}ResponseData(&body).WithHeaders(res.Headers), nil
-	{{- end }}
-	{{- end }}
-	{{- else }}
-	_ = res
-	return nil
-	{{- end }}
-}
-{{- end }}
 {{- end }}
 
 // ============================================================================

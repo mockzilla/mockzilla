@@ -17,9 +17,6 @@ type service struct {
 	params *api.ServiceParams
 }
 
-// Ensure service implements ServiceInterface.
-var _ ServiceInterface = (*service)(nil)
-
 // newService creates a new service instance.
 func newService(params *api.ServiceParams) *service {
 	return &service{params: params}
@@ -691,14 +688,14 @@ func (s *service) SearchFoodVideos(ctx context.Context, opts *SearchFoodVideosSe
 }
 
 // GetARandomFoodJoke handles GET /food/jokes/random
-func (s *service) GetARandomFoodJoke(ctx context.Context) (*GetARandomFoodJokeResponseData, error) {
+func (s *service) GetARandomFoodJoke(ctx context.Context, opts *GetARandomFoodJokeServiceRequestOptions) (*GetARandomFoodJokeResponseData, error) {
 	// TODO: Implement your business logic here.
 	// Return nil, nil to use the generated mock response.
 	return nil, nil
 }
 
 // GetRandomFoodTrivia handles GET /food/trivia/random
-func (s *service) GetRandomFoodTrivia(ctx context.Context) (*GetRandomFoodTriviaResponseData, error) {
+func (s *service) GetRandomFoodTrivia(ctx context.Context, opts *GetRandomFoodTriviaServiceRequestOptions) (*GetRandomFoodTriviaResponseData, error) {
 	// TODO: Implement your business logic here.
 	// Return nil, nil to use the generated mock response.
 	return nil, nil

@@ -14,7 +14,12 @@ const ContextHeaderName = "X-Mockzilla-Context"
 
 type contextKeyType struct{}
 
-var userContextKey = contextKeyType{}
+type requestContextKeyType struct{}
+
+var (
+	userContextKey    = contextKeyType{}
+	requestContextKey = requestContextKeyType{}
+)
 
 // ExtractContextFromRequest reads and decodes the X-Mockzilla-Context header from an HTTP request.
 // Returns nil if the header is absent or cannot be decoded.
@@ -35,14 +40,15 @@ func ExtractContextFromRequest(r *http.Request) map[string]any {
 }
 
 // ContextReplacementsMiddleware extracts the X-Mockzilla-Context header and stores
-// the decoded context data on the request's Go context.
+// the decoded context data on the request's Go context, along with the request itself.
 func ContextReplacementsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), requestContextKey, r)
 		if ctxData := ExtractContextFromRequest(r); ctxData != nil {
 			slog.Debug("User context from header", "data", ctxData)
-			r = r.WithContext(context.WithValue(r.Context(), userContextKey, ctxData))
+			ctx = context.WithValue(ctx, userContextKey, ctxData)
 		}
-		next.ServeHTTP(w, r)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
@@ -50,4 +56,10 @@ func ContextReplacementsMiddleware(next http.Handler) http.Handler {
 func UserContextFromGoContext(ctx context.Context) map[string]any {
 	data, _ := ctx.Value(userContextKey).(map[string]any)
 	return data
+}
+
+// RequestFromGoContext retrieves the HTTP request stored by ContextReplacementsMiddleware.
+func RequestFromGoContext(ctx context.Context) *http.Request {
+	r, _ := ctx.Value(requestContextKey).(*http.Request)
+	return r
 }

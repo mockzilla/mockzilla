@@ -17,9 +17,6 @@ type service struct {
 	params *api.ServiceParams
 }
 
-// Ensure service implements ServiceInterface.
-var _ ServiceInterface = (*service)(nil)
-
 // newService creates a new service instance.
 func newService(params *api.ServiceParams) *service {
 	return &service{params: params}
