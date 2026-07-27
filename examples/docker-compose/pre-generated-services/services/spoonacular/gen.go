@@ -11012,6 +11012,22 @@ func (h *serviceHandler) Generate(w http.ResponseWriter, r *http.Request) {
 // Generator Service (fallback to mock responses)
 // ============================================================================
 
+// GetARandomFoodJokeServiceRequestOptions holds all parameters for the GetARandomFoodJoke operation.
+type GetARandomFoodJokeServiceRequestOptions struct {
+	// RawRequest provides access to the underlying HTTP request for custom content type handling.
+	RawRequest *http.Request
+	// GenerateResponse generates a sample response with random data satisfying the OpenAPI schema.
+	GenerateResponse func() (*GetARandomFoodJokeResponseData, error)
+}
+
+// GetRandomFoodTriviaServiceRequestOptions holds all parameters for the GetRandomFoodTrivia operation.
+type GetRandomFoodTriviaServiceRequestOptions struct {
+	// RawRequest provides access to the underlying HTTP request for custom content type handling.
+	RawRequest *http.Request
+	// GenerateResponse generates a sample response with random data satisfying the OpenAPI schema.
+	GenerateResponse func() (*GetRandomFoodTriviaResponseData, error)
+}
+
 // generatorService implements ServiceInterface with generator fallback.
 // It delegates to the user's service first; if that returns nil, it generates a mock response.
 type generatorService struct {
@@ -13360,44 +13376,54 @@ func (s *generatorService) SearchFoodVideos(ctx context.Context, opts *SearchFoo
 
 // GetARandomFoodJoke handles GET /food/jokes/random
 func (s *generatorService) GetARandomFoodJoke(ctx context.Context) (*GetARandomFoodJokeResponseData, error) {
-	// Call user's service first
-	if resp, err := s.service.GetARandomFoodJoke(ctx); resp != nil || err != nil {
+	opts := &GetARandomFoodJokeServiceRequestOptions{RawRequest: api.RequestFromGoContext(ctx)}
+	// Inject GenerateResponse so user service can call it
+	opts.GenerateResponse = func() (*GetARandomFoodJokeResponseData, error) {
+		respSchema := s.registry.GetResponseSchema("/food/jokes/random", "GET")
+		if respSchema == nil {
+			return NewGetARandomFoodJokeResponseData(nil), nil
+		}
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		var body GetARandomFoodJokeResponse
+		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
+			return nil, err
+		}
+		return NewGetARandomFoodJokeResponseData(&body).WithHeaders(res.Headers), nil
+	}
+
+	// Call user's service
+	if resp, err := s.service.GetARandomFoodJoke(ctx, opts); resp != nil || err != nil {
 		return resp, err
 	}
 
 	// Fallback to generator
-	respSchema := s.registry.GetResponseSchema("/food/jokes/random", "GET")
-	if respSchema == nil {
-		return NewGetARandomFoodJokeResponseData(nil), nil
-	}
-
-	res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
-	var body GetARandomFoodJokeResponse
-	if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
-		return nil, err
-	}
-	return NewGetARandomFoodJokeResponseData(&body).WithHeaders(res.Headers), nil
+	return opts.GenerateResponse()
 }
 
 // GetRandomFoodTrivia handles GET /food/trivia/random
 func (s *generatorService) GetRandomFoodTrivia(ctx context.Context) (*GetRandomFoodTriviaResponseData, error) {
-	// Call user's service first
-	if resp, err := s.service.GetRandomFoodTrivia(ctx); resp != nil || err != nil {
+	opts := &GetRandomFoodTriviaServiceRequestOptions{RawRequest: api.RequestFromGoContext(ctx)}
+	// Inject GenerateResponse so user service can call it
+	opts.GenerateResponse = func() (*GetRandomFoodTriviaResponseData, error) {
+		respSchema := s.registry.GetResponseSchema("/food/trivia/random", "GET")
+		if respSchema == nil {
+			return NewGetRandomFoodTriviaResponseData(nil), nil
+		}
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		var body GetRandomFoodTriviaResponse
+		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
+			return nil, err
+		}
+		return NewGetRandomFoodTriviaResponseData(&body).WithHeaders(res.Headers), nil
+	}
+
+	// Call user's service
+	if resp, err := s.service.GetRandomFoodTrivia(ctx, opts); resp != nil || err != nil {
 		return resp, err
 	}
 
 	// Fallback to generator
-	respSchema := s.registry.GetResponseSchema("/food/trivia/random", "GET")
-	if respSchema == nil {
-		return NewGetRandomFoodTriviaResponseData(nil), nil
-	}
-
-	res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
-	var body GetRandomFoodTriviaResponse
-	if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
-		return nil, err
-	}
-	return NewGetRandomFoodTriviaResponseData(&body).WithHeaders(res.Headers), nil
+	return opts.GenerateResponse()
 }
 
 // TalkToChatbot handles GET /food/converse

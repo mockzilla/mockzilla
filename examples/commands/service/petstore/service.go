@@ -17,9 +17,6 @@ type service struct {
 	params *api.ServiceParams
 }
 
-// Ensure service implements ServiceInterface.
-var _ ServiceInterface = (*service)(nil)
-
 // newService creates a new service instance.
 func newService(params *api.ServiceParams) *service {
 	return &service{params: params}
@@ -82,7 +79,7 @@ func (s *service) UploadFile(ctx context.Context, opts *UploadFileServiceRequest
 }
 
 // GetInventory handles GET /store/inventory
-func (s *service) GetInventory(ctx context.Context) (*GetInventoryResponseData, error) {
+func (s *service) GetInventory(ctx context.Context, opts *GetInventoryServiceRequestOptions) (*GetInventoryResponseData, error) {
 	// TODO: Implement your business logic here.
 	// Return nil, nil to use the generated mock response.
 	return nil, nil
@@ -131,7 +128,7 @@ func (s *service) LoginUser(ctx context.Context, opts *LoginUserServiceRequestOp
 }
 
 // LogoutUser handles GET /user/logout
-func (s *service) LogoutUser(ctx context.Context) (*LogoutUserResponseData, error) {
+func (s *service) LogoutUser(ctx context.Context, opts *LogoutUserServiceRequestOptions) (*LogoutUserResponseData, error) {
 	// TODO: Implement your business logic here.
 	// Return nil, nil to use the generated mock response.
 	return nil, nil

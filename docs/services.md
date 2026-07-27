@@ -215,9 +215,9 @@ pkg/petstore/
 └── middleware.go         # custom middleware (kept across regen)
 ```
 
-When implementing a service method, use `opts.GenerateResponse()` to
-get a spec-compliant response with generated values, then modify
-specific fields:
+Every service method receives `opts`, including operations without
+parameters. Use `opts.GenerateResponse()` to get a spec-compliant
+response with generated values, then modify specific fields:
 
 ```go
 func (s *service) GetUser(ctx context.Context, opts *GetUserServiceRequestOptions) (*GetUserResponseData, error) {

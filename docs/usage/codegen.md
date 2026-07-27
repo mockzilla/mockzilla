@@ -99,7 +99,7 @@ go generate ./...
 
 ## Customizing Handlers
 
-Each operation gets a method in `service.go`. Return `nil, nil` to use the auto-generated mock response, or return your own:
+Each operation gets a method in `service.go` taking `opts`, even when the endpoint declares no parameters (there `opts` carries only `RawRequest` and `GenerateResponse`). Return `nil, nil` to use the auto-generated mock response, or return your own:
 
 ```go
 func (s *service) GetPetByID(ctx context.Context, opts *GetPetByIDServiceRequestOptions) (*GetPetByIDResponseData, error) {

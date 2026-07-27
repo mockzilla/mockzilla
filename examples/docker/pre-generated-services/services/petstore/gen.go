@@ -1418,6 +1418,22 @@ func (h *serviceHandler) Generate(w http.ResponseWriter, r *http.Request) {
 // Generator Service (fallback to mock responses)
 // ============================================================================
 
+// GetInventoryServiceRequestOptions holds all parameters for the GetInventory operation.
+type GetInventoryServiceRequestOptions struct {
+	// RawRequest provides access to the underlying HTTP request for custom content type handling.
+	RawRequest *http.Request
+	// GenerateResponse generates a sample response with random data satisfying the OpenAPI schema.
+	GenerateResponse func() (*GetInventoryResponseData, error)
+}
+
+// LogoutUserServiceRequestOptions holds all parameters for the LogoutUser operation.
+type LogoutUserServiceRequestOptions struct {
+	// RawRequest provides access to the underlying HTTP request for custom content type handling.
+	RawRequest *http.Request
+	// GenerateResponse generates a sample response with random data satisfying the OpenAPI schema.
+	GenerateResponse func() (*LogoutUserResponseData, error)
+}
+
 // generatorService implements ServiceInterface with generator fallback.
 // It delegates to the user's service first; if that returns nil, it generates a mock response.
 type generatorService struct {
@@ -1627,23 +1643,28 @@ func (s *generatorService) UploadFile(ctx context.Context, opts *UploadFileServi
 
 // GetInventory handles GET /store/inventory
 func (s *generatorService) GetInventory(ctx context.Context) (*GetInventoryResponseData, error) {
-	// Call user's service first
-	if resp, err := s.service.GetInventory(ctx); resp != nil || err != nil {
+	opts := &GetInventoryServiceRequestOptions{RawRequest: api.RequestFromGoContext(ctx)}
+	// Inject GenerateResponse so user service can call it
+	opts.GenerateResponse = func() (*GetInventoryResponseData, error) {
+		respSchema := s.registry.GetResponseSchema("/store/inventory", "GET")
+		if respSchema == nil {
+			return NewGetInventoryResponseData(nil), nil
+		}
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		var body GetInventoryResponse
+		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
+			return nil, err
+		}
+		return NewGetInventoryResponseData(&body).WithHeaders(res.Headers), nil
+	}
+
+	// Call user's service
+	if resp, err := s.service.GetInventory(ctx, opts); resp != nil || err != nil {
 		return resp, err
 	}
 
 	// Fallback to generator
-	respSchema := s.registry.GetResponseSchema("/store/inventory", "GET")
-	if respSchema == nil {
-		return NewGetInventoryResponseData(nil), nil
-	}
-
-	res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
-	var body GetInventoryResponse
-	if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
-		return nil, err
-	}
-	return NewGetInventoryResponseData(&body).WithHeaders(res.Headers), nil
+	return opts.GenerateResponse()
 }
 
 // PlaceOrder handles POST /store/order
@@ -1794,19 +1815,24 @@ func (s *generatorService) LoginUser(ctx context.Context, opts *LoginUserService
 
 // LogoutUser handles GET /user/logout
 func (s *generatorService) LogoutUser(ctx context.Context) (*LogoutUserResponseData, error) {
-	// Call user's service first
-	if resp, err := s.service.LogoutUser(ctx); resp != nil || err != nil {
+	opts := &LogoutUserServiceRequestOptions{RawRequest: api.RequestFromGoContext(ctx)}
+	// Inject GenerateResponse so user service can call it
+	opts.GenerateResponse = func() (*LogoutUserResponseData, error) {
+		respSchema := s.registry.GetResponseSchema("/user/logout", "GET")
+		if respSchema == nil {
+			return NewLogoutUserResponseData(nil), nil
+		}
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		return NewLogoutUserResponseData(nil).WithHeaders(res.Headers), nil
+	}
+
+	// Call user's service
+	if resp, err := s.service.LogoutUser(ctx, opts); resp != nil || err != nil {
 		return resp, err
 	}
 
 	// Fallback to generator
-	respSchema := s.registry.GetResponseSchema("/user/logout", "GET")
-	if respSchema == nil {
-		return NewLogoutUserResponseData(nil), nil
-	}
-
-	res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
-	return NewLogoutUserResponseData(nil).WithHeaders(res.Headers), nil
+	return opts.GenerateResponse()
 }
 
 // GetUserByName handles GET /user/{username}
