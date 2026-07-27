@@ -20,7 +20,7 @@ The context system operates in three phases:
 
 1. **Parse phase**: YAML files are parsed and aliases are extracted
 2. **Alias resolution phase**: All aliases are resolved across namespaces
-3. **Function processing phase**: Function prefixes (`fake:`, `func:`, `botify:`, `join:`) are processed
+3. **Function processing phase**: Function prefixes (`fake:`, `func:`, `botify:`, `join:`, `request:`) are processed
 
 When generating content, the system looks up property names as-is (no case conversion) in the loaded contexts and replaces values accordingly.
 
@@ -228,6 +228,70 @@ expression: "join:-,words.adjectives,words.nouns"  # e.g., "active-account"
 full_name: "join: ,person.first_name,person.last_name"
 ```
 
+### `request:` - Values From the Incoming Request
+
+Takes the value from the body of the request being answered, instead of generating one.
+
+**Syntax:** `request:dotted.path`
+
+```yaml title="payments.yml"
+charge:
+  currency: "request:order.payment.amount.currency"
+  amount: "request:order.payment.amount.value"
+```
+
+A request like:
+
+```json
+{"order": {"payment": {"amount": {"currency": "EUR", "value": 10.5}}}}
+```
+
+produces a response echoing those values:
+
+```json
+{"charge": {"currency": "EUR", "amount": 10.5}}
+```
+
+**Array elements** are addressed by index:
+
+```yaml
+firstCurrency: "request:order.amounts[0].currency"
+secondCurrency: "request:order.amounts[1].currency"
+```
+
+Leaving the index out searches the array and takes the first element where the rest of the
+path resolves, so `request:order.amounts.currency` matches `order.amounts[0].currency` above.
+Top-level arrays are addressed with a leading index: `request:[0].currency`.
+
+**Notes:**
+
+- Only response generation reads the request. During request generation there is nothing to read from.
+- Paths that don't resolve (missing field, index out of range, no request body) fall back to the
+  next matching context, then to normal schema generation. Nothing fails.
+- The value must fit the schema of the property it replaces. A string taken from the request
+  cannot fill an `integer` field; such a value is ignored and the field is generated as usual.
+- Works in area-scoped sections too, e.g. under `in-response` or `in-header`.
+
+**Supported payloads** are picked by the request's `Content-Type` header:
+
+| Content-Type | Read as |
+|---|---|
+| `application/json` (and any `+json`) | JSON |
+| `application/x-www-form-urlencoded` | form fields |
+
+Form bodies are decoded with the same encoding rules mockzilla uses to generate them, so
+paths address nesting and arrays the same way as in JSON:
+
+```
+order[payment][currency]=EUR   →  request:order.payment.currency
+amounts[0][currency]=USD       →  request:amounts[0].currency
+currency=USD&currency=GBP      →  request:currency[1]
+```
+
+Numeric and boolean form values are converted to their JSON types, so they can fill
+`integer`, `number` and `boolean` properties. Other content types (uploads, XML, plain text)
+are not read; refs against them fall back to generated values.
+
 ## Pattern Matching with Dynamic Keys
 
 Context keys can use regex patterns to match multiple property names.
@@ -373,7 +437,7 @@ This is useful for:
 - CI pipelines testing specific values
 - Programmatic response generation with custom data
 
-All context functions (`func:`, `fake:`, `alias:`, `botify:`, `join:`) are supported in the header value - they are processed the same way as context YAML files.
+All context functions (`func:`, `fake:`, `alias:`, `botify:`, `join:`, `request:`) are supported in the header value - they are processed the same way as context YAML files.
 
 ## Performance
 

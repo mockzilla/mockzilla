@@ -245,7 +245,8 @@ func replaceInArea(ctx *ReplaceContext, area string) any {
 			continue
 		}
 
-		if res := replaceValueWithContext(ctx.state.NamePath, replacements); res != nil {
+		res := replaceValueWithContext(ctx.state.NamePath, replacements)
+		if res = resolveRequestRef(ctx, res); res != nil {
 			return res
 		}
 	}
@@ -256,20 +257,50 @@ func replaceInArea(ctx *ReplaceContext, area string) any {
 // replaceFromContext is a replacer that replaces values from the context.
 func replaceFromContext(ctx *ReplaceContext) any {
 	for _, data := range ctx.data {
-		if res := replaceValueWithContext(ctx.state.NamePath, data); res != nil {
-			v := castToSchemaFormat(ctx, res)
+		res := replaceValueWithContext(ctx.state.NamePath, data)
 
-			// If context returned empty string, return nil to let other replacers handle it
-			// This avoids validation errors for required string fields
-			if str, ok := v.(string); ok && str == "" {
-				return nil
+		// A request reference names its target field outright, so it skips the
+		// format filtering castToSchemaFormat applies to guessed context values.
+		// Values that don't fit the schema are dropped by the caller anyway.
+		if _, isRef := res.(contexts.RequestRef); isRef {
+			if res = resolveRequestRef(ctx, res); res == nil {
+				continue
 			}
-
-			return v
+			return res
 		}
+
+		if res == nil {
+			continue
+		}
+
+		v := castToSchemaFormat(ctx, res)
+
+		// If context returned empty string, return nil to let other replacers handle it
+		// This avoids validation errors for required string fields
+		if str, ok := v.(string); ok && str == "" {
+			return nil
+		}
+
+		return v
 	}
 
 	return nil
+}
+
+// resolveRequestRef resolves a `request:` context value against the payload of
+// the incoming request. Non-ref values pass through untouched; a ref that
+// doesn't resolve returns nil so the remaining contexts and replacers apply.
+func resolveRequestRef(ctx *ReplaceContext, value any) any {
+	ref, ok := value.(contexts.RequestRef)
+	if !ok {
+		return value
+	}
+
+	if ctx.state == nil || ctx.state.RequestPayload == nil {
+		return nil
+	}
+
+	return types.GetValueByJSONPath(ctx.state.RequestPayload, ref.Path)
 }
 
 // castToSchemaFormat casts the value to the schema format if possible.
@@ -336,6 +367,10 @@ func replaceValueWithContext(path []string, contextData any) interface{} {
 	// base cases below:
 	case contexts.FakeFunc:
 		return valueType().Get()
+
+	// resolved by the caller, which has access to the request payload
+	case contexts.RequestRef:
+		return valueType
 
 	case string, int, bool, float64:
 		return valueType

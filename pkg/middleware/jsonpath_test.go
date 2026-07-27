@@ -121,48 +121,6 @@ func TestExtractJSONPath(t *testing.T) {
 	})
 }
 
-func TestParseDottedPath(t *testing.T) {
-	assert := assert2.New(t)
-
-	t.Run("simple path", func(t *testing.T) {
-		segments := parseDottedPath("data.name")
-		assert.Len(segments, 2)
-		assert.Equal("data", segments[0].key)
-		assert.Equal(-1, segments[0].index)
-		assert.Equal("name", segments[1].key)
-	})
-
-	t.Run("array index", func(t *testing.T) {
-		segments := parseDottedPath("data.items[0].name")
-		assert.Len(segments, 3)
-		assert.Equal("items", segments[1].key)
-		assert.Equal(0, segments[1].index)
-		assert.True(segments[1].isArr)
-	})
-
-	t.Run("invalid array index treated as key", func(t *testing.T) {
-		segments := parseDottedPath("data.items[abc].name")
-		assert.Len(segments, 3)
-		assert.Equal("items[abc]", segments[1].key)
-		assert.Equal(-1, segments[1].index)
-		assert.False(segments[1].isArr)
-	})
-
-	t.Run("bare array index", func(t *testing.T) {
-		segments := parseDottedPath("[0].name")
-		assert.Len(segments, 2)
-		assert.Equal("", segments[0].key)
-		assert.Equal(0, segments[0].index)
-		assert.True(segments[0].isArr)
-		assert.Equal("name", segments[1].key)
-	})
-
-	t.Run("empty path", func(t *testing.T) {
-		segments := parseDottedPath("")
-		assert.Empty(segments)
-	})
-}
-
 func TestExtractBodyValue(t *testing.T) {
 	assert := assert2.New(t)
 

@@ -11047,7 +11047,7 @@ func (s *generatorService) SearchRecipes(ctx context.Context, opts *SearchRecipe
 		if respSchema == nil {
 			return NewSearchRecipesResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchRecipesResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11072,7 +11072,7 @@ func (s *generatorService) SearchRecipesByIngredients(ctx context.Context, opts 
 		if respSchema == nil {
 			return NewSearchRecipesByIngredientsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchRecipesByIngredientsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11097,7 +11097,7 @@ func (s *generatorService) SearchRecipesByNutrients(ctx context.Context, opts *S
 		if respSchema == nil {
 			return NewSearchRecipesByNutrientsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchRecipesByNutrientsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11122,7 +11122,7 @@ func (s *generatorService) GetRecipeInformation(ctx context.Context, opts *GetRe
 		if respSchema == nil {
 			return NewGetRecipeInformationResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetRecipeInformationResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11147,7 +11147,7 @@ func (s *generatorService) GetRecipeInformationBulk(ctx context.Context, opts *G
 		if respSchema == nil {
 			return NewGetRecipeInformationBulkResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetRecipeInformationBulkResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11172,7 +11172,7 @@ func (s *generatorService) GetSimilarRecipes(ctx context.Context, opts *GetSimil
 		if respSchema == nil {
 			return NewGetSimilarRecipesResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetSimilarRecipesResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11197,7 +11197,7 @@ func (s *generatorService) GetRandomRecipes(ctx context.Context, opts *GetRandom
 		if respSchema == nil {
 			return NewGetRandomRecipesResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetRandomRecipesResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11222,7 +11222,7 @@ func (s *generatorService) AutocompleteRecipeSearch(ctx context.Context, opts *A
 		if respSchema == nil {
 			return NewAutocompleteRecipeSearchResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AutocompleteRecipeSearchResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11247,7 +11247,7 @@ func (s *generatorService) GetRecipeTasteByID(ctx context.Context, opts *GetReci
 		if respSchema == nil {
 			return NewGetRecipeTasteByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetRecipeTasteByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11272,7 +11272,7 @@ func (s *generatorService) RecipeTasteByIDImage(ctx context.Context, opts *Recip
 		if respSchema == nil {
 			return NewRecipeTasteByIDImageResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewRecipeTasteByIDImageResponseData(res.Body).WithHeaders(res.Headers), nil
 	}
 
@@ -11293,7 +11293,7 @@ func (s *generatorService) GetRecipeEquipmentByID(ctx context.Context, opts *Get
 		if respSchema == nil {
 			return NewGetRecipeEquipmentByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetRecipeEquipmentByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11318,7 +11318,7 @@ func (s *generatorService) EquipmentByIDImage(ctx context.Context, opts *Equipme
 		if respSchema == nil {
 			return NewEquipmentByIDImageResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewEquipmentByIDImageResponseData(res.Body).WithHeaders(res.Headers), nil
 	}
 
@@ -11339,7 +11339,7 @@ func (s *generatorService) GetRecipePriceBreakdownByID(ctx context.Context, opts
 		if respSchema == nil {
 			return NewGetRecipePriceBreakdownByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetRecipePriceBreakdownByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11364,7 +11364,7 @@ func (s *generatorService) PriceBreakdownByIDImage(ctx context.Context, opts *Pr
 		if respSchema == nil {
 			return NewPriceBreakdownByIDImageResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewPriceBreakdownByIDImageResponseData(res.Body).WithHeaders(res.Headers), nil
 	}
 
@@ -11385,7 +11385,7 @@ func (s *generatorService) GetRecipeIngredientsByID(ctx context.Context, opts *G
 		if respSchema == nil {
 			return NewGetRecipeIngredientsByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetRecipeIngredientsByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11410,7 +11410,7 @@ func (s *generatorService) IngredientsByIDImage(ctx context.Context, opts *Ingre
 		if respSchema == nil {
 			return NewIngredientsByIDImageResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewIngredientsByIDImageResponseData(res.Body).WithHeaders(res.Headers), nil
 	}
 
@@ -11431,7 +11431,7 @@ func (s *generatorService) GetRecipeNutritionWidgetByID(ctx context.Context, opt
 		if respSchema == nil {
 			return NewGetRecipeNutritionWidgetByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetRecipeNutritionWidgetByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11456,7 +11456,7 @@ func (s *generatorService) RecipeNutritionByIDImage(ctx context.Context, opts *R
 		if respSchema == nil {
 			return NewRecipeNutritionByIDImageResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewRecipeNutritionByIDImageResponseData(res.Body).WithHeaders(res.Headers), nil
 	}
 
@@ -11477,7 +11477,7 @@ func (s *generatorService) RecipeNutritionLabelWidget(ctx context.Context, opts 
 		if respSchema == nil {
 			return NewRecipeNutritionLabelWidgetResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body RecipeNutritionLabelWidgetResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -11502,7 +11502,7 @@ func (s *generatorService) RecipeNutritionLabelImage(ctx context.Context, opts *
 		if respSchema == nil {
 			return NewRecipeNutritionLabelImageResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewRecipeNutritionLabelImageResponseData(res.Body).WithHeaders(res.Headers), nil
 	}
 
@@ -11523,7 +11523,7 @@ func (s *generatorService) GetAnalyzedRecipeInstructions(ctx context.Context, op
 		if respSchema == nil {
 			return NewGetAnalyzedRecipeInstructionsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetAnalyzedRecipeInstructionsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11548,7 +11548,7 @@ func (s *generatorService) ExtractRecipeFromWebsite(ctx context.Context, opts *E
 		if respSchema == nil {
 			return NewExtractRecipeFromWebsiteResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ExtractRecipeFromWebsiteResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11573,7 +11573,7 @@ func (s *generatorService) VisualizeRecipeIngredientsByID(ctx context.Context, o
 		if respSchema == nil {
 			return NewVisualizeRecipeIngredientsByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeRecipeIngredientsByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -11598,7 +11598,7 @@ func (s *generatorService) VisualizeRecipeTasteByID(ctx context.Context, opts *V
 		if respSchema == nil {
 			return NewVisualizeRecipeTasteByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeRecipeTasteByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -11623,7 +11623,7 @@ func (s *generatorService) VisualizeRecipeEquipmentByID(ctx context.Context, opt
 		if respSchema == nil {
 			return NewVisualizeRecipeEquipmentByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeRecipeEquipmentByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -11648,7 +11648,7 @@ func (s *generatorService) VisualizeRecipePriceBreakdownByID(ctx context.Context
 		if respSchema == nil {
 			return NewVisualizeRecipePriceBreakdownByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeRecipePriceBreakdownByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -11673,7 +11673,7 @@ func (s *generatorService) VisualizeRecipeTaste(ctx context.Context, opts *Visua
 		if respSchema == nil {
 			return NewVisualizeRecipeTasteResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeRecipeTasteResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -11698,7 +11698,7 @@ func (s *generatorService) VisualizeRecipeNutrition(ctx context.Context, opts *V
 		if respSchema == nil {
 			return NewVisualizeRecipeNutritionResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeRecipeNutritionResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -11723,7 +11723,7 @@ func (s *generatorService) VisualizePriceBreakdown(ctx context.Context, opts *Vi
 		if respSchema == nil {
 			return NewVisualizePriceBreakdownResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizePriceBreakdownResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -11748,7 +11748,7 @@ func (s *generatorService) VisualizeEquipment(ctx context.Context, opts *Visuali
 		if respSchema == nil {
 			return NewVisualizeEquipmentResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeEquipmentResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -11773,7 +11773,7 @@ func (s *generatorService) AnalyzeRecipe(ctx context.Context, opts *AnalyzeRecip
 		if respSchema == nil {
 			return NewAnalyzeRecipeResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AnalyzeRecipeResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11798,7 +11798,7 @@ func (s *generatorService) SummarizeRecipe(ctx context.Context, opts *SummarizeR
 		if respSchema == nil {
 			return NewSummarizeRecipeResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SummarizeRecipeResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11823,7 +11823,7 @@ func (s *generatorService) CreateRecipeCardGet(ctx context.Context, opts *Create
 		if respSchema == nil {
 			return NewCreateRecipeCardGetResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body CreateRecipeCardGetResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11848,7 +11848,7 @@ func (s *generatorService) CreateRecipeCard(ctx context.Context, opts *CreateRec
 		if respSchema == nil {
 			return NewCreateRecipeCardResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body CreateRecipeCardResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11873,7 +11873,7 @@ func (s *generatorService) AnalyzeRecipeInstructions(ctx context.Context, opts *
 		if respSchema == nil {
 			return NewAnalyzeRecipeInstructionsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AnalyzeRecipeInstructionsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11898,7 +11898,7 @@ func (s *generatorService) ClassifyCuisine(ctx context.Context, opts *ClassifyCu
 		if respSchema == nil {
 			return NewClassifyCuisineResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ClassifyCuisineResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11923,7 +11923,7 @@ func (s *generatorService) AnalyzeARecipeSearchQuery(ctx context.Context, opts *
 		if respSchema == nil {
 			return NewAnalyzeARecipeSearchQueryResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AnalyzeARecipeSearchQueryResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11948,7 +11948,7 @@ func (s *generatorService) ConvertAmounts(ctx context.Context, opts *ConvertAmou
 		if respSchema == nil {
 			return NewConvertAmountsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ConvertAmountsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11973,7 +11973,7 @@ func (s *generatorService) ParseIngredients(ctx context.Context, opts *ParseIngr
 		if respSchema == nil {
 			return NewParseIngredientsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ParseIngredientsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -11998,7 +11998,7 @@ func (s *generatorService) VisualizeRecipeNutritionByID(ctx context.Context, opt
 		if respSchema == nil {
 			return NewVisualizeRecipeNutritionByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeRecipeNutritionByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -12023,7 +12023,7 @@ func (s *generatorService) VisualizeIngredients(ctx context.Context, opts *Visua
 		if respSchema == nil {
 			return NewVisualizeIngredientsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeIngredientsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -12048,7 +12048,7 @@ func (s *generatorService) GuessNutritionByDishName(ctx context.Context, opts *G
 		if respSchema == nil {
 			return NewGuessNutritionByDishNameResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GuessNutritionByDishNameResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12073,7 +12073,7 @@ func (s *generatorService) GetIngredientInformation(ctx context.Context, opts *G
 		if respSchema == nil {
 			return NewGetIngredientInformationResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetIngredientInformationResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12098,7 +12098,7 @@ func (s *generatorService) ComputeIngredientAmount(ctx context.Context, opts *Co
 		if respSchema == nil {
 			return NewComputeIngredientAmountResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ComputeIngredientAmountResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12123,7 +12123,7 @@ func (s *generatorService) ComputeGlycemicLoad(ctx context.Context, opts *Comput
 		if respSchema == nil {
 			return NewComputeGlycemicLoadResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ComputeGlycemicLoadResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12148,7 +12148,7 @@ func (s *generatorService) AutocompleteIngredientSearch(ctx context.Context, opt
 		if respSchema == nil {
 			return NewAutocompleteIngredientSearchResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AutocompleteIngredientSearchResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12173,7 +12173,7 @@ func (s *generatorService) IngredientSearch(ctx context.Context, opts *Ingredien
 		if respSchema == nil {
 			return NewIngredientSearchResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body IngredientSearchResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12198,7 +12198,7 @@ func (s *generatorService) GetIngredientSubstitutes(ctx context.Context, opts *G
 		if respSchema == nil {
 			return NewGetIngredientSubstitutesResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetIngredientSubstitutesResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12223,7 +12223,7 @@ func (s *generatorService) GetIngredientSubstitutesByID(ctx context.Context, opt
 		if respSchema == nil {
 			return NewGetIngredientSubstitutesByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetIngredientSubstitutesByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12248,7 +12248,7 @@ func (s *generatorService) SearchGroceryProducts(ctx context.Context, opts *Sear
 		if respSchema == nil {
 			return NewSearchGroceryProductsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchGroceryProductsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12273,7 +12273,7 @@ func (s *generatorService) SearchGroceryProductsByUPC(ctx context.Context, opts 
 		if respSchema == nil {
 			return NewSearchGroceryProductsByUPCResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchGroceryProductsByUPCResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12298,7 +12298,7 @@ func (s *generatorService) SearchCustomFoods(ctx context.Context, opts *SearchCu
 		if respSchema == nil {
 			return NewSearchCustomFoodsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchCustomFoodsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12323,7 +12323,7 @@ func (s *generatorService) GetProductInformation(ctx context.Context, opts *GetP
 		if respSchema == nil {
 			return NewGetProductInformationResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetProductInformationResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12348,7 +12348,7 @@ func (s *generatorService) GetComparableProducts(ctx context.Context, opts *GetC
 		if respSchema == nil {
 			return NewGetComparableProductsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetComparableProductsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12373,7 +12373,7 @@ func (s *generatorService) AutocompleteProductSearch(ctx context.Context, opts *
 		if respSchema == nil {
 			return NewAutocompleteProductSearchResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AutocompleteProductSearchResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12398,7 +12398,7 @@ func (s *generatorService) VisualizeProductNutritionByID(ctx context.Context, op
 		if respSchema == nil {
 			return NewVisualizeProductNutritionByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeProductNutritionByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -12423,7 +12423,7 @@ func (s *generatorService) ProductNutritionByIDImage(ctx context.Context, opts *
 		if respSchema == nil {
 			return NewProductNutritionByIDImageResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewProductNutritionByIDImageResponseData(res.Body).WithHeaders(res.Headers), nil
 	}
 
@@ -12444,7 +12444,7 @@ func (s *generatorService) ProductNutritionLabelWidget(ctx context.Context, opts
 		if respSchema == nil {
 			return NewProductNutritionLabelWidgetResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ProductNutritionLabelWidgetResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -12469,7 +12469,7 @@ func (s *generatorService) ProductNutritionLabelImage(ctx context.Context, opts 
 		if respSchema == nil {
 			return NewProductNutritionLabelImageResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewProductNutritionLabelImageResponseData(res.Body).WithHeaders(res.Headers), nil
 	}
 
@@ -12490,7 +12490,7 @@ func (s *generatorService) ClassifyGroceryProduct(ctx context.Context, opts *Cla
 		if respSchema == nil {
 			return NewClassifyGroceryProductResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ClassifyGroceryProductResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12515,7 +12515,7 @@ func (s *generatorService) ClassifyGroceryProductBulk(ctx context.Context, opts 
 		if respSchema == nil {
 			return NewClassifyGroceryProductBulkResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ClassifyGroceryProductBulkResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12540,7 +12540,7 @@ func (s *generatorService) MapIngredientsToGroceryProducts(ctx context.Context, 
 		if respSchema == nil {
 			return NewMapIngredientsToGroceryProductsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body MapIngredientsToGroceryProductsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12565,7 +12565,7 @@ func (s *generatorService) AutocompleteMenuItemSearch(ctx context.Context, opts 
 		if respSchema == nil {
 			return NewAutocompleteMenuItemSearchResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AutocompleteMenuItemSearchResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12590,7 +12590,7 @@ func (s *generatorService) SearchMenuItems(ctx context.Context, opts *SearchMenu
 		if respSchema == nil {
 			return NewSearchMenuItemsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchMenuItemsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12615,7 +12615,7 @@ func (s *generatorService) GetMenuItemInformation(ctx context.Context, opts *Get
 		if respSchema == nil {
 			return NewGetMenuItemInformationResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetMenuItemInformationResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12640,7 +12640,7 @@ func (s *generatorService) VisualizeMenuItemNutritionByID(ctx context.Context, o
 		if respSchema == nil {
 			return NewVisualizeMenuItemNutritionByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body VisualizeMenuItemNutritionByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -12665,7 +12665,7 @@ func (s *generatorService) MenuItemNutritionByIDImage(ctx context.Context, opts 
 		if respSchema == nil {
 			return NewMenuItemNutritionByIDImageResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewMenuItemNutritionByIDImageResponseData(res.Body).WithHeaders(res.Headers), nil
 	}
 
@@ -12686,7 +12686,7 @@ func (s *generatorService) MenuItemNutritionLabelWidget(ctx context.Context, opt
 		if respSchema == nil {
 			return NewMenuItemNutritionLabelWidgetResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body MenuItemNutritionLabelWidgetResponse
 		if err := api.UnmarshalResponseInto(res.Body, "text/html", &body); err != nil {
 			return nil, err
@@ -12711,7 +12711,7 @@ func (s *generatorService) MenuItemNutritionLabelImage(ctx context.Context, opts
 		if respSchema == nil {
 			return NewMenuItemNutritionLabelImageResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewMenuItemNutritionLabelImageResponseData(res.Body).WithHeaders(res.Headers), nil
 	}
 
@@ -12732,7 +12732,7 @@ func (s *generatorService) GenerateMealPlan(ctx context.Context, opts *GenerateM
 		if respSchema == nil {
 			return NewGenerateMealPlanResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GenerateMealPlanResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12757,7 +12757,7 @@ func (s *generatorService) GetMealPlanWeek(ctx context.Context, opts *GetMealPla
 		if respSchema == nil {
 			return NewGetMealPlanWeekResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetMealPlanWeekResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12782,7 +12782,7 @@ func (s *generatorService) ClearMealPlanDay(ctx context.Context, opts *ClearMeal
 		if respSchema == nil {
 			return NewClearMealPlanDayResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ClearMealPlanDayResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12807,7 +12807,7 @@ func (s *generatorService) AddToMealPlan(ctx context.Context, opts *AddToMealPla
 		if respSchema == nil {
 			return NewAddToMealPlanResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AddToMealPlanResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12832,7 +12832,7 @@ func (s *generatorService) DeleteFromMealPlan(ctx context.Context, opts *DeleteF
 		if respSchema == nil {
 			return NewDeleteFromMealPlanResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body DeleteFromMealPlanResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12857,7 +12857,7 @@ func (s *generatorService) GetMealPlanTemplates(ctx context.Context, opts *GetMe
 		if respSchema == nil {
 			return NewGetMealPlanTemplatesResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetMealPlanTemplatesResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12882,7 +12882,7 @@ func (s *generatorService) AddMealPlanTemplate(ctx context.Context, opts *AddMea
 		if respSchema == nil {
 			return NewAddMealPlanTemplateResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AddMealPlanTemplateResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12907,7 +12907,7 @@ func (s *generatorService) GetMealPlanTemplate(ctx context.Context, opts *GetMea
 		if respSchema == nil {
 			return NewGetMealPlanTemplateResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetMealPlanTemplateResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12932,7 +12932,7 @@ func (s *generatorService) DeleteMealPlanTemplate(ctx context.Context, opts *Del
 		if respSchema == nil {
 			return NewDeleteMealPlanTemplateResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body DeleteMealPlanTemplateResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12957,7 +12957,7 @@ func (s *generatorService) GetShoppingList(ctx context.Context, opts *GetShoppin
 		if respSchema == nil {
 			return NewGetShoppingListResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetShoppingListResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -12982,7 +12982,7 @@ func (s *generatorService) GenerateShoppingList(ctx context.Context, opts *Gener
 		if respSchema == nil {
 			return NewGenerateShoppingListResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GenerateShoppingListResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13007,7 +13007,7 @@ func (s *generatorService) ConnectUser(ctx context.Context, opts *ConnectUserSer
 		if respSchema == nil {
 			return NewConnectUserResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ConnectUserResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13032,7 +13032,7 @@ func (s *generatorService) AddToShoppingList(ctx context.Context, opts *AddToSho
 		if respSchema == nil {
 			return NewAddToShoppingListResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AddToShoppingListResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13057,7 +13057,7 @@ func (s *generatorService) DeleteFromShoppingList(ctx context.Context, opts *Del
 		if respSchema == nil {
 			return NewDeleteFromShoppingListResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body DeleteFromShoppingListResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13082,7 +13082,7 @@ func (s *generatorService) SearchRestaurants(ctx context.Context, opts *SearchRe
 		if respSchema == nil {
 			return NewSearchRestaurantsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchRestaurantsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13107,7 +13107,7 @@ func (s *generatorService) GetDishPairingForWine(ctx context.Context, opts *GetD
 		if respSchema == nil {
 			return NewGetDishPairingForWineResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetDishPairingForWineResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13132,7 +13132,7 @@ func (s *generatorService) GetWinePairing(ctx context.Context, opts *GetWinePair
 		if respSchema == nil {
 			return NewGetWinePairingResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetWinePairingResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13157,7 +13157,7 @@ func (s *generatorService) GetWineDescription(ctx context.Context, opts *GetWine
 		if respSchema == nil {
 			return NewGetWineDescriptionResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetWineDescriptionResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13182,7 +13182,7 @@ func (s *generatorService) GetWineRecommendation(ctx context.Context, opts *GetW
 		if respSchema == nil {
 			return NewGetWineRecommendationResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetWineRecommendationResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13207,7 +13207,7 @@ func (s *generatorService) ImageClassificationByURL(ctx context.Context, opts *I
 		if respSchema == nil {
 			return NewImageClassificationByURLResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ImageClassificationByURLResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13232,7 +13232,7 @@ func (s *generatorService) ImageAnalysisByURL(ctx context.Context, opts *ImageAn
 		if respSchema == nil {
 			return NewImageAnalysisByURLResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body ImageAnalysisByURLResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13257,7 +13257,7 @@ func (s *generatorService) QuickAnswer(ctx context.Context, opts *QuickAnswerSer
 		if respSchema == nil {
 			return NewQuickAnswerResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body QuickAnswerResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13282,7 +13282,7 @@ func (s *generatorService) DetectFoodInText(ctx context.Context, opts *DetectFoo
 		if respSchema == nil {
 			return NewDetectFoodInTextResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body DetectFoodInTextResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13307,7 +13307,7 @@ func (s *generatorService) SearchSiteContent(ctx context.Context, opts *SearchSi
 		if respSchema == nil {
 			return NewSearchSiteContentResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchSiteContentResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13332,7 +13332,7 @@ func (s *generatorService) SearchAllFood(ctx context.Context, opts *SearchAllFoo
 		if respSchema == nil {
 			return NewSearchAllFoodResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchAllFoodResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13357,7 +13357,7 @@ func (s *generatorService) SearchFoodVideos(ctx context.Context, opts *SearchFoo
 		if respSchema == nil {
 			return NewSearchFoodVideosResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body SearchFoodVideosResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13383,7 +13383,7 @@ func (s *generatorService) GetARandomFoodJoke(ctx context.Context) (*GetARandomF
 		if respSchema == nil {
 			return NewGetARandomFoodJokeResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetARandomFoodJokeResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13409,7 +13409,7 @@ func (s *generatorService) GetRandomFoodTrivia(ctx context.Context) (*GetRandomF
 		if respSchema == nil {
 			return NewGetRandomFoodTriviaResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetRandomFoodTriviaResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13434,7 +13434,7 @@ func (s *generatorService) TalkToChatbot(ctx context.Context, opts *TalkToChatbo
 		if respSchema == nil {
 			return NewTalkToChatbotResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body TalkToChatbotResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -13459,7 +13459,7 @@ func (s *generatorService) GetConversationSuggests(ctx context.Context, opts *Ge
 		if respSchema == nil {
 			return NewGetConversationSuggestsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetConversationSuggestsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err

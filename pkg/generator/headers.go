@@ -21,7 +21,7 @@ var skipHeaders = map[string]bool{
 // generateHeaders generates response headers from the given headers.
 // It filters out headers that would mislead HTTP clients about the response encoding
 // or content length, since these are managed by the HTTP transport layer.
-func generateHeaders(headers map[string]*schema.Schema, valueReplacer replacer.ValueReplacer) http.Header {
+func generateHeaders(headers map[string]*schema.Schema, valueReplacer replacer.ValueReplacer, opts ...replacer.ReplaceStateOption) http.Header {
 	res := http.Header{}
 
 	for name, s := range headers {
@@ -32,7 +32,9 @@ func generateHeaders(headers map[string]*schema.Schema, valueReplacer replacer.V
 			continue
 		}
 
-		state := replacer.NewReplaceState(replacer.WithName(name), replacer.WithHeader())
+		state := replacer.NewReplaceState(append([]replacer.ReplaceStateOption{
+			replacer.WithName(name), replacer.WithHeader(),
+		}, opts...)...)
 
 		value := generateContentFromSchema(s, valueReplacer, state)
 		res.Set(name, fmt.Sprintf("%v", value))

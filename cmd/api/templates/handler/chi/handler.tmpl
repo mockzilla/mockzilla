@@ -315,7 +315,7 @@ func (s *generatorService) {{ $op.ID }}(ctx context.Context{{ if $op.HasRequestO
 		if respSchema == nil {
 			return {{ $modelsPrefix }}New{{ $op.ID | ucFirst }}ResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		{{- $bodyType := $op.Response.Success.ResponseName -}}
 		{{- if eq $bodyType "struct{}" }}
 		return {{ $modelsPrefix }}New{{ $op.ID | ucFirst }}ResponseData(nil).WithHeaders(res.Headers), nil

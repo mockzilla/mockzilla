@@ -396,7 +396,7 @@ func (s *generatorService) PostFooBar(ctx context.Context, opts *PostFooBarServi
 		if respSchema == nil {
 			return NewPostFooBarResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body PostFooBarResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err

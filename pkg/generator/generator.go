@@ -14,7 +14,7 @@ import (
 
 type Generate interface {
 	Request(req *api.GenerateRequest, op *schema.Operation, ctxData map[string]any) json.RawMessage
-	Response(respSchema *schema.ResponseSchema, ctxData map[string]any) schema.ResponseData
+	Response(respSchema *schema.ResponseSchema, ctxData map[string]any, opts ...ResponseOption) schema.ResponseData
 	Error(errSchema *schema.Schema, errPath, error string) []byte
 }
 
@@ -22,10 +22,11 @@ type ResponseGenerator struct {
 	serviceContexts []map[string]any
 	defaultContexts []map[string]map[string]any
 	valueReplacer   replacer.ValueReplacer
+	usesRequestRefs bool
 }
 
 func (g *ResponseGenerator) Request(req *api.GenerateRequest, op *schema.Operation, ctxData map[string]any) json.RawMessage {
-	valueReplacer := g.resolveReplacer(ctxData)
+	valueReplacer, _ := g.resolveReplacer(ctxData)
 
 	// static resources.
 	if op == nil {
@@ -93,20 +94,32 @@ func (g *ResponseGenerator) Request(req *api.GenerateRequest, op *schema.Operati
 	return nil
 }
 
-func (g *ResponseGenerator) Response(respSchema *schema.ResponseSchema, ctxData map[string]any) schema.ResponseData {
+func (g *ResponseGenerator) Response(respSchema *schema.ResponseSchema, ctxData map[string]any, opts ...ResponseOption) schema.ResponseData {
 	// no response respSchema, nothing to generate
 	if respSchema == nil {
 		return schema.ResponseData{}
 	}
 
-	valueReplacer := g.resolveReplacer(ctxData)
+	valueReplacer, usesRequestRefs := g.resolveReplacer(ctxData)
 
-	state := replacer.NewReplaceState(
+	var requestOpts []replacer.ReplaceStateOption
+	if usesRequestRefs {
+		o := &responseOptions{}
+		for _, opt := range opts {
+			opt(o)
+		}
+		if payload := requestPayload(o.request); payload != nil {
+			requestOpts = append(requestOpts, replacer.WithRequestPayload(payload))
+		}
+	}
+
+	state := replacer.NewReplaceState(append([]replacer.ReplaceStateOption{
 		replacer.WithContentType(respSchema.ContentType),
-		replacer.WithReadOnly())
+		replacer.WithReadOnly(),
+	}, requestOpts...)...)
 
 	content := generateContentFromSchema(respSchema.Body, valueReplacer, state)
-	headers := generateHeaders(respSchema.Headers, valueReplacer)
+	headers := generateHeaders(respSchema.Headers, valueReplacer, requestOpts...)
 
 	isError := false
 	xmlRoot := ""
@@ -164,15 +177,19 @@ func (g *ResponseGenerator) Error(errSchema *schema.Schema, errPath, error strin
 }
 
 // resolveReplacer returns a valueReplacer with the given user context processed and prepended,
-// or the default valueReplacer if ctx is nil.
-func (g *ResponseGenerator) resolveReplacer(ctxData map[string]any) replacer.ValueReplacer {
+// or the default valueReplacer if ctx is nil. The second return value reports whether the
+// resulting contexts reference the request payload.
+func (g *ResponseGenerator) resolveReplacer(ctxData map[string]any) (replacer.ValueReplacer, bool) {
 	if len(ctxData) == 0 {
-		return g.valueReplacer
+		return g.valueReplacer, g.usesRequestRefs
 	}
 	yamlBytes, _ := yaml.Marshal(ctxData)
 	processed := contexts.Load(map[string][]byte{"user": yamlBytes}, g.defaultContexts)
-	orderedCtx := append([]map[string]any{processed["user"]}, g.serviceContexts...)
-	return replacer.CreateValueReplacer(replacer.Replacers, orderedCtx)
+	userCtx := processed["user"]
+	orderedCtx := append([]map[string]any{userCtx}, g.serviceContexts...)
+
+	usesRequestRefs := g.usesRequestRefs || contexts.HasRequestRefs([]map[string]any{userCtx})
+	return replacer.CreateValueReplacer(replacer.Replacers, orderedCtx), usesRequestRefs
 }
 
 func NewGenerator(orderedCtx []map[string]any, defaultContexts []map[string]map[string]any) (*ResponseGenerator, error) {
@@ -182,5 +199,6 @@ func NewGenerator(orderedCtx []map[string]any, defaultContexts []map[string]map[
 		serviceContexts: orderedCtx,
 		defaultContexts: defaultContexts,
 		valueReplacer:   valueReplacer,
+		usesRequestRefs: contexts.HasRequestRefs(orderedCtx),
 	}, nil
 }

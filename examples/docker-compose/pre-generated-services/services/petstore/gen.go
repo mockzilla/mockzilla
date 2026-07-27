@@ -1453,7 +1453,7 @@ func (s *generatorService) UpdatePet(ctx context.Context, opts *UpdatePetService
 		if respSchema == nil {
 			return NewUpdatePetResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body UpdatePetResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1478,7 +1478,7 @@ func (s *generatorService) AddPet(ctx context.Context, opts *AddPetServiceReques
 		if respSchema == nil {
 			return NewAddPetResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body AddPetResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1503,7 +1503,7 @@ func (s *generatorService) FindPetsByStatus(ctx context.Context, opts *FindPetsB
 		if respSchema == nil {
 			return NewFindPetsByStatusResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body FindPetsByStatusResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1528,7 +1528,7 @@ func (s *generatorService) FindPetsByTags(ctx context.Context, opts *FindPetsByT
 		if respSchema == nil {
 			return NewFindPetsByTagsResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body FindPetsByTagsResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1553,7 +1553,7 @@ func (s *generatorService) GetPetByID(ctx context.Context, opts *GetPetByIDServi
 		if respSchema == nil {
 			return NewGetPetByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetPetByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1578,7 +1578,7 @@ func (s *generatorService) UpdatePetWithForm(ctx context.Context, opts *UpdatePe
 		if respSchema == nil {
 			return NewUpdatePetWithFormResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body UpdatePetWithFormResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1603,7 +1603,7 @@ func (s *generatorService) DeletePet(ctx context.Context, opts *DeletePetService
 		if respSchema == nil {
 			return NewDeletePetResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewDeletePetResponseData(nil).WithHeaders(res.Headers), nil
 	}
 
@@ -1624,7 +1624,7 @@ func (s *generatorService) UploadFile(ctx context.Context, opts *UploadFileServi
 		if respSchema == nil {
 			return NewUploadFileResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body UploadFileResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1650,7 +1650,7 @@ func (s *generatorService) GetInventory(ctx context.Context) (*GetInventoryRespo
 		if respSchema == nil {
 			return NewGetInventoryResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetInventoryResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1675,7 +1675,7 @@ func (s *generatorService) PlaceOrder(ctx context.Context, opts *PlaceOrderServi
 		if respSchema == nil {
 			return NewPlaceOrderResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body PlaceOrderResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1700,7 +1700,7 @@ func (s *generatorService) GetOrderByID(ctx context.Context, opts *GetOrderByIDS
 		if respSchema == nil {
 			return NewGetOrderByIDResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetOrderByIDResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1725,7 +1725,7 @@ func (s *generatorService) DeleteOrder(ctx context.Context, opts *DeleteOrderSer
 		if respSchema == nil {
 			return NewDeleteOrderResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewDeleteOrderResponseData(nil).WithHeaders(res.Headers), nil
 	}
 
@@ -1746,7 +1746,7 @@ func (s *generatorService) CreateUser(ctx context.Context, opts *CreateUserServi
 		if respSchema == nil {
 			return NewCreateUserResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body CreateUserResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1771,7 +1771,7 @@ func (s *generatorService) CreateUsersWithListInput(ctx context.Context, opts *C
 		if respSchema == nil {
 			return NewCreateUsersWithListInputResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body CreateUsersWithListInputResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1796,7 +1796,7 @@ func (s *generatorService) LoginUser(ctx context.Context, opts *LoginUserService
 		if respSchema == nil {
 			return NewLoginUserResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body LoginUserResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1822,7 +1822,7 @@ func (s *generatorService) LogoutUser(ctx context.Context) (*LogoutUserResponseD
 		if respSchema == nil {
 			return NewLogoutUserResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewLogoutUserResponseData(nil).WithHeaders(res.Headers), nil
 	}
 
@@ -1843,7 +1843,7 @@ func (s *generatorService) GetUserByName(ctx context.Context, opts *GetUserByNam
 		if respSchema == nil {
 			return NewGetUserByNameResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		var body GetUserByNameResponse
 		if err := api.UnmarshalResponseInto(res.Body, "application/json", &body); err != nil {
 			return nil, err
@@ -1868,7 +1868,7 @@ func (s *generatorService) UpdateUser(ctx context.Context, opts *UpdateUserServi
 		if respSchema == nil {
 			return NewUpdateUserResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewUpdateUserResponseData(nil).WithHeaders(res.Headers), nil
 	}
 
@@ -1889,7 +1889,7 @@ func (s *generatorService) DeleteUser(ctx context.Context, opts *DeleteUserServi
 		if respSchema == nil {
 			return NewDeleteUserResponseData(nil), nil
 		}
-		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx))
+		res := s.generator.Response(respSchema, api.UserContextFromGoContext(ctx), generator.WithRequest(api.RequestFromGoContext(ctx)))
 		return NewDeleteUserResponseData(nil).WithHeaders(res.Headers), nil
 	}
 

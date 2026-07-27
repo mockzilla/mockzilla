@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/factory"
+	"github.com/mockzilla/mockzilla/v2/pkg/generator"
 	validator "github.com/pb33f/libopenapi-validator"
 )
 
@@ -100,7 +101,7 @@ func (h *handler) handleRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := h.factory.Response(specPath, r.Method, ctx)
+	resp, err := h.factory.Response(specPath, r.Method, ctx, generator.WithRequest(r))
 	if err != nil {
 		slog.Debug("Failed to generate response", "method", r.Method, "path", specPath, "error", err)
 		http.Error(w, fmt.Sprintf("failed to generate response: %s %s", r.Method, endpointPath), http.StatusInternalServerError)

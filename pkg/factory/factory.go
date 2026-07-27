@@ -183,12 +183,13 @@ func (f *Factory) SuccessStatusCode(path, method string) int {
 // Response generates a mock response for the given spec path and method.
 // path should be the OpenAPI path pattern (e.g., "/users/{id}").
 // ctx is an optional replacement context for controlling generated values.
-func (f *Factory) Response(path, method string, ctx map[string]any) (schema.ResponseData, error) {
+// Pass generator.WithRequest to let `request:` context values read the incoming request.
+func (f *Factory) Response(path, method string, ctx map[string]any, opts ...generator.ResponseOption) (schema.ResponseData, error) {
 	respSchema := f.registry.GetResponseSchema(path, method)
 	if respSchema == nil {
 		return schema.ResponseData{}, fmt.Errorf("no operation found for %s %s", method, path)
 	}
-	return f.gen.Response(respSchema, ctx), nil
+	return f.gen.Response(respSchema, ctx, opts...), nil
 }
 
 // Request generates a mock request for the given spec path and method.
@@ -223,7 +224,7 @@ func (f *Factory) ResponseFromRequest(r *http.Request, ctx map[string]any) (sche
 	if !ok {
 		return schema.ResponseData{}, fmt.Errorf("no matching operation for %s %s", r.Method, r.URL.Path)
 	}
-	return f.Response(specPath, r.Method, ctx)
+	return f.Response(specPath, r.Method, ctx, generator.WithRequest(r))
 }
 
 // ResponseBody generates just the response body bytes for the given spec path and method.
