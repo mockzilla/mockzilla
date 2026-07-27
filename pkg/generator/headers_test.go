@@ -37,6 +37,24 @@ func TestGenerateHeaders(t *testing.T) {
 		assert.Equal(expected, res)
 	})
 
+	t.Run("keeps readOnly headers and drops writeOnly ones", func(t *testing.T) {
+		valueReplacer := func(schema any, state *replacer.ReplaceState) any {
+			return "value"
+		}
+
+		headers := map[string]*schema.Schema{
+			"X-Read-Only":  {Type: "string", ReadOnly: true},
+			"X-Write-Only": {Type: "string", WriteOnly: true},
+			"X-Plain":      {Type: "string"},
+		}
+
+		res := generateHeaders(headers, valueReplacer)
+
+		assert.Equal("value", res.Get("X-Read-Only"))
+		assert.Equal("value", res.Get("X-Plain"))
+		assert.NotContains(res, "X-Write-Only")
+	})
+
 	t.Run("filters out transport-managed headers", func(t *testing.T) {
 		valueReplacer := func(schema any, state *replacer.ReplaceState) any {
 			switch state.NamePath[len(state.NamePath)-1] {

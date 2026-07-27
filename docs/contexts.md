@@ -376,16 +376,19 @@ in-response-header:
 **Priority chain (most specific wins):**
 
 ```
-in-request-header > in-header > in-request > root
-in-response-header > in-header > in-response > root
+in-request-header > in-request > in-header > root
+in-response-header > in-response > in-header > root
 ```
+
+Direction wins over `in-header`: a header falls back to `in-request` / `in-response`
+before the direction-agnostic `in-header`.
 
 Available compound areas:
 
 | Area | Applies to |
 |------|-----------|
-| `in-request` | Request body and query parameters |
-| `in-response` | Response body |
+| `in-request` | Request body, query parameters, and request headers not covered by `in-request-header` |
+| `in-response` | Response body, and response headers not covered by `in-response-header` |
 | `in-request-header` | Request headers only |
 | `in-response-header` | Response headers only |
 
