@@ -1,10 +1,12 @@
+import { resolveConfigUrl } from './url.js';
+
 export const url = window.location.origin;
-export const baseUrl = `${url}${appConfig.baseUrl || ''}`;
-export const serviceUrl = `${url}${appConfig.serviceUrl}`;
+export const baseUrl = resolveConfigUrl(url, appConfig.baseUrl);
+export const serviceUrl = resolveConfigUrl(url, appConfig.serviceUrl);
 export const historyEnabled = !!appConfig.historyUrl;
-export const historyUrl = appConfig.historyUrl ? `${url}${appConfig.historyUrl}` : '';
+export const historyUrl = resolveConfigUrl(url, appConfig.historyUrl);
 export const replayEnabled = !!appConfig.replayUrl;
-export const replayUrl = appConfig.replayUrl ? `${url}${appConfig.replayUrl}` : '';
+export const replayUrl = resolveConfigUrl(url, appConfig.replayUrl);
 export const configEnabled = !appConfig.disableConfigUI;
 export const version = appConfig.version;
 export const editor = appConfig.editor;
