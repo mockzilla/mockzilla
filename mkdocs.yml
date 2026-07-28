@@ -18,8 +18,8 @@ theme:
     code: Roboto Mono
     text: Roboto
   locale: en
-  logo: images/logo.png
-  favicon: images/favicon.ico
+  logo: images/logo_head_blue.png
+  favicon: images/logo_head_blue.svg
   name: material
   icon:
     annotation: material/plus-circle
