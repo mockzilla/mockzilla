@@ -7,7 +7,8 @@
     <authors>Mockzilla Development</authors>
     <owners>Mockzilla Development</owners>
     <licenseUrl>https://github.com/mockzilla/mockzilla/blob/main/LICENSE</licenseUrl>
-    <projectUrl>https://github.com/mockzilla/mockzilla</projectUrl>
+    <iconUrl>https://cdn.jsdelivr.net/gh/mockzilla/mockzilla@v$version$/resources/docs/images/logo_head_blue_192.png</iconUrl>
+    <projectUrl>https://mockzilla.github.io/mockzilla/</projectUrl>
     <projectSourceUrl>https://github.com/mockzilla/mockzilla</projectSourceUrl>
     <packageSourceUrl>https://github.com/mockzilla/mockzilla/tree/main/.chocolatey</packageSourceUrl>
     <docsUrl>https://mockzilla.github.io/mockzilla/</docsUrl>
