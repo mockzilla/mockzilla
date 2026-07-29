@@ -83,13 +83,22 @@ var openapiSpecFS embed.FS
 
 //go:embed setup/context.yml
 var contextSrc []byte
-{{- if $config.UserContext }}{{- with index $config.UserContext "OverlayFiles" }}
+{{- if $config.UserContext }}{{- with index $config.UserContext "Overlays" }}
 
-//go:embed setup/codegen.yml
-var codegenConfigSrc []byte
-
-//go:embed{{ range . }} setup/{{ . }}{{ end }}
-var overlayFS embed.FS
+// overlays holds the OpenAPI Overlay documents configured for this service,
+// inlined at generation time so runtime applies the same bytes the generated
+// types were built from. Applied in configured order.
+var overlays = []struct {
+	Name    string
+	Content string
+}{
+{{- range . }}
+	{
+		Name: {{ printf "%q" .Name }},
+		Content: {{ .Literal }},
+	},
+{{- end }}
+}
 {{- end }}{{- end }}
 
 var cfg *config.ServiceConfig
@@ -117,26 +126,15 @@ func RegisterAPIRouter(router *api.Router) {
 		)
 		return
 	}
-{{- if $config.UserContext }}{{- with index $config.UserContext "OverlayFiles" }}
+{{- if $config.UserContext }}{{- with index $config.UserContext "Overlays" }}
 
-	var codegenCfg oapicodegen.Configuration
-	if err := yamlv4.Unmarshal(codegenConfigSrc, &codegenCfg); err != nil {
-		slog.Error(fmt.Sprintf("Failed to parse codegen config for %s", serviceName),
+	openapiSpec, err = applyOverlays(openapiSpec)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to apply overlay for %s", serviceName),
 			"error", err,
 			"service", serviceName,
 		)
 		return
-	}
-
-	if codegenCfg.Overlay != nil && len(codegenCfg.Overlay.Sources) > 0 {
-		openapiSpec, err = applyEmbeddedOverlays(openapiSpec, overlayFS, codegenCfg.Overlay.Sources)
-		if err != nil {
-			slog.Error(fmt.Sprintf("Failed to apply overlay for %s", serviceName),
-				"error", err,
-				"service", serviceName,
-			)
-			return
-		}
 	}
 {{- end }}{{- end }}
 
@@ -191,19 +189,14 @@ func readFirstEmbeddedFile(fsys embed.FS) ([]byte, error) {
 	}
 	return nil, errors.New("no file found in embedded filesystem")
 }
-{{- if $config.UserContext }}{{- with index $config.UserContext "OverlayFiles" }}
+{{- if $config.UserContext }}{{- with index $config.UserContext "Overlays" }}
 
-// applyEmbeddedOverlays applies overlay files to the OpenAPI spec bytes.
-// Sources are read from the embedded filesystem in the order specified.
-func applyEmbeddedOverlays(spec []byte, fsys embed.FS, sources []string) ([]byte, error) {
-	for _, src := range sources {
-		overlay, err := fsys.ReadFile(path.Join("setup", src))
+// applyOverlays applies the inlined overlay documents to the OpenAPI spec bytes.
+func applyOverlays(spec []byte) ([]byte, error) {
+	for _, overlay := range overlays {
+		result, err := libopenapi.ApplyOverlayFromBytesToSpecBytes(spec, []byte(overlay.Content))
 		if err != nil {
-			return nil, fmt.Errorf("reading overlay %s: %w", src, err)
-		}
-		result, err := libopenapi.ApplyOverlayFromBytesToSpecBytes(spec, overlay)
-		if err != nil {
-			return nil, fmt.Errorf("applying overlay %s: %w", src, err)
+			return nil, fmt.Errorf("applying overlay %s: %w", overlay.Name, err)
 		}
 		spec = result.Bytes
 	}
@@ -368,18 +361,11 @@ func NewFactory(opts ...factory.FactoryOption) (*factory.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
-{{- if $config.UserContext }}{{- with index $config.UserContext "OverlayFiles" }}
+{{- if $config.UserContext }}{{- with index $config.UserContext "Overlays" }}
 
-	var codegenCfg oapicodegen.Configuration
-	if err := yamlv4.Unmarshal(codegenConfigSrc, &codegenCfg); err != nil {
-		return nil, err
-	}
-
-	if codegenCfg.Overlay != nil && len(codegenCfg.Overlay.Sources) > 0 {
-		openapiSpec, err = applyEmbeddedOverlays(openapiSpec, overlayFS, codegenCfg.Overlay.Sources)
-		if err != nil {
-			return nil, fmt.Errorf("applying overlay: %w", err)
-		}
+	openapiSpec, err = applyOverlays(openapiSpec)
+	if err != nil {
+		return nil, fmt.Errorf("applying overlay: %w", err)
 	}
 {{- end }}{{- end }}
 

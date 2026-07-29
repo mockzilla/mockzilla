@@ -14,6 +14,7 @@ import (
 	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 	"github.com/mockzilla/mockzilla/v2/cmd/gen/templatehelpers"
 	"github.com/mockzilla/mockzilla/v2/internal/files"
+	"github.com/mockzilla/mockzilla/v2/internal/overlay"
 	"github.com/mockzilla/mockzilla/v2/internal/types"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
@@ -192,20 +193,21 @@ func GenerateService(opts ServiceOptions) error {
 	}
 	cfg = cfg.WithDefaults()
 
-	// Resolve overlay paths to be absolute (relative to setup directory)
+	// Read overlays once: their contents go into the generated service, their
+	// resolved paths into the config oapi-codegen generates from.
 	if cfg.Overlay != nil && len(cfg.Overlay.Sources) > 0 {
-		// Save original filenames for go:embed directives in generated code
+		overlays, err := overlay.Resolve(setupDir, cfg.Overlay.Sources)
+		if err != nil {
+			return err
+		}
+
 		if cfg.UserContext == nil {
 			cfg.UserContext = make(map[string]any)
 		}
-		overlayFiles := make([]string, len(cfg.Overlay.Sources))
-		copy(overlayFiles, cfg.Overlay.Sources)
-		cfg.UserContext["OverlayFiles"] = overlayFiles
+		cfg.UserContext["Overlays"] = overlays
 
-		for i, src := range cfg.Overlay.Sources {
-			if !filepath.IsAbs(src) && !files.IsURL(src) {
-				cfg.Overlay.Sources[i] = filepath.Join(setupDir, src)
-			}
+		for i := range cfg.Overlay.Sources {
+			cfg.Overlay.Sources[i] = overlays[i].Path
 		}
 	}
 
@@ -295,8 +297,6 @@ func GenerateService(opts ServiceOptions) error {
 	// Imports only the overlay-application code path needs at runtime.
 	if cfg.Overlay != nil && len(cfg.Overlay.Sources) > 0 {
 		cfg.AdditionalImports = append(cfg.AdditionalImports,
-			codegen.AdditionalImport{Alias: "oapicodegen", Package: "github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"},
-			codegen.AdditionalImport{Alias: "yamlv4", Package: "go.yaml.in/yaml/v4"},
 			codegen.AdditionalImport{Package: "github.com/pb33f/libopenapi"},
 		)
 	}
