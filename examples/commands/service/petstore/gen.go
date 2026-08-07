@@ -1649,6 +1649,13 @@ func WithErrorHandler(h OapiErrorHandler) RouterOption {
 	}
 }
 
+// ServiceErrorHandler answers the failures raised before the service is reached:
+// parameter parsing, body decoding and request validation. Those never return
+// through the service, so no spec-declared error type describes them and
+// error-mapping does not reach them. A service whose API has an error shape of
+// its own replaces this at init.
+var ServiceErrorHandler OapiErrorHandler = &OapiDefaultErrorHandler{}
+
 // NewRouter creates a new chi.Router with the given service implementation.
 func NewRouter(svc ServiceInterface, opts ...RouterOption) chi.Router {
 	cfg := &routerConfig{}
@@ -1791,7 +1798,7 @@ type serviceHandler struct {
 // newServiceHandler creates a new serviceHandler.
 func newServiceHandler(svc ServiceInterface, gen generator.Generate, registry typedef.OperationRegistry) api.Handler {
 	return &serviceHandler{
-		router:   NewRouter(svc),
+		router:   NewRouter(svc, WithErrorHandler(ServiceErrorHandler)),
 		service:  svc,
 		gen:      gen,
 		registry: registry,
