@@ -1,13 +1,13 @@
 module github.com/mockzilla/mockzilla/v2/examples
 
-go 1.25.3
+go 1.25.7
 
 replace github.com/mockzilla/mockzilla/v2 => ../
 
 require (
-	github.com/doordash-oss/oapi-codegen-dd/v3 v3.75.5
+	github.com/doordash-oss/oapi-codegen-dd/v3 v3.75.11
 	github.com/go-chi/chi/v5 v5.2.5
-	github.com/go-playground/validator/v10 v10.30.1
+	github.com/go-playground/validator/v10 v10.30.3
 	github.com/mockzilla/mockzilla/v2 v2.0.0
 )
 
@@ -32,7 +32,7 @@ require (
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lmittmann/tint v1.1.2 // indirect
 	github.com/pb33f/jsonpath v0.8.2 // indirect
-	github.com/pb33f/libopenapi v0.36.5 // indirect
+	github.com/pb33f/libopenapi v0.38.7 // indirect
 	github.com/pb33f/libopenapi-validator v0.13.7 // indirect
 	github.com/pb33f/ordered-map/v2 v2.3.1 // indirect
 	github.com/redis/go-redis/v9 v9.18.0 // indirect
@@ -40,12 +40,12 @@ require (
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	go.yaml.in/yaml/v4 v4.0.0-rc.4 // indirect
-	golang.org/x/crypto v0.48.0 // indirect
-	golang.org/x/mod v0.33.0 // indirect
-	golang.org/x/net v0.50.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
-	golang.org/x/tools v0.42.0 // indirect
+	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
+	golang.org/x/crypto v0.54.0 // indirect
+	golang.org/x/mod v0.38.0 // indirect
+	golang.org/x/net v0.57.0 // indirect
+	golang.org/x/sync v0.22.0 // indirect
+	golang.org/x/sys v0.47.0 // indirect
+	golang.org/x/text v0.40.0 // indirect
+	golang.org/x/tools v0.48.0 // indirect
 )
