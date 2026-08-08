@@ -31,7 +31,8 @@ import (
 //   - fake:path.to.func - Uses a specific faker function by path
 //   - func:name - Calls a registered no-arg function
 //   - func:name:arg - Calls a registered function with one argument
-//   - func:name:arg1,arg2 - Calls a registered function with two arguments (e.g., func:int_between:1,10)
+//   - func:name:arg1,arg2 - Calls a registered function with two arguments
+//     (func:int_between:1,10, func:date_between:-30d,now)
 //   - botify:pattern - Generates random strings based on pattern (? for letter, # for digit)
 //   - join:separator,ns.key1,ns.key2 - Joins values from multiple keys with separator
 //   - request:dotted.path - Takes the value from the incoming request payload

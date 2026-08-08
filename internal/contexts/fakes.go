@@ -3,6 +3,8 @@ package contexts
 import (
 	"reflect"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/jaswdr/faker/v2"
 	"github.com/mockzilla/mockzilla/v2/internal/types"
@@ -78,7 +80,42 @@ func getFakeFuncFactoryWith2Strings() map[string]FakeFuncFactoryWith2Strings {
 				return IntValue(fake.Int64Between(mn, mx))
 			}
 		},
+		// date_between:<from>,<to> renders a date-time between two bounds, each
+		// spelled as "now", an offset from now ("-30d", "12h"), or an absolute
+		// date ("2006-01-02"). The RFC 3339 output matches what the generator
+		// emits for a date-time format field.
+		"date_between": func(fromStr, toStr string) FakeFunc {
+			return func() MixedValue {
+				from, to := parseTimeBound(fromStr), parseTimeBound(toStr)
+				if from.After(to) {
+					from, to = to, from
+				}
+				t := fake.Time().TimeBetween(from, to)
+				return StringValue(t.UTC().Format("2006-01-02T15:04:05.000Z"))
+			}
+		},
 	}
+}
+
+// parseTimeBound reads one bound of date_between. Unreadable input means now,
+// the same shrug int_between gives a value that does not parse. A day unit is
+// handled apart because time.ParseDuration has none.
+func parseTimeBound(s string) time.Time {
+	now := time.Now()
+	if s == "" || s == "now" {
+		return now
+	}
+
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t
+	}
+	if days, err := strconv.Atoi(strings.TrimSuffix(s, "d")); err == nil && strings.HasSuffix(s, "d") {
+		return now.AddDate(0, 0, days)
+	}
+	if d, err := time.ParseDuration(s); err == nil {
+		return now.Add(d)
+	}
+	return now
 }
 
 // getFakes returns a map of fake functions from underlying fake library by
