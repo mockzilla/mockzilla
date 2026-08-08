@@ -5,6 +5,7 @@ package contexts
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/jaswdr/faker/v2"
 	assert2 "github.com/stretchr/testify/assert"
@@ -113,6 +114,7 @@ func TestGetFakeFuncFactoryWith2Strings(t *testing.T) {
 
 	expectedKeys := []string{
 		"int_between",
+		"date_between",
 	}
 	var keys []string
 	for key := range funcs {
@@ -134,6 +136,37 @@ func TestGetFakeFuncFactoryWith2Strings(t *testing.T) {
 		fn := funcs["int_between"]("42", "42")
 		val := fn().Get().(int64)
 		assert.Equal(int64(42), val)
+	})
+
+	t.Run("date_between offset and now", func(t *testing.T) {
+		fn := funcs["date_between"]("-30d", "now")
+		for i := 0; i < 100; i++ {
+			val, err := time.Parse("2006-01-02T15:04:05.000Z", fn().Get().(string))
+			assert.NoError(err)
+			assert.True(val.After(time.Now().AddDate(0, 0, -31)), "%s is older than the window", val)
+			assert.True(val.Before(time.Now().Add(time.Minute)), "%s is in the future", val)
+		}
+	})
+
+	t.Run("date_between absolute dates", func(t *testing.T) {
+		fn := funcs["date_between"]("2024-01-01", "2024-12-31")
+		val, err := time.Parse("2006-01-02T15:04:05.000Z", fn().Get().(string))
+		assert.NoError(err)
+		assert.Equal(2024, val.Year())
+	})
+
+	t.Run("date_between swapped bounds still land inside them", func(t *testing.T) {
+		fn := funcs["date_between"]("now", "-24h")
+		val, err := time.Parse("2006-01-02T15:04:05.000Z", fn().Get().(string))
+		assert.NoError(err)
+		assert.True(val.After(time.Now().Add(-25*time.Hour)), "%s is outside the day", val)
+	})
+
+	t.Run("date_between unreadable bounds mean now", func(t *testing.T) {
+		fn := funcs["date_between"]("nonsense", "also nonsense")
+		val, err := time.Parse("2006-01-02T15:04:05.000Z", fn().Get().(string))
+		assert.NoError(err)
+		assert.WithinDuration(time.Now(), val, time.Minute)
 	})
 }
 
