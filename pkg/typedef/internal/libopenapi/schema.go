@@ -30,6 +30,11 @@ type convertCtx struct {
 	cache    map[string]*schema.Schema
 	depth    map[string]int
 	maxDepth int
+
+	// components resolves a $ref back to the schema it names. A $ref carrying
+	// sibling keys resolves to those siblings alone, not to its target, so the
+	// target has to be looked up by name; see resolveTarget.
+	components *orderedmap.Map[string, *base.SchemaProxy]
 }
 
 func newConvertCtx() *convertCtx {
@@ -38,6 +43,34 @@ func newConvertCtx() *convertCtx {
 		depth:    map[string]int{},
 		maxDepth: defaultMaxRecursionDepth,
 	}
+}
+
+// componentRefPrefix is the only $ref shape this resolves; anything else (a
+// remote or path reference) is left to the proxy's own schema.
+const componentRefPrefix = "#/components/schemas/"
+
+// resolveTarget returns the schema a $ref names, or nil when the reference is
+// not a component this document holds.
+//
+// In OpenAPI 3.1 a $ref may carry sibling keys, which are annotations - the
+// reference still decides the shape. libopenapi hands back only the siblings
+// from such a node, so converting it directly yields a schema with no type and
+// no properties, which then renders as a bare string.
+func (c *convertCtx) resolveTarget(proxy *base.SchemaProxy) *base.Schema {
+	if c == nil || c.components == nil || proxy == nil || !proxy.IsReference() {
+		return nil
+	}
+
+	name, ok := strings.CutPrefix(proxy.GetReference(), componentRefPrefix)
+	if !ok {
+		return nil
+	}
+
+	target, ok := c.components.Get(name)
+	if !ok || target == nil {
+		return nil
+	}
+	return target.Schema()
 }
 
 // schemaIdentity returns a stable cache/depth key for a SchemaProxy +
@@ -65,6 +98,9 @@ func convertProxy(proxy *base.SchemaProxy, ctx *convertCtx) *schema.Schema {
 		return nil
 	}
 	s := proxy.Schema()
+	if target := ctx.resolveTarget(proxy); target != nil {
+		s = target
+	}
 	if s == nil {
 		return nil
 	}
