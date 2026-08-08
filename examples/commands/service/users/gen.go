@@ -177,8 +177,10 @@ func (a *HTTPAdapter) ListUsers(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 	}
 	w.WriteHeader(status)
-	if resp != nil && resp.Body != nil {
-		_ = json.NewEncoder(w).Encode(resp.Body)
+	if resp != nil {
+		if payload := resp.Payload(); payload != nil {
+			_ = json.NewEncoder(w).Encode(payload)
+		}
 	}
 }
 
@@ -223,8 +225,10 @@ func (a *HTTPAdapter) GetUser(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	}
 	w.WriteHeader(status)
-	if resp != nil && resp.Body != nil {
-		_ = json.NewEncoder(w).Encode(resp.Body)
+	if resp != nil {
+		if payload := resp.Payload(); payload != nil {
+			_ = json.NewEncoder(w).Encode(payload)
+		}
 	}
 }
 
@@ -448,8 +452,10 @@ func (a *HTTPAdapter) GetUserAPIData(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/vnd.api+json")
 	}
 	w.WriteHeader(status)
-	if resp != nil && resp.Body != nil {
-		_ = json.NewEncoder(w).Encode(resp.Body)
+	if resp != nil {
+		if payload := resp.Payload(); payload != nil {
+			_ = json.NewEncoder(w).Encode(payload)
+		}
 	}
 }
 
@@ -494,8 +500,10 @@ func (a *HTTPAdapter) GetUserHal(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/hal+json")
 	}
 	w.WriteHeader(status)
-	if resp != nil && resp.Body != nil {
-		_ = json.NewEncoder(w).Encode(resp.Body)
+	if resp != nil {
+		if payload := resp.Payload(); payload != nil {
+			_ = json.NewEncoder(w).Encode(payload)
+		}
 	}
 }
 
@@ -540,8 +548,10 @@ func (a *HTTPAdapter) GetUserProblem(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/problem+json")
 	}
 	w.WriteHeader(status)
-	if resp != nil && resp.Body != nil {
-		_ = json.NewEncoder(w).Encode(resp.Body)
+	if resp != nil {
+		if payload := resp.Payload(); payload != nil {
+			_ = json.NewEncoder(w).Encode(payload)
+		}
 	}
 }
 
@@ -1669,6 +1679,16 @@ func (r *ListUsersResponseData) WithStatus(code int) *ListUsersResponseData {
 	return r
 }
 
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *ListUsersResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
+}
+
 // GetUserResponseData wraps the success response with optional headers and status override.
 type GetUserResponseData struct {
 	Body    *GetUserResponse
@@ -1691,6 +1711,16 @@ func (r *GetUserResponseData) WithHeaders(h http.Header) *GetUserResponseData {
 func (r *GetUserResponseData) WithStatus(code int) *GetUserResponseData {
 	r.Status = code
 	return r
+}
+
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *GetUserResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
 }
 
 // GetUserAvatarResponseData wraps the success response with optional headers and status override.
@@ -1717,6 +1747,16 @@ func (r *GetUserAvatarResponseData) WithStatus(code int) *GetUserAvatarResponseD
 	return r
 }
 
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *GetUserAvatarResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
+}
+
 // GetUserProfileResponseData wraps the success response with optional headers and status override.
 type GetUserProfileResponseData struct {
 	Body    *GetUserProfileResponse
@@ -1739,6 +1779,16 @@ func (r *GetUserProfileResponseData) WithHeaders(h http.Header) *GetUserProfileR
 func (r *GetUserProfileResponseData) WithStatus(code int) *GetUserProfileResponseData {
 	r.Status = code
 	return r
+}
+
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *GetUserProfileResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
 }
 
 // ExportUsersResponseData wraps the success response with optional headers and status override.
@@ -1765,6 +1815,16 @@ func (r *ExportUsersResponseData) WithStatus(code int) *ExportUsersResponseData 
 	return r
 }
 
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *ExportUsersResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
+}
+
 // GetUserConfigResponseData wraps the success response with optional headers and status override.
 type GetUserConfigResponseData struct {
 	Body    []byte
@@ -1787,6 +1847,16 @@ func (r *GetUserConfigResponseData) WithHeaders(h http.Header) *GetUserConfigRes
 func (r *GetUserConfigResponseData) WithStatus(code int) *GetUserConfigResponseData {
 	r.Status = code
 	return r
+}
+
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *GetUserConfigResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
 }
 
 // GetUserAPIDataResponseData wraps the success response with optional headers and status override.
@@ -1813,6 +1883,16 @@ func (r *GetUserAPIDataResponseData) WithStatus(code int) *GetUserAPIDataRespons
 	return r
 }
 
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *GetUserAPIDataResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
+}
+
 // GetUserHalResponseData wraps the success response with optional headers and status override.
 type GetUserHalResponseData struct {
 	Body    *GetUserHalResponse
@@ -1835,6 +1915,16 @@ func (r *GetUserHalResponseData) WithHeaders(h http.Header) *GetUserHalResponseD
 func (r *GetUserHalResponseData) WithStatus(code int) *GetUserHalResponseData {
 	r.Status = code
 	return r
+}
+
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *GetUserHalResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
 }
 
 // GetUserProblemResponseData wraps the success response with optional headers and status override.
@@ -1861,6 +1951,16 @@ func (r *GetUserProblemResponseData) WithStatus(code int) *GetUserProblemRespons
 	return r
 }
 
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *GetUserProblemResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
+}
+
 // StreamUsersResponseData wraps the success response with optional headers and status override.
 type StreamUsersResponseData struct {
 	Body    []byte
@@ -1885,6 +1985,16 @@ func (r *StreamUsersResponseData) WithStatus(code int) *StreamUsersResponseData 
 	return r
 }
 
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *StreamUsersResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
+}
+
 // GetUserPdfResponseData wraps the success response with optional headers and status override.
 type GetUserPdfResponseData struct {
 	Body    []byte
@@ -1907,6 +2017,16 @@ func (r *GetUserPdfResponseData) WithHeaders(h http.Header) *GetUserPdfResponseD
 func (r *GetUserPdfResponseData) WithStatus(code int) *GetUserPdfResponseData {
 	r.Status = code
 	return r
+}
+
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *GetUserPdfResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
 }
 
 type ListUsersResponse []User

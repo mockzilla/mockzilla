@@ -179,8 +179,10 @@ func (a *HTTPAdapter) PostFooBar(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 	}
 	w.WriteHeader(status)
-	if resp != nil && resp.Body != nil {
-		_ = json.NewEncoder(w).Encode(resp.Body)
+	if resp != nil {
+		if payload := resp.Payload(); payload != nil {
+			_ = json.NewEncoder(w).Encode(payload)
+		}
 	}
 }
 
@@ -539,6 +541,16 @@ func (r *PostFooBarResponseData) WithHeaders(h http.Header) *PostFooBarResponseD
 func (r *PostFooBarResponseData) WithStatus(code int) *PostFooBarResponseData {
 	r.Status = code
 	return r
+}
+
+// Payload returns the value to be JSON-encoded as the response body. Override
+// this template to customize the encoded shape (e.g. to wrap it in an envelope)
+// without needing to change the adapter template.
+func (r *PostFooBarResponseData) Payload() any {
+	if r.Body == nil {
+		return nil
+	}
+	return r.Body
 }
 
 type PostFooBarResponse struct {

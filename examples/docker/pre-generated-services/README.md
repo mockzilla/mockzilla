@@ -40,7 +40,7 @@ curl http://localhost:2200/spoonacular/food/jokes/random
 ```go
 module myproject
 
-go 1.23
+go 1.25.7
 
 require github.com/mockzilla/mockzilla/v2 v2.x.x
 ```
