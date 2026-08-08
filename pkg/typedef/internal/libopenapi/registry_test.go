@@ -223,3 +223,34 @@ paths:
 	require.NotNil(t, op.Response.GetSuccess())
 	assert.Equal(t, "text/plain", op.Response.GetSuccess().ContentType)
 }
+
+// componentSchemas backs $ref resolution in convertProxy; specWithRefSiblings
+// (schema_test.go) is the fixture it shares with those cases.
+func TestComponentSchemas(t *testing.T) {
+	t.Run("returns the document's schemas", func(t *testing.T) {
+		reg, err := NewRegistry([]byte(specWithRefSiblings), Options{})
+		require.NoError(t, err)
+
+		components := reg.componentSchemas()
+		require.NotNil(t, components)
+		assert.Equal(t, 3, components.Len())
+
+		for _, name := range []string{"Amount", "Total", "Wrapper"} {
+			_, ok := components.Get(name)
+			assert.True(t, ok, name)
+		}
+	})
+
+	t.Run("nil when the document declares none", func(t *testing.T) {
+		spec := `openapi: 3.1.0
+info: {title: t, version: 1}
+paths: {}`
+		reg, err := NewRegistry([]byte(spec), Options{})
+		require.NoError(t, err)
+		assert.Nil(t, reg.componentSchemas())
+	})
+
+	t.Run("nil without a model", func(t *testing.T) {
+		assert.Nil(t, (&Registry{}).componentSchemas())
+	})
+}

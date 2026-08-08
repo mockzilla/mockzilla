@@ -5,6 +5,7 @@ import (
 
 	"github.com/mockzilla/mockzilla/v2/internal/types"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
+	"github.com/pb33f/libopenapi/datamodel/high/base"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -573,4 +574,118 @@ func TestShortName(t *testing.T) {
 	assert.Equal(t, "Foo", shortName("#/components/schemas/Foo"))
 	assert.Equal(t, "bare", shortName("bare"))
 	assert.Equal(t, "", shortName(""))
+}
+
+// specWithRefSiblings declares one property as a bare $ref and one as a $ref
+// carrying sibling keys, which OpenAPI 3.1 permits as annotations.
+const specWithRefSiblings = `openapi: 3.1.0
+info: {title: t, version: 1}
+paths:
+  /thing:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Wrapper'
+components:
+  schemas:
+    Amount:
+      type: object
+      properties:
+        currency: {type: string}
+        value: {type: integer}
+      required: [currency, value]
+    Total:
+      type: object
+      properties:
+        currency: {type: string}
+        value: {type: integer}
+      required: [currency, value]
+    Wrapper:
+      type: object
+      properties:
+        bare:
+          $ref: '#/components/schemas/Amount'
+        annotated:
+          $ref: '#/components/schemas/Total'
+          description: carries a sibling key
+`
+
+// A $ref with sibling keys resolves to the schema it names, not to the siblings.
+// libopenapi hands back only the sibling node, which would otherwise convert to
+// a typeless schema and render as a bare string.
+func TestConvertProxy_RefWithSiblingsResolvesTarget(t *testing.T) {
+	reg, err := NewRegistry([]byte(specWithRefSiblings), Options{})
+	require.NoError(t, err)
+
+	op := reg.FindOperation("/thing", "GET")
+	require.NotNil(t, op)
+	content := op.Response.GetSuccess().Content
+	require.NotNil(t, content)
+
+	// Each property names a different target: a bare ref converted first would
+	// otherwise populate the cache under that ref and hide the annotated one.
+	for name, want := range map[string]string{"bare": "Amount", "annotated": "Total"} {
+		t.Run(name, func(t *testing.T) {
+			prop, ok := content.Properties[name]
+			require.True(t, ok)
+			assert.Equal(t, "object", prop.Type)
+			assert.Len(t, prop.Properties, 2)
+			assert.Equal(t, want, prop.Name)
+			assert.ElementsMatch(t, []string{"currency", "value"}, prop.Required)
+		})
+	}
+}
+
+func TestResolveTarget(t *testing.T) {
+	reg, err := NewRegistry([]byte(specWithRefSiblings), Options{})
+	require.NoError(t, err)
+
+	components := reg.componentSchemas()
+	require.NotNil(t, components)
+
+	wrapper, ok := components.Get("Wrapper")
+	require.True(t, ok)
+	annotated, ok := wrapper.Schema().Properties.Get("annotated")
+	require.True(t, ok)
+
+	t.Run("resolves a component reference", func(t *testing.T) {
+		ctx := newConvertCtx()
+		ctx.components = components
+
+		target := ctx.resolveTarget(annotated)
+		require.NotNil(t, target)
+		assert.Equal(t, 2, target.Properties.Len())
+	})
+
+	t.Run("nil without components to resolve against", func(t *testing.T) {
+		assert.Nil(t, newConvertCtx().resolveTarget(annotated))
+	})
+
+	t.Run("nil for an inline schema", func(t *testing.T) {
+		ctx := newConvertCtx()
+		ctx.components = components
+
+		amount, ok := components.Get("Amount")
+		require.True(t, ok)
+		inline, ok := amount.Schema().Properties.Get("currency")
+		require.True(t, ok)
+		assert.Nil(t, ctx.resolveTarget(inline))
+	})
+
+	t.Run("nil for a reference this document does not hold", func(t *testing.T) {
+		ctx := newConvertCtx()
+		ctx.components = components
+		assert.Nil(t, ctx.resolveTarget(base.CreateSchemaProxyRef("#/components/schemas/Missing")))
+		assert.Nil(t, ctx.resolveTarget(base.CreateSchemaProxyRef("https://example.test/other.yml#/Thing")))
+	})
+
+	t.Run("nil proxy", func(t *testing.T) {
+		ctx := newConvertCtx()
+		ctx.components = components
+		assert.Nil(t, ctx.resolveTarget(nil))
+	})
 }

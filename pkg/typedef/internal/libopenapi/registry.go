@@ -16,7 +16,9 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/datamodel"
+	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+	"github.com/pb33f/libopenapi/orderedmap"
 )
 
 // Options configures the libopenapi-direct provider.
@@ -132,6 +134,15 @@ func (r *Registry) Document() (libopenapi.Document, error) {
 	return r.doc, nil
 }
 
+// componentSchemas is the document's schema components, or nil when it declares
+// none. convertCtx resolves a $ref against them.
+func (r *Registry) componentSchemas() *orderedmap.Map[string, *base.SchemaProxy] {
+	if r.model == nil || r.model.Components == nil {
+		return nil
+	}
+	return r.model.Components.Schemas
+}
+
 func (r *Registry) buildIndex() {
 	if r.model == nil || r.model.Paths == nil || r.model.Paths.PathItems == nil {
 		return
@@ -182,6 +193,7 @@ func (r *Registry) convertOperation(e *opEntry) *schema.Operation {
 	}
 
 	ctx := newConvertCtx()
+	ctx.components = r.componentSchemas()
 	id := operationID(op, e.method, e.path)
 	id = r.uniqueOperationID(id)
 
