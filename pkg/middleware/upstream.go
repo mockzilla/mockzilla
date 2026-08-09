@@ -108,7 +108,7 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 						histReq := &db.HistoryRequest{
 							Method:     req.Method,
 							URL:        req.URL.String(),
-							Headers:    db.FlattenHeaders(req.Header),
+							Headers:    historyHeaders(req.Header),
 							RemoteAddr: req.RemoteAddr,
 							RequestID:  requestID,
 						}
@@ -237,7 +237,7 @@ func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, cfg *co
 			Method:     req.Method,
 			URL:        req.URL.String(),
 			Body:       bodyBytes,
-			Headers:    db.FlattenHeaders(req.Header),
+			Headers:    historyHeaders(req.Header),
 			RemoteAddr: req.RemoteAddr,
 			RequestID:  GetRequestID(req),
 		}
@@ -271,6 +271,10 @@ func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, cfg *co
 // only the listed headers are kept (all others are removed).
 func cleanUpstreamHeaders(req *http.Request) {
 	allowList := req.Header.Get(headerPrefix + headerUpstreamHeaders)
+
+	if allowList == "" {
+		dropBrowserHeaders(req)
+	}
 
 	if allowList != "" {
 		allowed := parseUpstreamHeadersList(allowList)

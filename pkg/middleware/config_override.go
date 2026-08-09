@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/db"
 )
 
 // Header prefix and names for per-request config overrides.
@@ -31,8 +32,11 @@ const (
 
 const sourceUI = "ui"
 
-// browserHeaders are headers automatically added by browsers that add noise
-// to history and should not be forwarded upstream.
+// browserHeaders are headers a browser adds on its own. They say nothing about
+// the call, so history leaves them out and they are not forwarded upstream. They
+// are not removed from the request: a service whose spec declares one - Accept-
+// Language is a parameter of several published APIs - has to be able to read
+// what the caller sent.
 var browserHeaders = map[string]bool{
 	"Origin":                            true,
 	"Referer":                           true,
@@ -69,25 +73,31 @@ func CreateConfigOverrideMiddleware(params *Params) func(http.Handler) http.Hand
 				req = req.WithContext(ctx)
 			}
 
-			fromUI := req.Header.Get(headerPrefix+headerSource) == sourceUI
-			stripBrowserHeaders(req, fromUI)
+			if req.Header.Get(headerPrefix+headerSource) == sourceUI {
+				req.Header.Del("Authorization")
+			}
 			next.ServeHTTP(w, req)
 		})
 	}
 }
 
-// stripBrowserHeaders removes known browser-injected headers from the request.
-// When the request originates from the UI (detected by the presence of X-Mockzilla-*
-// headers), Authorization is also stripped since it belongs to the UI session,
-// not to the target API.
-func stripBrowserHeaders(req *http.Request, fromUI bool) {
-	for name := range req.Header {
-		canonical := http.CanonicalHeaderKey(name)
-		if browserHeaders[canonical] {
-			req.Header.Del(name)
-			continue
+// historyHeaders is what a request contributes to history: what the caller sent,
+// less the headers a browser added for them.
+func historyHeaders(h http.Header) []string {
+	kept := make(http.Header, len(h))
+	for name, values := range h {
+		if !browserHeaders[http.CanonicalHeaderKey(name)] {
+			kept[name] = values
 		}
-		if fromUI && canonical == "Authorization" {
+	}
+	return db.FlattenHeaders(kept)
+}
+
+// dropBrowserHeaders removes what a browser added from a request about to be
+// forwarded upstream. The caller's own headers are left alone.
+func dropBrowserHeaders(req *http.Request) {
+	for name := range req.Header {
+		if browserHeaders[http.CanonicalHeaderKey(name)] {
 			req.Header.Del(name)
 		}
 	}
