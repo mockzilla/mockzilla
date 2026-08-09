@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -329,7 +330,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		assert.Equal("eyJmb28iOiJiYXIifQ==", capturedHeaders.Get("X-Mockzilla-Context"))
 	})
 
-	t.Run("browser headers are stripped from request", func(t *testing.T) {
+	t.Run("browser headers reach the handler", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{Name: "test"})
 
 		var capturedHeaders http.Header
@@ -342,27 +343,47 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		req.Header.Set("Authorization", "Bearer 123")
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Origin", "http://localhost:2200")
-		req.Header.Set("Referer", "http://localhost:2200/ui")
-		req.Header.Set("Cookie", "session=abc")
-		req.Header.Set("Sec-Fetch-Mode", "cors")
-		req.Header.Set("Sec-Fetch-Site", "same-origin")
-		req.Header.Set("Sec-Ch-Ua", "\"Chromium\";v=\"130\"")
 		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 		w := NewBufferedResponseWriter()
 
 		mw := CreateConfigOverrideMiddleware(params)
 		mw(handler).ServeHTTP(w, req)
 
-		// Authorization is preserved when request is not from UI
+		// A service whose spec declares one has to be able to read it.
 		assert.Equal("Bearer 123", capturedHeaders.Get("Authorization"))
 		assert.Equal("application/json", capturedHeaders.Get("Content-Type"))
-		assert.Empty(capturedHeaders.Get("Origin"))
-		assert.Empty(capturedHeaders.Get("Referer"))
-		assert.Empty(capturedHeaders.Get("Cookie"))
-		assert.Empty(capturedHeaders.Get("Sec-Fetch-Mode"))
-		assert.Empty(capturedHeaders.Get("Sec-Fetch-Site"))
-		assert.Empty(capturedHeaders.Get("Sec-Ch-Ua"))
-		assert.Empty(capturedHeaders.Get("Accept-Language"))
+		assert.Equal("http://localhost:2200", capturedHeaders.Get("Origin"))
+		assert.Equal("en-US,en;q=0.9", capturedHeaders.Get("Accept-Language"))
+	})
+
+	t.Run("browser headers stay out of history", func(t *testing.T) {
+		h := http.Header{}
+		h.Set("Content-Type", "application/json")
+		h.Set("Authorization", "Bearer 123")
+		h.Set("Accept-Language", "en-US,en;q=0.9")
+		h.Set("Sec-Fetch-Mode", "cors")
+		h.Set("Origin", "http://localhost:2200")
+
+		kept := strings.Join(historyHeaders(h), "\n")
+
+		assert.Contains(kept, "Content-Type")
+		assert.Contains(kept, "Authorization")
+		assert.NotContains(kept, "Accept-Language")
+		assert.NotContains(kept, "Sec-Fetch-Mode")
+		assert.NotContains(kept, "Origin")
+	})
+
+	t.Run("browser headers are not forwarded upstream", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/test", nil)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+		req.Header.Set("Sec-Fetch-Mode", "cors")
+
+		cleanUpstreamHeaders(req)
+
+		assert.Equal("application/json", req.Header.Get("Content-Type"))
+		assert.Empty(req.Header.Get("Accept-Language"))
+		assert.Empty(req.Header.Get("Sec-Fetch-Mode"))
 	})
 
 	t.Run("Authorization is stripped when request comes from UI", func(t *testing.T) {
@@ -384,8 +405,10 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		mw := CreateConfigOverrideMiddleware(params)
 		mw(handler).ServeHTTP(w, req)
 
+		// The UI's own credential is not the target API's, so it does not reach it.
+		// Everything else the browser sent does; it is only noise to history.
 		assert.Empty(capturedHeaders.Get("Authorization"))
-		assert.Empty(capturedHeaders.Get("Origin"))
+		assert.Equal("http://localhost:2200", capturedHeaders.Get("Origin"))
 		assert.Equal("application/json", capturedHeaders.Get("Content-Type"))
 		assert.Equal("ui", capturedHeaders.Get("X-Mockzilla-Source"))
 	})

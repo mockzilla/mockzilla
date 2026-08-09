@@ -48,7 +48,7 @@ func CreateCacheWriteMiddleware(params *Params) func(http.Handler) http.Handler 
 					Method:     req.Method,
 					URL:        req.URL.String(),
 					Body:       requestBody,
-					Headers:    db.FlattenHeaders(req.Header),
+					Headers:    historyHeaders(req.Header),
 					RemoteAddr: req.RemoteAddr,
 					RequestID:  requestID,
 				}
