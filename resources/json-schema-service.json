@@ -148,6 +148,11 @@
           "description": "Enable spec simplification.",
           "default": false
         },
+        "compress": {
+          "type": "boolean",
+          "description": "Embed the OpenAPI spec gzipped instead of verbatim. Shrinks the generated binary; requires the generated setup/spec.gz to be committed alongside the generated code.",
+          "default": false
+        },
         "optional-properties": {
           "type": "object",
           "description": "Controls how many optional properties to keep. When not set, all optional properties are kept.",

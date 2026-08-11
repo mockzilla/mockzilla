@@ -10,7 +10,6 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
-	"path"
 
 	"sync"
 
@@ -196,7 +195,7 @@ func RegisterAPIRouter(router *api.Router) {
 	serviceName := cfg.Name
 
 	// Read OpenAPI spec from embedded FS
-	openapiSpec, err := readFirstEmbeddedFile(openapiSpecFS)
+	openapiSpec, err := api.ReadEmbeddedSpec(openapiSpecFS)
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed to read OpenAPI spec for %s", serviceName),
 			"error", err,
@@ -207,6 +206,9 @@ func RegisterAPIRouter(router *api.Router) {
 
 	registry, err := typedef.NewRegistry(openapiSpec, typedef.RegistryOptions{
 		SpecOptions: cfg.SpecOptions,
+		// The served request path reads converted operations only, so the
+		// parsed document does not need to stay resident.
+		ReleaseDocument: true,
 	})
 	if err != nil {
 		slog.Error(fmt.Sprintf("Failed to create registry for %s", serviceName),
@@ -241,20 +243,6 @@ func RegisterAPIRouter(router *api.Router) {
 	slog.Info(fmt.Sprintf("Registered %s service", serviceName),
 		"service", serviceName,
 	)
-}
-
-// readFirstEmbeddedFile reads the first file from an embedded filesystem.
-func readFirstEmbeddedFile(fsys embed.FS) ([]byte, error) {
-	entries, err := fsys.ReadDir("setup")
-	if err != nil {
-		return nil, fmt.Errorf("reading embedded directory: %w", err)
-	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			return fsys.ReadFile(path.Join("setup", entry.Name()))
-		}
-	}
-	return nil, errors.New("no file found in embedded filesystem")
 }
 
 // ============================================================================
@@ -343,7 +331,7 @@ var (
 // spec options, and context.
 // Use it to generate mock requests and responses programmatically without running the server.
 func NewFactory(opts ...factory.FactoryOption) (*factory.Factory, error) {
-	openapiSpec, err := readFirstEmbeddedFile(openapiSpecFS)
+	openapiSpec, err := api.ReadEmbeddedSpec(openapiSpecFS)
 	if err != nil {
 		return nil, err
 	}

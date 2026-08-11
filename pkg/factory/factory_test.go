@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
+	"github.com/pb33f/libopenapi"
 	assert2 "github.com/stretchr/testify/assert"
 )
 
@@ -110,6 +112,38 @@ func TestFactory_Document(t *testing.T) {
 		assert.NoError(err)
 		assert.NotNil(doc)
 	})
+
+	t.Run("re-parses when the registry released its document", func(t *testing.T) {
+		spec := loadTestSpec(t, "factory-test.yml")
+		f, err := NewFactory(spec)
+		assert.NoError(err)
+		f.registry = releasedRegistry{f.registry}
+
+		doc, err := f.Document()
+		assert.NoError(err)
+		assert.NotNil(doc)
+	})
+
+	t.Run("re-parses through the custom logger when the document was released", func(t *testing.T) {
+		spec := loadTestSpec(t, "factory-test.yml")
+		f, err := NewFactory(spec, WithLogger(slog.Default()))
+		assert.NoError(err)
+		f.registry = releasedRegistry{f.registry}
+
+		doc, err := f.Document()
+		assert.NoError(err)
+		assert.NotNil(doc)
+	})
+}
+
+// releasedRegistry stands in for a registry built with ReleaseDocument, whose
+// Document reports the parsed document is gone.
+type releasedRegistry struct {
+	typedef.OperationRegistry
+}
+
+func (releasedRegistry) Document() (libopenapi.Document, error) {
+	return nil, typedef.ErrDocumentReleased
 }
 
 func TestFactory_Response(t *testing.T) {

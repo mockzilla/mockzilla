@@ -45,6 +45,31 @@ cache:
 		assert.True(t, cfg.Cache.Requests)
 	})
 
+	t.Run("Parses spec compression opt-in", func(t *testing.T) {
+		yamlData := []byte(`
+spec:
+  simplify: false
+  compress: true
+`)
+
+		cfg, err := NewServiceConfigFromBytes(yamlData)
+		assert.NoError(t, err)
+		assert.NotNil(t, cfg.SpecOptions)
+		assert.True(t, cfg.SpecOptions.Compress)
+	})
+
+	t.Run("Leaves spec compression off when unset", func(t *testing.T) {
+		yamlData := []byte(`
+spec:
+  simplify: true
+`)
+
+		cfg, err := NewServiceConfigFromBytes(yamlData)
+		assert.NoError(t, err)
+		assert.NotNil(t, cfg.SpecOptions)
+		assert.False(t, cfg.SpecOptions.Compress)
+	})
+
 	t.Run("Returns error for invalid YAML", func(t *testing.T) {
 		yamlData := []byte(`invalid: yaml: data: [`)
 

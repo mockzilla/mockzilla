@@ -8,6 +8,9 @@ cache:
   requests: true
 spec:
   simplify: false
+  # compress: true embeds the spec gzipped and writes setup/spec.gz, which then
+  # has to be committed with the generated code
+  compress: false
   # optional-properties not set = keep all optional properties
   # optional-properties:
   #   min: 5

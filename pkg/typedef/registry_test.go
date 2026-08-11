@@ -44,6 +44,23 @@ func TestNewRegistry_ForwardsAndImplementsInterfaces(t *testing.T) {
 	require.NotNil(t, doc)
 }
 
+func TestNewRegistry_ForwardsReleaseDocument(t *testing.T) {
+	reg, err := NewRegistry([]byte(minimalSpec), RegistryOptions{
+		SpecOptions:     &config.SpecOptions{LazyLoad: false},
+		ReleaseDocument: true,
+	})
+	require.NoError(t, err)
+
+	op := reg.FindOperation("/pets", "GET")
+	require.NotNil(t, op, "releasing the document must not lose converted operations")
+	assert.Equal(t, "listPets", op.ID)
+
+	dp, ok := reg.(DocumentProvider)
+	require.True(t, ok)
+	_, err = dp.Document()
+	require.ErrorIs(t, err, ErrDocumentReleased)
+}
+
 func TestNewRegistry_RejectsInvalidSpec(t *testing.T) {
 	_, err := NewRegistry([]byte("this: is: not: valid: openapi"), RegistryOptions{})
 	require.Error(t, err)

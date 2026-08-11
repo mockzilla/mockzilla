@@ -138,6 +138,7 @@ replay:
 # OpenAPI spec simplification
 spec:
   simplify: false
+  compress: false
   # optional-properties not set = keep all optional properties
   # optional-properties:
   #   min: 5
@@ -254,6 +255,29 @@ spec:
 
 When `optional-properties` is not set, all optional properties are kept.
 This helps with specs that have schemas with many optional fields.
+
+## Spec Compression
+
+A generated service embeds its OpenAPI spec so it can produce mock data at
+runtime. Set `compress` to embed that spec gzipped instead of verbatim:
+
+```yaml
+spec:
+  compress: true   # default: false
+```
+
+This shrinks the generated binary, typically to around a tenth of the embedded
+spec's size, and costs a few milliseconds at startup to expand.
+
+It is off by default because `//go:embed` resolves at compile time, so the
+compressed spec is a build input rather than a build output. With `compress`
+enabled, `mockzilla service generate` writes `setup/spec.gz` next to your
+`setup/openapi.yml`, and that file has to be committed along with the generated
+code: `go build` fails without it. The plain spec stays on disk for reading and
+regeneration but is no longer embedded.
+
+Turn it on for a project where binary size matters more than keeping a binary
+file out of version control. Existing services are unaffected until regenerated.
 
 ## Upstream Proxy
 

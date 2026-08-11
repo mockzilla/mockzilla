@@ -120,8 +120,11 @@ func NewFactory(specBytes []byte, opts ...FactoryOption) (*Factory, error) {
 func (f *Factory) Document() (libopenapi.Document, error) {
 	f.docOnce.Do(func() {
 		if dp, ok := f.registry.(typedef.DocumentProvider); ok {
-			f.doc, f.docErr = dp.Document()
-			return
+			// A registry that released its document falls through and re-parses.
+			if doc, err := dp.Document(); err == nil && doc != nil {
+				f.doc = doc
+				return
+			}
 		}
 		if f.logger != nil {
 			cfg := datamodel.NewDocumentConfiguration()

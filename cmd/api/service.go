@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"compress/gzip"
 	"embed"
 	"fmt"
 	"io/fs"
@@ -167,7 +168,8 @@ func GenerateService(opts ServiceOptions) error {
 		return fmt.Errorf("reading spec file: %w", err)
 	}
 
-	// If spec was fetched from URL, save it locally for //go:embed to work
+	// If spec was fetched from URL, save it locally so it stays alongside the
+	// service for regeneration and review
 	if files.IsURL(specFile) {
 		specExt := ".yml"
 		if files.IsJsonType(specContents) {
@@ -219,6 +221,19 @@ func GenerateService(opts ServiceOptions) error {
 	serviceCfg, err := config.NewServiceConfigFromBytes(serviceCfgContents)
 	if err != nil {
 		return fmt.Errorf("parsing service config: %w", err)
+	}
+
+	// Only the generated handler embeds the spec, and only it reads the flag.
+	compressSpec := serviceCfg.SpecOptions != nil && serviceCfg.SpecOptions.Compress &&
+		cfg.Generate != nil && cfg.Generate.Handler != nil
+	if compressSpec {
+		if err := writeCompressedSpec(setupDir, specContents); err != nil {
+			return err
+		}
+		if cfg.UserContext == nil {
+			cfg.UserContext = make(map[string]any)
+		}
+		cfg.UserContext["CompressedSpec"] = true
 	}
 
 	// Parse OpenAPI spec
@@ -682,6 +697,27 @@ func handleSetupSourceSpec(opts ServiceOptions, setupDir, serviceName, serviceTy
 
 	if !opts.Quiet {
 		fmt.Printf("Copied spec file to: %s\n", specPath)
+	}
+	return nil
+}
+
+// writeCompressedSpec writes the gzipped spec the generated service embeds.
+func writeCompressedSpec(setupDir string, specContents []byte) error {
+	var buf bytes.Buffer
+	zw, err := gzip.NewWriterLevel(&buf, gzip.BestCompression)
+	if err != nil {
+		return fmt.Errorf("creating gzip writer: %w", err)
+	}
+	if _, err := zw.Write(specContents); err != nil {
+		return fmt.Errorf("compressing spec: %w", err)
+	}
+	if err := zw.Close(); err != nil {
+		return fmt.Errorf("closing gzip writer: %w", err)
+	}
+
+	dest := filepath.Join(setupDir, "spec.gz")
+	if err := os.WriteFile(dest, buf.Bytes(), 0644); err != nil {
+		return fmt.Errorf("writing compressed spec to %s: %w", dest, err)
 	}
 	return nil
 }
