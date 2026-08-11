@@ -25,12 +25,19 @@ import (
 type Options struct {
 	SpecOptions *config.SpecOptions
 	Logger      *slog.Logger
+
+	// ReleaseDocument drops the parsed document and v3 model once every
+	// operation is converted, trading [Registry.Document] for the memory they
+	// pin for the process lifetime. Ignored unless SpecOptions disables
+	// LazyLoad, since a later conversion would need the model back.
+	ReleaseDocument bool
 }
 
 // Registry is the libopenapi-backed runtime registry.
 type Registry struct {
-	doc   libopenapi.Document
-	model *v3.Document
+	doc      libopenapi.Document
+	model    *v3.Document
+	released bool
 
 	routes          []schema.RouteInfo
 	index           map[string]*opEntry
@@ -87,6 +94,9 @@ func NewRegistry(specBytes []byte, opts Options) (*Registry, error) {
 		for _, e := range reg.index {
 			reg.convertEntry(e)
 		}
+		if opts.ReleaseDocument {
+			reg.release()
+		}
 	}
 
 	return reg, nil
@@ -130,8 +140,25 @@ func (r *Registry) GetResponseSchema(path, method string) *schema.ResponseSchema
 
 // Document returns the parsed libopenapi document so callers (like
 // pkg/factory) can hand it to the libopenapi-validator without re-parsing.
+// It errors when the document was released, so callers re-parse rather than
+// silently treating a nil document as a spec that declares nothing.
 func (r *Registry) Document() (libopenapi.Document, error) {
+	if r.released {
+		return nil, ErrDocumentReleased
+	}
 	return r.doc, nil
+}
+
+// release drops every reference into libopenapi once conversion is done.
+// opEntry.op has to go too: the index would otherwise keep the whole v3 model
+// reachable and free nothing.
+func (r *Registry) release() {
+	for _, e := range r.index {
+		e.op = nil
+	}
+	r.doc = nil
+	r.model = nil
+	r.released = true
 }
 
 // componentSchemas is the document's schema components, or nil when it declares

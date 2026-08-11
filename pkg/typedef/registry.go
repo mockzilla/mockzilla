@@ -30,13 +30,20 @@ type DocumentProvider interface {
 type RegistryOptions struct {
 	SpecOptions *config.SpecOptions
 	Logger      *slog.Logger
+
+	// ReleaseDocument drops the parsed document and v3 model once every
+	// operation is converted. Generated services set it because their request
+	// path reads only converted operations; portable mode does not, because its
+	// validator needs the document. Ignored unless LazyLoad is off.
+	ReleaseDocument bool
 }
 
 // NewRegistry parses an OpenAPI spec and returns an OperationRegistry.
 func NewRegistry(specBytes []byte, opts RegistryOptions) (OperationRegistry, error) {
 	return libopenapi.NewRegistry(specBytes, libopenapi.Options{
-		SpecOptions: opts.SpecOptions,
-		Logger:      opts.Logger,
+		SpecOptions:     opts.SpecOptions,
+		Logger:          opts.Logger,
+		ReleaseDocument: opts.ReleaseDocument,
 	})
 }
 

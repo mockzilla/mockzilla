@@ -720,8 +720,13 @@ func NewCacheConfig() *CacheConfig {
 //	    min: 2        # Keep random number between 2-8 optional properties
 //	    max: 8
 type SpecOptions struct {
-	LazyLoad           bool                `yaml:"lazyLoad"`
-	Simplify           bool                `yaml:"simplify"`
+	LazyLoad bool `yaml:"lazyLoad"`
+	Simplify bool `yaml:"simplify"`
+
+	// Compress embeds the spec gzipped instead of verbatim, shrinking the
+	// binary at the cost of a generated setup/spec.gz that has to be committed
+	// alongside the generated code, since //go:embed resolves at compile time.
+	Compress           bool                `yaml:"compress"`
 	OptionalProperties *OptionalProperties `yaml:"optional-properties"`
 }
 

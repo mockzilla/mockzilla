@@ -74,6 +74,45 @@ func TestNewRegistry_EagerPreConvertsAll(t *testing.T) {
 	assert.Len(t, reg.Operations(), 3, "eager mode pre-converts every op")
 }
 
+func TestNewRegistry_ReleaseDocumentKeepsOperations(t *testing.T) {
+	spec := readSpec(t, filepath.Join("..", "..", "..", "..", "internal", "portable", "testdata", "petstore.yml"))
+
+	reg, err := NewRegistry(spec, Options{
+		SpecOptions:     &config.SpecOptions{LazyLoad: false},
+		ReleaseDocument: true,
+	})
+	require.NoError(t, err)
+
+	assert.Len(t, reg.Operations(), 3)
+	assert.Len(t, reg.GetRouteInfo(), 3)
+	require.NotNil(t, reg.FindOperation("/pets", "GET"))
+	require.NotNil(t, reg.GetResponseSchema("/pets", "GET"))
+
+	assert.Nil(t, reg.model)
+	assert.Nil(t, reg.doc)
+	for key, e := range reg.index {
+		assert.Nil(t, e.op, "index entry %s still pins the v3 model", key)
+	}
+
+	_, err = reg.Document()
+	require.ErrorIs(t, err, ErrDocumentReleased)
+}
+
+func TestNewRegistry_ReleaseDocumentIgnoredWhenLazy(t *testing.T) {
+	spec := readSpec(t, filepath.Join("..", "..", "..", "..", "internal", "portable", "testdata", "petstore.yml"))
+
+	reg, err := NewRegistry(spec, Options{
+		SpecOptions:     &config.SpecOptions{LazyLoad: true},
+		ReleaseDocument: true,
+	})
+	require.NoError(t, err)
+
+	doc, err := reg.Document()
+	require.NoError(t, err)
+	require.NotNil(t, doc, "lazy conversion still needs the document")
+	require.NotNil(t, reg.FindOperation("/pets", "GET"))
+}
+
 func TestNewRegistry_MissingOperationReturnsNil(t *testing.T) {
 	spec := readSpec(t, filepath.Join("..", "..", "..", "..", "internal", "portable", "testdata", "petstore.yml"))
 

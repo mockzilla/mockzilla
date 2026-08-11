@@ -51,7 +51,9 @@ The command creates a service directory with this structure:
 │   ├── codegen.yml      # Code generation settings
 │   ├── config.yml       # Service runtime configuration
 │   ├── context.yml      # Context variables for response generation
-│   └── openapi.yml      # OpenAPI spec (only if local path was provided)
+│   ├── openapi.yml      # OpenAPI spec (only if local path was provided)
+│   └── spec.gz          # Gzipped spec, embedded in place of the plain one
+│                        # (only when spec.compress is enabled; commit it)
 ├── types/               # Generated Go types
 ├── handler/             # Generated request handlers
 ├── register.go          # Service registration
