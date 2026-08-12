@@ -317,7 +317,12 @@ func GenerateService(opts ServiceOptions) error {
 	}
 
 	// Step 1: Generate code with oapi-codegen
-	generatedCode, err := codegen.Generate(specContents, cfg)
+	genSpec, err := inlineMultipartBodies(specContents)
+	if err != nil {
+		return err
+	}
+
+	generatedCode, err := codegen.Generate(genSpec, cfg)
 	if err != nil {
 		return fmt.Errorf("oapi-codegen generate: %w", err)
 	}
