@@ -1,0 +1,85 @@
+openapi: 3.0.3
+info:
+  title: multipart body binding
+  version: "1"
+paths:
+  /inline:
+    post:
+      operationId: upload_inline
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                kind:
+                  type: string
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: created
+  /referenced:
+    post:
+      operationId: upload_referenced
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/flat_uploader'
+      responses:
+        "201":
+          description: created
+  /composed:
+    post:
+      operationId: upload_composed
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/composed_uploader'
+      responses:
+        "201":
+          description: created
+  /wrapped:
+    post:
+      operationId: upload_wrapped
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/flat_uploader'
+      responses:
+        "201":
+          description: created
+components:
+  schemas:
+    flat_uploader:
+      type: object
+      properties:
+        kind:
+          type: string
+        file:
+          type: string
+          format: binary
+    uploader_shared:
+      type: object
+      properties:
+        kind:
+          type: string
+    uploader_request:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+    composed_uploader:
+      allOf:
+        - $ref: '#/components/schemas/uploader_shared'
+        - $ref: '#/components/schemas/uploader_request'

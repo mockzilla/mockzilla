@@ -5,11 +5,52 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGenerateServiceBindsMultipartBody(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, GenerateService(ServiceOptions{
+		Name:      "multipart",
+		OutputDir: dir,
+		SpecPath:  filepath.Join("testdata", "multipart_body.yml"),
+		Quiet:     true,
+	}))
+
+	gen, err := os.ReadFile(filepath.Join(dir, "multipart", "gen.go"))
+	require.NoError(t, err)
+
+	for _, tc := range []struct {
+		name    string
+		handler string
+	}{
+		{"inline properties", "UploadInline"},
+		{"referenced schema", "UploadReferenced"},
+		{"allOf-composed schema", "UploadComposed"},
+		{"allOf-wrapped reference", "UploadWrapped"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := multipartHandlerBody(t, string(gen), tc.handler)
+			assert.Contains(t, body, "body.Kind", "form value is never bound to the body struct")
+			assert.Contains(t, body, "body.File", "uploaded file is never bound to the body struct")
+		})
+	}
+}
+
+// multipartHandlerBody returns the generated adapter method for handler, from
+// ParseMultipartForm to the point the body is handed to the service.
+func multipartHandlerBody(t *testing.T, gen, handler string) string {
+	t.Helper()
+
+	re := regexp.MustCompile(`(?s)OperationID: "` + handler + `".*?opts\.Body = &body`)
+	match := re.FindString(gen)
+	require.NotEmpty(t, match, "no multipart adapter generated for %s", handler)
+	return match
+}
 
 func TestWriteCompressedSpec(t *testing.T) {
 	spec := []byte("openapi: 3.0.0\ninfo:\n  title: t\n  version: 1\npaths: {}\n")
