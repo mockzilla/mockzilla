@@ -16,8 +16,9 @@ func CreateCacheReadMiddleware(params *Params) func(http.Handler) http.Handler {
 				return
 			}
 
-			// Check if it is GET request
-			if req.Method != http.MethodGet || !cfg.Cache.Requests {
+			// The cache is the history table, so recording off means nothing can
+			// populate it and the lookup is a guaranteed miss on the request path.
+			if req.Method != http.MethodGet || !cfg.Cache.Requests || !cfg.HistoryEnabled() {
 				next.ServeHTTP(w, req)
 				return
 			}

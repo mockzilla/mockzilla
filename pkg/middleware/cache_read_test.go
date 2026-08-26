@@ -126,6 +126,39 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 		assert.Equal("fresh", string(w.buf))
 	})
 
+	t.Run("history off ignores a populated cache", func(t *testing.T) {
+		disabled := false
+		params := newTestParams(&config.ServiceConfig{
+			Name: "foo",
+			Cache: &config.CacheConfig{
+				Requests: true,
+			},
+			History: &config.HistoryConfig{
+				Enabled: &disabled,
+			},
+		})
+
+		resp := &db.HistoryResponse{
+			Body:        []byte("cached"),
+			StatusCode:  http.StatusOK,
+			ContentType: "application/json",
+		}
+		params.DB().History().Set(context.Background(), "/foo/bar", &db.HistoryRequest{
+			Method: http.MethodGet,
+			URL:    "/foo/bar",
+		}, resp)
+
+		mw := CreateCacheReadMiddleware(params)
+		assert.NotNil(mw)
+
+		w := NewBufferedResponseWriter()
+		req := httptest.NewRequest(http.MethodGet, "/foo/bar", nil)
+
+		mw(handler).ServeHTTP(w, req)
+
+		assert.Equal("fresh", string(w.buf))
+	})
+
 	t.Run("restores content-type from cache", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "service",
