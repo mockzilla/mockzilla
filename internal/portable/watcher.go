@@ -188,7 +188,7 @@ func matchServices(eventPath string, dirToServices map[string][]string) []string
 	base := filepath.Base(eventPath)
 	// Shared signals apply to every service sharing the dir. Checked
 	// before isSpecFile because context.yml/config.yml are also `.yml`.
-	if base == configFile || base == contextFile {
+	if isReservedName(base) {
 		return candidates
 	}
 

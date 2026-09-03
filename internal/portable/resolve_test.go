@@ -69,6 +69,30 @@ func TestFindSpecInDir(t *testing.T) {
 		assert.Equal(t, filepath.Join(dir, "stripe.yml"), findSpecInDir(dir))
 	})
 
+	t.Run("skips codegen.yml, which sorts before openapi.yml", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "codegen.yml"), []byte("filter:\n  include:\n    paths:\n      - /v1/customers"), 0o644))
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "openapi.yml"), []byte("openapi: 3.0.0"), 0o644))
+
+		assert.Equal(t, filepath.Join(dir, "openapi.yml"), findSpecInDir(dir))
+	})
+
+	t.Run("codegen.yml alone is not a spec", func(t *testing.T) {
+		dir := t.TempDir()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, "codegen.yml"), []byte("filter: {}"), 0o644))
+		assert.Empty(t, findSpecInDir(dir))
+	})
+
+	t.Run("reserved names are skipped in every spec extension", func(t *testing.T) {
+		for _, name := range []string{"codegen.yaml", "config.yaml", "context.yaml", "app.yaml", "index.yaml"} {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte("x: 1"), 0o644))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "openapi.yml"), []byte("openapi: 3.0.0"), 0o644))
+
+			assert.Equal(t, filepath.Join(dir, "openapi.yml"), findSpecInDir(dir), name)
+		}
+	})
+
 	t.Run("picks alphabetically first of multiple candidates", func(t *testing.T) {
 		dir := t.TempDir()
 		require.NoError(t, os.WriteFile(filepath.Join(dir, "z-other.yml"), []byte("openapi: 3.0.0"), 0o644))

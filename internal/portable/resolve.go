@@ -470,10 +470,6 @@ func writeTempSpec(name string, body []byte) (string, error) {
 	return path, nil
 }
 
-// findAllSpecsInDir returns every top-level non-reserved spec file in the dir,
-// sorted alphabetically. Reserved names (config.yml, context.yml, app.yml,
-// `index.<ext>`) are excluded.
-
 // inferServiceName picks a name for a single-folder invocation. In order:
 //  1. The `name:` field of a top-level config.yml.
 //  2. The basename of a single non-generic spec file (anything but `openapi.*`).
@@ -530,6 +526,10 @@ func readConfigName(dir string) string {
 	return probe.Name
 }
 
+// findAllSpecsInDir returns every top-level non-reserved spec file in the dir,
+// sorted alphabetically. Reserved names (config, context, app, codegen, index)
+// are excluded in every spec extension, so `codegen.yaml` is skipped the same
+// way `codegen.yml` is.
 func findAllSpecsInDir(dir string) []string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -542,11 +542,7 @@ func findAllSpecsInDir(dir string) []string {
 			continue
 		}
 		name := e.Name()
-		if name == configFile || name == contextFile || name == appFile {
-			continue
-		}
-		stem := strings.TrimSuffix(name, filepath.Ext(name))
-		if stem == "index" {
+		if isReservedName(name) {
 			continue
 		}
 		if !isSpecFile(name) {
@@ -557,6 +553,18 @@ func findAllSpecsInDir(dir string) []string {
 
 	sort.Strings(candidates)
 	return candidates
+}
+
+// isReservedName reports whether a file is one the loader owns rather than a
+// spec to serve. Matched on the stem, because every reserved name is also a
+// legal spec extension: a `codegen.yaml` next to an `openapi.yml` would
+// otherwise sort first and be served as the spec.
+func isReservedName(name string) bool {
+	switch strings.TrimSuffix(name, filepath.Ext(name)) {
+	case "config", "context", "app", "codegen", "index":
+		return true
+	}
+	return false
 }
 
 // findSpecInDir returns the path to a single canonical OpenAPI spec
