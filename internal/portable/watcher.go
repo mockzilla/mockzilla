@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/mockzilla/mockzilla/v2/internal/files"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/factory"
 	validator "github.com/pb33f/libopenapi-validator"
@@ -188,11 +189,11 @@ func matchServices(eventPath string, dirToServices map[string][]string) []string
 	base := filepath.Base(eventPath)
 	// Shared signals apply to every service sharing the dir. Checked
 	// before isSpecFile because context.yml/config.yml are also `.yml`.
-	if isReservedName(base) {
+	if files.IsReservedName(base) {
 		return candidates
 	}
 
-	if isSpecFile(base) {
+	if files.IsSpec(base) {
 		stem := serviceNameFromFile(base)
 		for _, n := range candidates {
 			if n == stem {
@@ -236,7 +237,7 @@ func isReloadEvent(event fsnotify.Event) bool {
 	if base == configFile || base == contextFile {
 		return true
 	}
-	if isSpecFile(base) {
+	if files.IsSpec(base) {
 		return true
 	}
 	// Any file with an extension inside the service folder might be a

@@ -11,12 +11,13 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 
 	cmdapi "github.com/mockzilla/mockzilla/v2/cmd/api"
 	"github.com/mockzilla/mockzilla/v2/pkg/pack"
 	"go.yaml.in/yaml/v4"
+
+	"github.com/mockzilla/mockzilla/v2/internal/files"
 )
 
 // Service is one discovered unit of work for portable mode. The folder name is
@@ -35,14 +36,12 @@ const (
 	servicesDir = "services"
 )
 
-var specExts = []string{".yml", ".yaml", ".json"}
-
 // isPortableArg returns true if arg looks like something portable mode
 // can serve: a spec, a URL, a package, a recognised directory shape,
 // or any single static-content file (.json/.html/.txt/.xml/.yml/...)
 // that we can fall back to serving at `GET /`.
 func isPortableArg(arg string) bool {
-	if isURL(arg) || isSpecFile(arg) || isPackageFile(arg) {
+	if isURL(arg) || files.IsSpec(arg) || isPackageFile(arg) {
 		return true
 	}
 
@@ -137,7 +136,7 @@ func resolveOne(arg string) ([]Service, error) {
 		return resolveDir(dir)
 	}
 
-	if isSpecFile(arg) {
+	if files.IsSpec(arg) {
 		data, err := os.ReadFile(arg)
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", arg, err)
@@ -183,7 +182,7 @@ func resolveDir(dir string) ([]Service, error) {
 	}
 
 	hasConfigFile := fileExists(filepath.Join(dir, configFile))
-	specs := findAllSpecsInDir(dir)
+	specs := files.FindSpecs(dir)
 
 	if isImplicitServicesRoot(dir, hasConfigFile, specs) {
 		return resolveServicesRoot(dir)
@@ -486,7 +485,7 @@ func inferServiceName(dir string, hasConfigFile bool) string {
 			return name
 		}
 	}
-	for _, spec := range findAllSpecsInDir(dir) {
+	for _, spec := range files.FindSpecs(dir) {
 		base := filepath.Base(spec)
 		stem := strings.TrimSuffix(base, filepath.Ext(base))
 		if strings.EqualFold(stem, "openapi") {
@@ -526,53 +525,12 @@ func readConfigName(dir string) string {
 	return probe.Name
 }
 
-// findAllSpecsInDir returns every top-level non-reserved spec file in the dir,
-// sorted alphabetically. Reserved names (config, context, app, codegen, index)
-// are excluded in every spec extension, so `codegen.yaml` is skipped the same
-// way `codegen.yml` is.
-func findAllSpecsInDir(dir string) []string {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-	var candidates []string
-
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if isReservedName(name) {
-			continue
-		}
-		if !isSpecFile(name) {
-			continue
-		}
-		candidates = append(candidates, filepath.Join(dir, name))
-	}
-
-	sort.Strings(candidates)
-	return candidates
-}
-
-// isReservedName reports whether a file is one the loader owns rather than a
-// spec to serve. Matched on the stem, because every reserved name is also a
-// legal spec extension: a `codegen.yaml` next to an `openapi.yml` would
-// otherwise sort first and be served as the spec.
-func isReservedName(name string) bool {
-	switch strings.TrimSuffix(name, filepath.Ext(name)) {
-	case "config", "context", "app", "codegen", "index":
-		return true
-	}
-	return false
-}
-
 // findSpecInDir returns the path to a single canonical OpenAPI spec
 // inside a service folder, or empty string if none is present. When
 // multiple candidates exist, the alphabetically first one wins and
 // the others are logged so the user can disambiguate.
 func findSpecInDir(dir string) string {
-	candidates := findAllSpecsInDir(dir)
+	candidates := files.FindSpecs(dir)
 	if len(candidates) == 0 {
 		return ""
 	}
@@ -587,16 +545,6 @@ func findSpecInDir(dir string) string {
 func dirHasServicesRoot(dir string) bool {
 	info, err := os.Stat(filepath.Join(dir, servicesDir))
 	return err == nil && info.IsDir()
-}
-
-func isSpecFile(name string) bool {
-	ext := strings.ToLower(filepath.Ext(name))
-	for _, e := range specExts {
-		if ext == e {
-			return true
-		}
-	}
-	return false
 }
 
 func isPackageFile(name string) bool {
@@ -614,7 +562,7 @@ func fileExists(path string) bool {
 
 func serviceNameFromFile(path string) string {
 	base := filepath.Base(path)
-	for _, ext := range specExts {
+	for _, ext := range files.SpecExts {
 		if strings.HasSuffix(strings.ToLower(base), ext) {
 			return strings.TrimSuffix(base, base[len(base)-len(ext):])
 		}
@@ -675,7 +623,7 @@ func downloadSpec(rawURL string) (string, error) {
 	if name == "" || name == "." || name == "/" {
 		name = parsed.Host
 	}
-	if !isSpecFile(name) {
+	if !files.IsSpec(name) {
 		name += ".yml"
 	}
 
@@ -818,7 +766,7 @@ func specNameFromURL(parsed *url.URL) string {
 	if name == "" || name == "." || name == "/" {
 		name = parsed.Host
 	}
-	if !isSpecFile(name) {
+	if !files.IsSpec(name) {
 		name += ".yml"
 	}
 	return name
