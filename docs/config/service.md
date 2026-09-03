@@ -222,6 +222,15 @@ cache:
 
 Cached responses are returned for identical GET requests, improving performance.
 
+The cache is the history table rather than a store of its own, so it needs
+`history.enabled` too. With history off nothing records a response, and every
+lookup is a miss.
+
+That also ties the cache to whatever a storage backend keeps. A backend may cap
+the size of a stored body, and a response above its cap is never served from
+the cache: it is regenerated on every request instead. Check your backend's
+configuration if large responses are not being cached.
+
 ## Replay
 
 Record and replay API responses based on request fields. See [Replay](../replay.md) for full documentation.

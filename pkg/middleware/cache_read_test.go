@@ -95,6 +95,25 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 
 			assert.Equal("cached", string(w.buf))
 		})
+
+		t.Run("get-truncated regenerates rather than serving a clipped body", func(t *testing.T) {
+			params.DB().History().Set(context.Background(), "/foo/big", &db.HistoryRequest{
+				Method: http.MethodGet,
+				URL:    "/foo/big",
+			}, &db.HistoryResponse{
+				Body:            []byte("clipped"),
+				StatusCode:      http.StatusOK,
+				ContentType:     "application/json",
+				IsBodyTruncated: true,
+			})
+
+			w := NewBufferedResponseWriter()
+			req := httptest.NewRequest(http.MethodGet, "/foo/big", nil)
+
+			mw(handler).ServeHTTP(w, req)
+
+			assert.Equal("fresh", string(w.buf))
+		})
 	})
 
 	t.Run("off", func(t *testing.T) {
