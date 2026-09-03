@@ -93,3 +93,34 @@ func TestIsImplicitServicesRoot(t *testing.T) {
 		assert.True(t, isImplicitServicesRoot(dir, false, nil))
 	})
 }
+
+func TestFindSpecInDir_ReservedNames(t *testing.T) {
+	write := func(t *testing.T, dir, name, body string) {
+		t.Helper()
+		require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644))
+	}
+
+	t.Run("codegen.yml does not win over openapi.yml on sort order", func(t *testing.T) {
+		dir := t.TempDir()
+		write(t, dir, "codegen.yml", "filter:\n  include:\n    paths:\n      - /v1/customers")
+		write(t, dir, "openapi.yml", "openapi: 3.0.0")
+
+		assert.Equal(t, filepath.Join(dir, "openapi.yml"), findSpecInDir(dir))
+	})
+
+	t.Run("reserved names are skipped in every spec extension", func(t *testing.T) {
+		for _, name := range []string{"codegen.yaml", "config.yaml", "context.yaml", "app.yaml", "index.yaml"} {
+			dir := t.TempDir()
+			write(t, dir, name, "x: 1")
+			write(t, dir, "openapi.yml", "openapi: 3.0.0")
+
+			assert.Equal(t, filepath.Join(dir, "openapi.yml"), findSpecInDir(dir), name)
+		}
+	})
+
+	t.Run("a reserved file alone is not a spec", func(t *testing.T) {
+		dir := t.TempDir()
+		write(t, dir, "codegen.yml", "filter: {}")
+		assert.Empty(t, findSpecInDir(dir))
+	})
+}

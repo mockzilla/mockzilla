@@ -353,11 +353,7 @@ func findAllSpecsInDir(dir string) []string {
 			continue
 		}
 		name := e.Name()
-		if name == configFile || name == contextFile || name == appFile {
-			continue
-		}
-		stem := strings.TrimSuffix(name, filepath.Ext(name))
-		if stem == "index" {
+		if isReservedName(name) {
 			continue
 		}
 		if !isSpecFile(name) {
@@ -375,6 +371,22 @@ func findSpecInDir(dir string) string {
 		return ""
 	}
 	return c[0]
+}
+
+// isReservedName reports whether a file is one the tooling owns rather than a
+// spec to serve. Matched on the stem, because every reserved name is also a
+// legal spec extension.
+//
+// This has to agree with the identical rule in internal/portable. The manifest
+// written here is what the runtime registers services from, so when the two
+// disagree a pack names one file as the spec and a live walk would name
+// another, and the runtime believes the manifest.
+func isReservedName(name string) bool {
+	switch strings.TrimSuffix(name, filepath.Ext(name)) {
+	case "config", "context", "app", "codegen", "index":
+		return true
+	}
+	return false
 }
 
 func isSpecFile(name string) bool {
