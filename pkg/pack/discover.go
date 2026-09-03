@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	cmdapi "github.com/mockzilla/mockzilla/v2/cmd/api"
+	"github.com/mockzilla/mockzilla/v2/internal/files"
 )
 
 const (
@@ -16,8 +17,6 @@ const (
 	appFile     = "app.yml"
 	servicesDir = "services"
 )
-
-var specExts = []string{".yml", ".yaml", ".json"}
 
 // Discover walks srcDir and returns the service registry the manifest
 // should declare. The returned ServiceEntry paths are relative to
@@ -47,7 +46,7 @@ func Discover(srcDir string) ([]ServiceEntry, error) {
 	}
 
 	hasConfig := fileExists(filepath.Join(srcDir, configFile))
-	specs := findAllSpecsInDir(srcDir)
+	specs := files.FindSpecs(srcDir)
 
 	if isImplicitServicesRoot(srcDir, hasConfig, specs) {
 		return discoverServicesRoot(srcDir, srcDir)
@@ -310,7 +309,7 @@ func inferServiceName(dir string, hasConfigFile bool) string {
 			return name
 		}
 	}
-	for _, spec := range findAllSpecsInDir(dir) {
+	for _, spec := range files.FindSpecs(dir) {
 		base := filepath.Base(spec)
 		stem := strings.TrimSuffix(base, filepath.Ext(base))
 		if strings.EqualFold(stem, "openapi") {
@@ -342,49 +341,12 @@ func readConfigName(dir string) string {
 	return ""
 }
 
-func findAllSpecsInDir(dir string) []string {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-	var candidates []string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if name == configFile || name == contextFile || name == appFile {
-			continue
-		}
-		stem := strings.TrimSuffix(name, filepath.Ext(name))
-		if stem == "index" {
-			continue
-		}
-		if !isSpecFile(name) {
-			continue
-		}
-		candidates = append(candidates, filepath.Join(dir, name))
-	}
-	sort.Strings(candidates)
-	return candidates
-}
-
 func findSpecInDir(dir string) string {
-	c := findAllSpecsInDir(dir)
+	c := files.FindSpecs(dir)
 	if len(c) == 0 {
 		return ""
 	}
 	return c[0]
-}
-
-func isSpecFile(name string) bool {
-	ext := strings.ToLower(filepath.Ext(name))
-	for _, e := range specExts {
-		if ext == e {
-			return true
-		}
-	}
-	return false
 }
 
 func serviceNameFromFile(path string) string {

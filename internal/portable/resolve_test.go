@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/mockzilla/mockzilla/v2/internal/files"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,12 +23,12 @@ func TestIsURL(t *testing.T) {
 }
 
 func TestIsSpecFile(t *testing.T) {
-	assert.True(t, isSpecFile("petstore.yaml"))
-	assert.True(t, isSpecFile("petstore.yml"))
-	assert.True(t, isSpecFile("petstore.json"))
-	assert.False(t, isSpecFile("petstore.go"))
-	assert.False(t, isSpecFile("petstore.txt"))
-	assert.False(t, isSpecFile("petstore"))
+	assert.True(t, files.IsSpec("petstore.yaml"))
+	assert.True(t, files.IsSpec("petstore.yml"))
+	assert.True(t, files.IsSpec("petstore.json"))
+	assert.False(t, files.IsSpec("petstore.go"))
+	assert.False(t, files.IsSpec("petstore.txt"))
+	assert.False(t, files.IsSpec("petstore"))
 }
 
 func TestIsPackageFile(t *testing.T) {
@@ -641,7 +642,7 @@ func TestDownloadSpec(t *testing.T) {
 
 		path, err := downloadSpec(srv.URL + "/v2/api-docs")
 		require.NoError(t, err)
-		assert.True(t, isSpecFile(path))
+		assert.True(t, files.IsSpec(path))
 	})
 
 	t.Run("errors on HTTP failure", func(t *testing.T) {
