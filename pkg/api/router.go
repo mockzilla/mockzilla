@@ -63,16 +63,10 @@ func NewRouter(options ...RouterOption) *Router {
 	r.Use(chiMw.Recoverer)
 	r.Use(chiMw.Timeout(60 * time.Second))
 
-	cfg := loadAppConfig(".")
-
-	// Create shared storage backend
-	storage := db.NewStorage(cfg.Storage)
-
 	res := &Router{
 		Router:    r,
-		config:    cfg,
+		config:    loadAppConfig("."),
 		contexts:  defaultContexts,
-		storage:   storage,
 		services:  make(map[string]*ServiceItem),
 		databases: make(map[string]db.DB),
 	}
@@ -80,6 +74,11 @@ func NewRouter(options ...RouterOption) *Router {
 	for _, opt := range options {
 		opt(res)
 	}
+
+	// After the options, so a config passed in through WithConfigOption picks
+	// its own storage driver. Building it first bound every caller to whatever
+	// app.yml happened to sit in the working directory.
+	res.storage = db.NewStorage(res.config.Storage)
 
 	if err := createUIFileStructure(res.config); err != nil {
 		slog.Error("Failed to create ui file structure", "error", err)

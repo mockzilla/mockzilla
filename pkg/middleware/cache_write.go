@@ -15,6 +15,9 @@ func CreateCacheWriteMiddleware(params *Params) func(http.Handler) http.Handler 
 
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			cfg := params.GetServiceConfig(req)
+			cacheEnabled := isRequestCacheEnabled(cfg, req)
+
 			requestID := GetRequestID(req)
 			// Capture request body before downstream handlers consume it.
 			var requestBody []byte
@@ -43,29 +46,44 @@ func CreateCacheWriteMiddleware(params *Params) func(http.Handler) http.Handler 
 			}
 
 			// Record request + response asynchronously - no need to block the response.
-			if recordHistory {
-				histReq := &db.HistoryRequest{
-					Method:     req.Method,
-					URL:        req.URL.String(),
-					Body:       requestBody,
-					Headers:    historyHeaders(req.Header),
-					RemoteAddr: req.RemoteAddr,
-					RequestID:  requestID,
+			if recordHistory || cacheEnabled {
+				var histReq *db.HistoryRequest
+				var histResp *db.HistoryResponse
+				if recordHistory {
+					histReq = &db.HistoryRequest{
+						Method:     req.Method,
+						URL:        req.URL.String(),
+						Body:       requestBody,
+						Headers:    historyHeaders(req.Header),
+						RemoteAddr: req.RemoteAddr,
+						RequestID:  requestID,
+					}
+					histResp = &db.HistoryResponse{
+						Body:          respContent,
+						StatusCode:    respStatusCode,
+						ContentType:   respContentType,
+						Headers:       db.FlattenHeaders(rw.Header()),
+						Duration:      GetDuration(req),
+						UpstreamError: GetUpstreamError(req),
+					}
+					params.transformHistory(params.serviceConfig, histReq, histResp)
 				}
-				histResp := &db.HistoryResponse{
-					Body:          respContent,
-					StatusCode:    respStatusCode,
-					ContentType:   respContentType,
-					Headers:       db.FlattenHeaders(rw.Header()),
-					Duration:      GetDuration(req),
-					UpstreamError: GetUpstreamError(req),
-				}
-				params.transformHistory(params.serviceConfig, histReq, histResp)
+
 				resourcePath := GetResourcePath(req)
+				key := cacheKey(req.Method, req.URL.String())
 				go func() {
 					ctx, cancel := context.WithTimeout(context.Background(), asyncWriteTimeout)
 					defer cancel()
-					params.DB().History().Set(ctx, resourcePath, histReq, histResp)
+					if recordHistory {
+						params.DB().History().Set(ctx, resourcePath, histReq, histResp)
+					}
+					if cacheEnabled {
+						writeCache(ctx, params.DB(), key, &cachedResponse{
+							Body:        respContent,
+							StatusCode:  respStatusCode,
+							ContentType: respContentType,
+						}, cacheTTL(cfg))
+					}
 				}()
 			}
 

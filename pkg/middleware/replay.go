@@ -3,7 +3,6 @@ package middleware
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/mockzilla/mockzilla/v2/pkg/db"
 )
 
 // headerReplayMatch is the HTTP header that activates replay.
@@ -267,24 +267,9 @@ func replayTTL(cfg *config.ServiceConfig) time.Duration {
 // DeserializeReplayRecord converts a value retrieved from the DB table into a ReplayRecord.
 // Handles both direct *ReplayRecord (memory backend) and map[string]any (Redis backend).
 func DeserializeReplayRecord(val any) *ReplayRecord {
-	if val == nil {
+	rec, ok := db.DecodeValue[ReplayRecord](val)
+	if !ok {
 		return nil
 	}
-
-	// Direct type - memory backend stores it as-is
-	if rec, ok := val.(*ReplayRecord); ok {
-		return rec
-	}
-
-	// Redis backend returns map[string]any - re-serialize and parse
-	data, err := json.Marshal(val)
-	if err != nil {
-		return nil
-	}
-
-	var rec ReplayRecord
-	if err := json.Unmarshal(data, &rec); err != nil {
-		return nil
-	}
-	return &rec
+	return rec
 }

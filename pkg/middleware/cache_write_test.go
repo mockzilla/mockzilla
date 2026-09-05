@@ -76,15 +76,6 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 			},
 		})
 
-		resp := &db.HistoryResponse{
-			Body:       []byte("cached"),
-			StatusCode: http.StatusOK,
-		}
-		params.DB().History().Set(context.Background(), "/foo/bar", &db.HistoryRequest{
-			Method: http.MethodGet,
-			URL:    "/foo/bar",
-		}, resp)
-
 		mw := CreateCacheWriteMiddleware(params)
 		assert.NotNil(mw)
 
@@ -99,8 +90,8 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 			waitForAsync()
 			assert.Equal("created", string(w.buf))
 
-			rec, exists := params.DB().History().Get(context.Background(), req)
-			assert.True(exists)
+			rec := latestHistory(params)
+			assert.NotNil(rec)
 			assert.Equal(http.StatusCreated, rec.Response.StatusCode)
 			assert.Equal([]byte("created"), rec.Response.Body)
 		})
@@ -116,8 +107,8 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 			waitForAsync()
 			assert.Equal("fresh", string(w.buf))
 
-			rec, exists := params.DB().History().Get(context.Background(), req)
-			assert.True(exists)
+			rec := latestHistory(params)
+			assert.NotNil(rec)
 			assert.Equal(http.StatusOK, rec.Response.StatusCode)
 			assert.Equal([]byte("fresh"), rec.Response.Body)
 		})
@@ -130,16 +121,6 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 				Requests: false,
 			},
 		})
-
-		resp := &db.HistoryResponse{
-			Body:        []byte("cached"),
-			StatusCode:  http.StatusOK,
-			ContentType: "text/plain",
-		}
-		params.DB().History().Set(context.Background(), "/foo/bar", &db.HistoryRequest{
-			Method: http.MethodGet,
-			URL:    "/foo/bar",
-		}, resp)
 
 		mw := CreateCacheWriteMiddleware(params)
 		assert.NotNil(mw)
@@ -155,8 +136,8 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 		waitForAsync()
 		assert.Equal("fresh", string(w.buf))
 
-		rec, exists := params.DB().History().Get(context.Background(), req)
-		assert.True(exists)
+		rec := latestHistory(params)
+		assert.NotNil(rec)
 		assert.Equal(http.StatusOK, rec.Response.StatusCode)
 		assert.Equal([]byte("fresh"), rec.Response.Body)
 		assert.Equal("application/json", rec.Response.ContentType)
@@ -189,11 +170,10 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 		assert.Equal(`{"generated": true}`, string(w1.buf))
 
 		// Verify response was cached
-		rec, exists := params.DB().History().Get(context.Background(), req1)
+		cached, exists := readCache(context.Background(), params.DB(), req1)
 		assert.True(exists)
-		assert.NotNil(rec.Response, "Response should be set after cache_write")
-		assert.Equal(http.StatusOK, rec.Response.StatusCode)
-		assert.Equal([]byte(`{"generated": true}`), rec.Response.Body)
+		assert.Equal(http.StatusOK, cached.StatusCode)
+		assert.Equal([]byte(`{"generated": true}`), cached.Body)
 
 		// Second request - should be served from cache by cache_read
 		handlerCalled := false
@@ -228,7 +208,7 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 		}
 		waitForAsync()
 
-		entries := params.DB().History().Data(context.Background())
+		entries := params.DB().History().Recent(context.Background(), 10)
 		assert.Equal(3, len(entries), "Each request should create a separate history entry")
 	})
 
@@ -282,8 +262,8 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 		mw(handler).ServeHTTP(w, req)
 		waitForAsync()
 
-		rec, exists := params.DB().History().Get(context.Background(), req)
-		assert.True(exists)
+		rec := latestHistory(params)
+		assert.NotNil(rec)
 		assert.Equal("test-req-id-001", rec.Request.RequestID)
 		assert.GreaterOrEqual(rec.Response.Duration, 25*time.Millisecond)
 
@@ -363,17 +343,45 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 		mw(handler).ServeHTTP(w, req)
 		waitForAsync()
 
-		rec, exists := params.DB().History().Get(context.Background(), req)
-		assert.True(exists)
+		rec := latestHistory(params)
+		assert.NotNil(rec)
 		assert.Equal([]byte("[redacted]"), rec.Request.Body)
 	})
 
+	// mask-headers still covers the response, where Set-Cookie is stored.
 	t.Run("applies mask-headers from config", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{
 			Name: "test-service",
 			History: &config.HistoryConfig{
-				MaskHeaders: []string{"Authorization"},
+				MaskHeaders: []string{"Set-Cookie"},
 			},
+		})
+
+		mw := CreateCacheWriteMiddleware(params)
+
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Set-Cookie", "session=secret-token")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte("ok"))
+		})
+
+		req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
+		w := httptest.NewRecorder()
+		mw(handler).ServeHTTP(w, req)
+		waitForAsync()
+
+		rec := latestHistory(params)
+		assert.NotNil(rec)
+		assert.Contains(rec.Response.Headers, "Set-Cookie: ****************oken")
+	})
+
+	// A credential masked is still a credential stored, and mask-headers is
+	// per-service config that a service can set to something else. Not keeping
+	// it cannot be configured wrong.
+	t.Run("a request credential never reaches history, masked or not", func(t *testing.T) {
+		params := newTestParams(&config.ServiceConfig{
+			Name:    "test-service",
+			History: &config.HistoryConfig{MaskHeaders: nil},
 		})
 
 		mw := CreateCacheWriteMiddleware(params)
@@ -385,12 +393,14 @@ func TestCreateCacheWriteMiddleware(t *testing.T) {
 
 		req := httptest.NewRequest(http.MethodGet, "/api/test", nil)
 		req.Header.Set("Authorization", "Bearer secret-token")
+		req.Header.Set("X-Api-Key", "secret-key")
 		w := httptest.NewRecorder()
 		mw(handler).ServeHTTP(w, req)
 		waitForAsync()
 
-		rec, exists := params.DB().History().Get(context.Background(), req)
-		assert.True(exists)
-		assert.Contains(rec.Request.Headers, "Authorization: ***************oken")
+		rec := latestHistory(params)
+		assert.NotNil(rec)
+		assert.NotContains(strings.Join(rec.Request.Headers, "\n"), "secret-token")
+		assert.NotContains(strings.Join(rec.Request.Headers, "\n"), "secret-key")
 	})
 }

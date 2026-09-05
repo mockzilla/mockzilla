@@ -2,65 +2,21 @@ package db
 
 import (
 	"context"
+	"errors"
 	"net/http"
-	"net/url"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	assert2 "github.com/stretchr/testify/assert"
 )
-
-// newTestHistoryTable creates a history table with a backing memory table for testing.
-func newTestHistoryTable(clearTimeout time.Duration) *memoryHistoryTable {
-	table := newMemoryTable()
-	return newMemoryHistoryTable(table, clearTimeout)
-}
-
-func TestMemoryHistoryTable_Get(t *testing.T) {
-	assert := assert2.New(t)
-	ctx := context.Background()
-
-	t.Run("get existing request", func(t *testing.T) {
-		h := newTestHistoryTable(0)
-		h.Set(ctx, "Foo", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
-
-		req, _ := http.NewRequest("GET", "/foo/1", nil)
-		resource, ok := h.Get(ctx, req)
-
-		assert.True(ok)
-		assert.Equal("Foo", resource.Resource)
-	})
-
-	t.Run("get non-existing request", func(t *testing.T) {
-		h := newTestHistoryTable(0)
-
-		req, _ := http.NewRequest("GET", "/foo/1", nil)
-		resource, ok := h.Get(ctx, req)
-
-		assert.False(ok)
-		assert.Nil(resource)
-	})
-
-	t.Run("get returns latest entry", func(t *testing.T) {
-		h := newTestHistoryTable(0)
-		histReq := &HistoryRequest{Method: "GET", URL: "/foo/1"}
-
-		h.Set(ctx, "First", histReq, nil)
-		h.Set(ctx, "Second", histReq, nil)
-
-		req, _ := http.NewRequest("GET", "/foo/1", nil)
-		resource, ok := h.Get(ctx, req)
-		assert.True(ok)
-		assert.Equal("Second", resource.Resource)
-	})
-}
 
 func TestMemoryHistoryTable_Set(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
 
 	t.Run("set new request", func(t *testing.T) {
-		h := newTestHistoryTable(0)
+		h := newMemoryHistoryTable(0)
 
 		result := h.Set(ctx, "/foo/{id}", &HistoryRequest{
 			Method: "POST",
@@ -74,7 +30,7 @@ func TestMemoryHistoryTable_Set(t *testing.T) {
 	})
 
 	t.Run("set with response", func(t *testing.T) {
-		h := newTestHistoryTable(0)
+		h := newMemoryHistoryTable(0)
 
 		response := &HistoryResponse{Body: []byte("response"), StatusCode: 200}
 		result := h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, response)
@@ -83,13 +39,22 @@ func TestMemoryHistoryTable_Set(t *testing.T) {
 	})
 
 	t.Run("multiple sets to same endpoint create unique entries", func(t *testing.T) {
-		h := newTestHistoryTable(0)
+		h := newMemoryHistoryTable(0)
 
 		e1 := h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "POST", URL: "/foo/1", Body: []byte(`{"a":"1"}`)}, nil)
 		e2 := h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "POST", URL: "/foo/1", Body: []byte(`{"a":"2"}`)}, nil)
 
 		assert.NotEqual(e1.ID, e2.ID)
-		assert.Len(h.Data(ctx), 2)
+		assert.Len(h.Recent(ctx, 10), 2)
+	})
+
+	t.Run("ids are time-ordered", func(t *testing.T) {
+		h := newMemoryHistoryTable(0)
+
+		e1 := h.Set(ctx, "/foo", &HistoryRequest{Method: "GET", URL: "/foo"}, nil)
+		e2 := h.Set(ctx, "/foo", &HistoryRequest{Method: "GET", URL: "/foo"}, nil)
+
+		assert.Less(e1.ID, e2.ID)
 	})
 }
 
@@ -98,7 +63,7 @@ func TestMemoryHistoryTable_GetByID(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("returns entry by ID", func(t *testing.T) {
-		h := newTestHistoryTable(0)
+		h := newMemoryHistoryTable(0)
 		entry := h.Set(ctx, "/foo", &HistoryRequest{Method: "GET", URL: "/foo"}, &HistoryResponse{StatusCode: 200})
 
 		got, ok := h.GetByID(ctx, entry.ID)
@@ -107,8 +72,22 @@ func TestMemoryHistoryTable_GetByID(t *testing.T) {
 	})
 
 	t.Run("returns false for unknown ID", func(t *testing.T) {
-		h := newTestHistoryTable(0)
+		h := newMemoryHistoryTable(0)
 		_, ok := h.GetByID(ctx, "nonexistent")
+		assert.False(ok)
+	})
+
+	t.Run("returns false for expired entry", func(t *testing.T) {
+		h := newMemoryHistoryTable(50 * time.Millisecond)
+		entry := h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
+
+		got, ok := h.GetByID(ctx, entry.ID)
+		assert.True(ok)
+		assert.Equal(entry.ID, got.ID)
+
+		time.Sleep(100 * time.Millisecond)
+
+		_, ok = h.GetByID(ctx, entry.ID)
 		assert.False(ok)
 	})
 }
@@ -117,7 +96,7 @@ func TestMemoryHistoryTable_Set_RequestID(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
 
-	h := newTestHistoryTable(0)
+	h := newMemoryHistoryTable(0)
 
 	entry := h.Set(ctx, "/foo/{id}", &HistoryRequest{
 		Method:    "POST",
@@ -136,7 +115,7 @@ func TestMemoryHistoryTable_Set_Duration(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
 
-	h := newTestHistoryTable(0)
+	h := newMemoryHistoryTable(0)
 
 	entry := h.Set(ctx, "/foo/{id}", &HistoryRequest{
 		Method: "GET",
@@ -149,72 +128,12 @@ func TestMemoryHistoryTable_Set_Duration(t *testing.T) {
 	assert.Equal(42*time.Millisecond, entry.Response.Duration)
 }
 
-func TestMemoryHistoryTable_SetResponse(t *testing.T) {
-	assert := assert2.New(t)
-	ctx := context.Background()
-
-	t.Run("set response for existing request", func(t *testing.T) {
-		h := newTestHistoryTable(0)
-
-		histReq := &HistoryRequest{Method: "GET", URL: "/foo/1"}
-		h.Set(ctx, "/foo/{id}", histReq, nil)
-
-		response := &HistoryResponse{Body: []byte("response"), StatusCode: 200}
-		h.SetResponse(ctx, histReq, response)
-
-		req, _ := http.NewRequest("GET", "/foo/1", nil)
-		record, _ := h.Get(ctx, req)
-		assert.Equal(response, record.Response)
-	})
-
-	t.Run("set response for non-existing request", func(t *testing.T) {
-		h := newTestHistoryTable(0)
-
-		response := &HistoryResponse{Body: []byte("response"), StatusCode: 200}
-
-		// Should not panic, just log
-		h.SetResponse(ctx, &HistoryRequest{Method: "GET", URL: "/foo/1"}, response)
-	})
-
-	t.Run("set response updates latest entry only", func(t *testing.T) {
-		h := newTestHistoryTable(0)
-
-		histReq := &HistoryRequest{Method: "GET", URL: "/foo/1"}
-		h.Set(ctx, "/foo/{id}", histReq, &HistoryResponse{StatusCode: 100})
-		h.Set(ctx, "/foo/{id}", histReq, nil)
-
-		h.SetResponse(ctx, histReq, &HistoryResponse{StatusCode: 200})
-
-		entries := h.Data(ctx)
-		assert.Len(entries, 2)
-		// First entry should keep its original response
-		assert.Equal(100, entries[0].Response.StatusCode)
-		// Second (latest) entry should have the updated response
-		assert.Equal(200, entries[1].Response.StatusCode)
-	})
-}
-
-func TestMemoryHistoryTable_Data(t *testing.T) {
-	assert := assert2.New(t)
-	ctx := context.Background()
-
-	h := newTestHistoryTable(0)
-
-	h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
-
-	data := h.Data(ctx)
-
-	assert.Len(data, 1)
-	assert.Equal("/foo/{id}", data[0].Resource)
-	assert.NotEmpty(data[0].ID)
-}
-
-func TestMemoryHistoryTable_Summaries(t *testing.T) {
+func TestMemoryHistoryTable_Recent(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
 
 	t.Run("returns body-less projection", func(t *testing.T) {
-		h := newTestHistoryTable(0)
+		h := newMemoryHistoryTable(0)
 
 		h.Set(ctx, "/foo/{id}", &HistoryRequest{
 			Method:    "POST",
@@ -228,7 +147,7 @@ func TestMemoryHistoryTable_Summaries(t *testing.T) {
 			Duration:    42 * time.Millisecond,
 		})
 
-		summaries := h.Summaries(ctx)
+		summaries := h.Recent(ctx, 10)
 		assert.Len(summaries, 1)
 
 		s := summaries[0]
@@ -244,114 +163,165 @@ func TestMemoryHistoryTable_Summaries(t *testing.T) {
 		assert.Equal(42*time.Millisecond, s.Response.Duration)
 	})
 
+	t.Run("newest first", func(t *testing.T) {
+		h := newMemoryHistoryTable(0)
+		h.Set(ctx, "/first", &HistoryRequest{Method: "GET", URL: "/1"}, nil)
+		h.Set(ctx, "/second", &HistoryRequest{Method: "GET", URL: "/2"}, nil)
+		h.Set(ctx, "/third", &HistoryRequest{Method: "GET", URL: "/3"}, nil)
+
+		summaries := h.Recent(ctx, 10)
+		assert.Len(summaries, 3)
+		assert.Equal("/third", summaries[0].Resource)
+		assert.Equal("/second", summaries[1].Resource)
+		assert.Equal("/first", summaries[2].Resource)
+	})
+
+	t.Run("honours limit", func(t *testing.T) {
+		h := newMemoryHistoryTable(0)
+		for i := 0; i < 5; i++ {
+			h.Set(ctx, "/foo", &HistoryRequest{Method: "GET", URL: "/foo"}, nil)
+		}
+
+		assert.Len(h.Recent(ctx, 2), 2)
+		assert.Nil(h.Recent(ctx, 0))
+		assert.Nil(h.Recent(ctx, -1))
+	})
+
 	t.Run("empty history", func(t *testing.T) {
-		h := newTestHistoryTable(0)
-		assert.Empty(h.Summaries(ctx))
+		h := newMemoryHistoryTable(0)
+		assert.Empty(h.Recent(ctx, 10))
 	})
 
 	t.Run("expired entries skipped", func(t *testing.T) {
-		h := newTestHistoryTable(50 * time.Millisecond)
+		h := newMemoryHistoryTable(50 * time.Millisecond)
 		h.Set(ctx, "/old", &HistoryRequest{Method: "GET", URL: "/old"}, nil)
 		time.Sleep(80 * time.Millisecond)
 		h.Set(ctx, "/new", &HistoryRequest{Method: "GET", URL: "/new"}, nil)
 
-		summaries := h.Summaries(ctx)
+		summaries := h.Recent(ctx, 10)
 		assert.Len(summaries, 1)
 		assert.Equal("/new", summaries[0].Resource)
 	})
 }
 
-func TestMemoryHistoryTable_Len(t *testing.T) {
+func TestMemoryHistoryTable_Eviction(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
 
-	h := newTestHistoryTable(0)
-	assert.Equal(0, h.Len(ctx))
+	h := newMemoryHistoryTable(0)
 
-	histReq := &HistoryRequest{Method: "GET", URL: "/foo/1"}
-	h.Set(ctx, "/foo/{id}", histReq, nil)
-	assert.Equal(1, h.Len(ctx))
+	overflow := 10
+	ids := make([]string, 0, MaxHistoryEntries+overflow)
+	for i := 0; i < MaxHistoryEntries+overflow; i++ {
+		ids = append(ids, h.Set(ctx, "/foo", &HistoryRequest{Method: "GET", URL: "/foo"}, nil).ID)
+	}
 
-	h.Set(ctx, "/foo/{id}", histReq, nil)
-	assert.Equal(2, h.Len(ctx))
+	assert.Len(h.Recent(ctx, MaxHistoryEntries*2), MaxHistoryEntries)
+
+	for _, id := range ids[:overflow] {
+		_, ok := h.GetByID(ctx, id)
+		assert.False(ok, "evicted entry should be dropped from the id index")
+	}
+	for _, id := range ids[overflow:] {
+		_, ok := h.GetByID(ctx, id)
+		assert.True(ok)
+	}
 }
 
 func TestMemoryHistoryTable_Clear(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
 
-	h := newTestHistoryTable(0)
+	h := newMemoryHistoryTable(0)
 
-	h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
+	entry := h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
 
 	h.Clear(ctx)
 
-	assert.Empty(h.Data(ctx))
-	assert.Equal(0, h.Len(ctx))
+	assert.Empty(h.Recent(ctx, 10))
+	_, ok := h.GetByID(ctx, entry.ID)
+	assert.False(ok)
 }
 
 func TestMemoryHistoryTable_TTL(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
 
-	h := newTestHistoryTable(50 * time.Millisecond)
+	h := newMemoryHistoryTable(50 * time.Millisecond)
 
 	h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
+	assert.Len(h.Recent(ctx, 10), 1)
 
-	assert.Equal(1, h.Len(ctx))
-
-	// Wait for entries to expire
 	time.Sleep(100 * time.Millisecond)
 
-	assert.Empty(h.Data(ctx))
-	assert.Equal(0, h.Len(ctx))
-
-	req, _ := http.NewRequest("GET", "/foo/1", nil)
-	_, ok := h.Get(ctx, req)
-	assert.False(ok)
-}
-
-func TestMemoryHistoryTable_TTL_GetByID(t *testing.T) {
-	assert := assert2.New(t)
-	ctx := context.Background()
-
-	h := newTestHistoryTable(50 * time.Millisecond)
-
-	entry := h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
-
-	got, ok := h.GetByID(ctx, entry.ID)
-	assert.True(ok)
-	assert.Equal(entry.ID, got.ID)
-
-	// Wait for entry to expire
-	time.Sleep(100 * time.Millisecond)
-
-	_, ok = h.GetByID(ctx, entry.ID)
-	assert.False(ok)
+	assert.Empty(h.Recent(ctx, 10))
 }
 
 func TestMemoryHistoryTable_TTL_MixedExpiry(t *testing.T) {
 	assert := assert2.New(t)
 	ctx := context.Background()
 
-	h := newTestHistoryTable(100 * time.Millisecond)
+	h := newMemoryHistoryTable(100 * time.Millisecond)
 
 	h.Set(ctx, "/foo/{id}", &HistoryRequest{Method: "GET", URL: "/foo/1"}, nil)
 
-	// Wait 60ms, then add another entry
 	time.Sleep(60 * time.Millisecond)
 	h.Set(ctx, "/bar/{id}", &HistoryRequest{Method: "GET", URL: "/bar/1"}, nil)
 
-	// At ~60ms: first entry is ~60ms old, second is fresh - both alive
-	assert.Equal(2, h.Len(ctx))
+	assert.Len(h.Recent(ctx, 10), 2)
 
-	// Wait another 50ms (total ~110ms for first, ~50ms for second)
 	time.Sleep(50 * time.Millisecond)
 
-	// First entry expired, second still alive
-	data := h.Data(ctx)
-	assert.Len(data, 1)
-	assert.Equal("/bar/{id}", data[0].Resource)
+	summaries := h.Recent(ctx, 10)
+	assert.Len(summaries, 1)
+	assert.Equal("/bar/{id}", summaries[0].Resource)
+}
+
+func TestSummaryOf(t *testing.T) {
+	assert := assert2.New(t)
+
+	assert.Nil(SummaryOf(nil))
+
+	// A record with no response yet projects to a summary with no response.
+	s := SummaryOf(&HistoryEntry{ID: "1", Resource: "/x", Request: &HistoryRequest{Method: "GET", URL: "/x"}})
+	assert.NotNil(s.Request)
+	assert.Nil(s.Response)
+
+	// And a bare record keeps both sides nil rather than inventing them.
+	s = SummaryOf(&HistoryEntry{ID: "1"})
+	assert.Nil(s.Request)
+	assert.Nil(s.Response)
+}
+
+func TestNewHistoryID(t *testing.T) {
+	assert := assert2.New(t)
+
+	assert.NotEqual(NewHistoryID(), NewHistoryID())
+	assert.Less(NewHistoryID(), NewHistoryID())
+}
+
+// brokenRand stands in for an entropy source that has stopped working.
+type brokenRand struct{}
+
+func (brokenRand) Read([]byte) (int, error) { return 0, errors.New("no entropy") }
+
+func TestNewHistoryID_EntropyFailure(t *testing.T) {
+	assert := assert2.New(t)
+
+	uuid.SetRand(brokenRand{})
+	defer uuid.SetRand(nil)
+
+	// uuid's own string helpers panic on this error, so the fallback must not
+	// reach for one.
+	var first, second string
+	assert.NotPanics(func() {
+		first = NewHistoryID()
+		second = NewHistoryID()
+	})
+
+	assert.NotEmpty(first)
+	assert.NotEqual(first, second)
+	assert.Less(first, second, "the fallback still has to sort by time")
 }
 
 func TestFlattenHeaders(t *testing.T) {
@@ -455,6 +425,12 @@ func TestMaskHeaderValues(t *testing.T) {
 		assert.Equal([]string{"X-Token: *bcde"}, headers)
 	})
 
+	t.Run("leaves a header with no separator alone", func(t *testing.T) {
+		headers := []string{"Authorization", "Cookie: secret-value"}
+		MaskHeaderValues(headers, []string{"Authorization", "Cookie"})
+		assert.Equal([]string{"Authorization", "Cookie: ********alue"}, headers)
+	})
+
 	t.Run("prefix pattern masks matching headers", func(t *testing.T) {
 		headers := []string{
 			"Accept: text/html",
@@ -490,22 +466,4 @@ func TestMaskHeaderValues(t *testing.T) {
 			"Content-Type: application/json",
 		}, headers)
 	})
-}
-
-// lookupKey is tested indirectly through Get (uses *http.Request) and Set (uses *HistoryRequest)
-// to verify they produce the same key.
-func TestMemoryHistoryTable_LookupKeyConsistency(t *testing.T) {
-	assert := assert2.New(t)
-	ctx := context.Background()
-
-	h := newTestHistoryTable(0)
-
-	// Set via HistoryRequest
-	h.Set(ctx, "/test", &HistoryRequest{Method: "GET", URL: "/test?q=1"}, &HistoryResponse{StatusCode: 200})
-
-	// Get via *http.Request with same method+URL
-	req := &http.Request{Method: "GET", URL: &url.URL{Path: "/test", RawQuery: "q=1"}}
-	entry, ok := h.Get(ctx, req)
-	assert.True(ok)
-	assert.Equal(200, entry.Response.StatusCode)
 }

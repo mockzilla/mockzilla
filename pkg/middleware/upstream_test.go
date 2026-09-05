@@ -55,9 +55,9 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		assert.Equal("Mockzilla/2.0", receivedHeaders.Get("User-Agent"))
 
 		// Check history
-		data := params.DB().History().Data(context.Background())
-		assert.Equal(1, len(data))
-		rec := data[0]
+		assert.Len(params.DB().History().Recent(context.Background(), 10), 1)
+		rec := latestHistory(params)
+		assert.NotNil(rec)
 		assert.Equal(200, rec.Response.StatusCode)
 		assert.Equal([]byte(`{"message": "Hello, from remote!"}`), rec.Response.Body)
 	})
@@ -88,13 +88,12 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		assert.Equal(http.StatusCreated, w.statusCode)
 
 		// Check history preserves status code
-		data := params.DB().History().Data(context.Background())
-		assert.Equal(1, len(data))
-		rec := data[0]
+		rec := latestHistory(params)
+		assert.NotNil(rec)
 		assert.Equal(http.StatusCreated, rec.Response.StatusCode)
 	})
 
-	t.Run("X-Mz headers are stripped before forwarding to upstream", func(t *testing.T) {
+	t.Run("X-Mockzilla headers are stripped before forwarding to upstream", func(t *testing.T) {
 		var receivedHeaders http.Header
 		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			receivedHeaders = r.Header.Clone()
@@ -213,9 +212,8 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		assert.Equal("application/json; charset=utf-8", w.header.Get("Content-Type"))
 
 		// Check history has content-type
-		data := params.DB().History().Data(context.Background())
-		assert.Equal(1, len(data))
-		rec := data[0]
+		rec := latestHistory(params)
+		assert.NotNil(rec)
 		assert.Equal("application/json; charset=utf-8", rec.Response.ContentType)
 	})
 
@@ -345,12 +343,46 @@ func TestCreateUpstreamRequestMiddleware(t *testing.T) {
 		assert.Equal(`{"foo": "bar"}`, rcvdBody)
 
 		// Check history - 2 entries: the seeded one + the new upstream result
-		data := params.DB().History().Data(context.Background())
-		assert.Equal(2, len(data))
-		// Latest entry should have the upstream response
-		rec := data[len(data)-1]
+		assert.Len(params.DB().History().Recent(context.Background(), 10), 2)
+		rec := latestHistory(params)
+		assert.NotNil(rec)
 		assert.Equal(200, rec.Response.StatusCode)
 		assert.Equal([]byte(`{"message": "Hello, from remote!"}`), rec.Response.Body)
+	})
+
+	t.Run("upstream response populates the request cache", func(t *testing.T) {
+		upstreamCalls := 0
+		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			upstreamCalls++
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"from":"upstream"}`))
+		}))
+		defer upstreamServer.Close()
+
+		params := newTestParams(&config.ServiceConfig{
+			Name:  "test",
+			Cache: &config.CacheConfig{Requests: true},
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
+				URL: upstreamServer.URL,
+			}},
+		})
+
+		w := NewBufferedResponseWriter()
+		req := httptest.NewRequest(http.MethodGet, "/test/resource", nil)
+		CreateUpstreamRequestMiddleware(params)(handler).ServeHTTP(w, req)
+		waitForAsync()
+
+		assert.Equal(`{"from":"upstream"}`, string(w.buf))
+		assert.Equal(1, upstreamCalls)
+
+		// Cache-read runs ahead of upstream, so the next request never leaves the process.
+		w2 := NewBufferedResponseWriter()
+		req2 := httptest.NewRequest(http.MethodGet, "/test/resource", nil)
+		CreateCacheReadMiddleware(params)(handler).ServeHTTP(w2, req2)
+
+		assert.Equal(`{"from":"upstream"}`, string(w2.buf))
+		assert.Equal(ResponseHeaderSourceCache, w2.header.Get(ResponseHeaderSource))
+		assert.Equal(1, upstreamCalls)
 	})
 
 	t.Run("not called if url is empty", func(t *testing.T) {

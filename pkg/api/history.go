@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -101,18 +102,18 @@ func (h *HistoryHandler) list(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summaries := database.History().Summaries(r.Context())
+	summaries := database.History().Recent(r.Context(), maxSummaryItems)
 	if summaries == nil {
 		summaries = make([]*HistorySummary, 0)
 	}
 
-	// Cap to the newest maxSummaryItems. Summaries are oldest-first, so keep the
-	// tail; the UI renders newest-first.
-	truncated := false
-	if len(summaries) > maxSummaryItems {
-		summaries = summaries[len(summaries)-maxSummaryItems:]
-		truncated = true
-	}
+	// Storage keeps at most db.MaxHistoryEntries, so a full page means older
+	// entries have already been dropped.
+	truncated := len(summaries) == maxSummaryItems
+
+	// Recent returns newest-first; the wire format is oldest-first.
+	slices.Reverse(summaries)
+
 	NewJSONResponse(w).Send(&HistorySummaryListResponse{Items: summaries, Truncated: truncated})
 }
 

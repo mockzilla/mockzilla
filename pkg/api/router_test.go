@@ -18,6 +18,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// latestHistoryEntry returns the newest full history entry, or nil when empty.
+func latestHistoryEntry(database db.DB) *db.HistoryEntry {
+	summaries := database.History().Recent(context.Background(), 1)
+	if len(summaries) == 0 {
+		return nil
+	}
+	entry, ok := database.History().GetByID(context.Background(), summaries[0].ID)
+	if !ok {
+		return nil
+	}
+	return entry
+}
+
 func waitForAsync() {
 	runtime.Gosched()
 	time.Sleep(10 * time.Millisecond)
@@ -48,6 +61,23 @@ func (m *mockService) Generate(w http.ResponseWriter, r *http.Request) {
 func newTestRouter(t *testing.T) *Router {
 	cfg := config.NewDefaultAppConfig(t.TempDir())
 	return NewRouter(WithConfigOption(cfg))
+}
+
+// stubStorage is a registered driver that records that NewRouter picked it.
+type stubStorage struct{ db.Storage }
+
+func TestNewRouter_StorageFollowsTheSuppliedConfig(t *testing.T) {
+	db.Register("router-test-driver", func(map[string]any) (db.Storage, error) {
+		return &stubStorage{Storage: db.NewStorage(nil)}, nil
+	})
+
+	cfg := config.NewDefaultAppConfig(t.TempDir())
+	cfg.Storage = &config.StorageConfig{Type: "router-test-driver"}
+
+	router := NewRouter(WithConfigOption(cfg))
+
+	_, ok := router.storage.(*stubStorage)
+	assert.True(t, ok, "storage must come from the config passed in, not the working directory")
 }
 
 // registerTestService is a helper to register a service with the new signature
@@ -584,11 +614,8 @@ cache:
 		database := router.GetDB("test-service")
 		assert.NotNil(t, database, "Database should exist for test-service")
 
-		data := database.History().Data(context.Background())
-		assert.NotEmpty(t, data, "History should contain the request")
-
-		rec := data[len(data)-1]
-		assert.NotNil(t, rec)
+		rec := latestHistoryEntry(database)
+		assert.NotNil(t, rec, "History should contain the request")
 		assert.Equal(t, http.StatusCreated, rec.Response.StatusCode)
 		assert.Equal(t, []byte("Created"), rec.Response.Body)
 	})
@@ -629,10 +656,8 @@ cache:
 		database := router.GetDB("test-service")
 		assert.NotNil(t, database, "Database should exist for test-service")
 
-		data := database.History().Data(context.Background())
-		assert.NotEmpty(t, data)
-
-		rec := data[len(data)-1]
+		rec := latestHistoryEntry(database)
+		assert.NotNil(t, rec)
 		assert.Equal(t, []byte(expectedBody), rec.Request.Body, "History should contain the request body")
 	})
 
@@ -711,9 +736,8 @@ cache:
 		database := router.GetDB("test-service")
 		assert.NotNil(t, database, "Database should exist for test-service")
 
-		data := database.History().Data(context.Background())
 		// History might have the request but not a successful response
-		for _, rec := range data {
+		for _, rec := range database.History().Recent(context.Background(), 10) {
 			if rec.Request != nil && rec.Request.Method == "GET" && rec.Request.URL == "/test-service/test" {
 				assert.NotEqual(t, http.StatusOK, rec.Response.StatusCode)
 			}
@@ -750,10 +774,8 @@ cache:
 		database := router.GetDB("test-service")
 		assert.NotNil(t, database, "Database should exist for test-service")
 
-		data := database.History().Data(context.Background())
-		assert.NotEmpty(t, data)
-
-		rec := data[len(data)-1]
+		rec := latestHistoryEntry(database)
+		assert.NotNil(t, rec)
 		assert.Equal(t, []byte(reqBody), rec.Request.Body)
 	})
 
@@ -1073,9 +1095,8 @@ cache:
 		// Verify cache write middleware stored the response
 		database := router.GetDB("test-service")
 		assert.NotNil(t, database, "Database should exist for test-service")
-		data := database.History().Data(context.Background())
-		assert.NotEmpty(t, data, "Response should be stored in history")
-		rec := data[len(data)-1]
+		rec := latestHistoryEntry(database)
+		assert.NotNil(t, rec, "Response should be stored in history")
 		assert.Equal(t, http.StatusCreated, rec.Response.StatusCode)
 		assert.Equal(t, []byte("Created"), rec.Response.Body)
 	})

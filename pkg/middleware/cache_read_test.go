@@ -5,11 +5,16 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
-	"github.com/mockzilla/mockzilla/v2/pkg/db"
 	assert2 "github.com/stretchr/testify/assert"
 )
+
+// seedCache stores a response in the request cache the way cache-write would.
+func seedCache(params *Params, method, url string, resp *cachedResponse) {
+	writeCache(context.Background(), params.DB(), cacheKey(method, url), resp, time.Minute)
+}
 
 func TestCreateCacheReadMiddleware(t *testing.T) {
 	assert := assert2.New(t)
@@ -56,15 +61,11 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 			},
 		})
 
-		resp := &db.HistoryResponse{
+		seedCache(params, http.MethodGet, "/foo/bar", &cachedResponse{
 			Body:        []byte("cached"),
 			StatusCode:  http.StatusOK,
 			ContentType: "application/json",
-		}
-		params.DB().History().Set(context.Background(), "/foo/bar", &db.HistoryRequest{
-			Method: http.MethodGet,
-			URL:    "/foo/bar",
-		}, resp)
+		})
 
 		mw := CreateCacheReadMiddleware(params)
 		assert.NotNil(mw)
@@ -95,25 +96,6 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 
 			assert.Equal("cached", string(w.buf))
 		})
-
-		t.Run("get-truncated regenerates rather than serving a clipped body", func(t *testing.T) {
-			params.DB().History().Set(context.Background(), "/foo/big", &db.HistoryRequest{
-				Method: http.MethodGet,
-				URL:    "/foo/big",
-			}, &db.HistoryResponse{
-				Body:            []byte("clipped"),
-				StatusCode:      http.StatusOK,
-				ContentType:     "application/json",
-				IsBodyTruncated: true,
-			})
-
-			w := NewBufferedResponseWriter()
-			req := httptest.NewRequest(http.MethodGet, "/foo/big", nil)
-
-			mw(handler).ServeHTTP(w, req)
-
-			assert.Equal("fresh", string(w.buf))
-		})
 	})
 
 	t.Run("off", func(t *testing.T) {
@@ -124,15 +106,10 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 			},
 		})
 
-		resp := &db.HistoryResponse{
-			Body:        []byte("cached"),
-			StatusCode:  http.StatusOK,
-			ContentType: "application/json",
-		}
-		params.DB().History().Set(context.Background(), "/foo/bar", &db.HistoryRequest{
-			Method: http.MethodGet,
-			URL:    "/foo/bar",
-		}, resp)
+		seedCache(params, http.MethodGet, "/foo/bar", &cachedResponse{
+			Body:       []byte("cached"),
+			StatusCode: http.StatusOK,
+		})
 
 		mw := CreateCacheReadMiddleware(params)
 		assert.NotNil(mw)
@@ -145,7 +122,7 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 		assert.Equal("fresh", string(w.buf))
 	})
 
-	t.Run("history off ignores a populated cache", func(t *testing.T) {
+	t.Run("serves the cache with history off", func(t *testing.T) {
 		disabled := false
 		params := newTestParams(&config.ServiceConfig{
 			Name: "foo",
@@ -157,15 +134,10 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 			},
 		})
 
-		resp := &db.HistoryResponse{
-			Body:        []byte("cached"),
-			StatusCode:  http.StatusOK,
-			ContentType: "application/json",
-		}
-		params.DB().History().Set(context.Background(), "/foo/bar", &db.HistoryRequest{
-			Method: http.MethodGet,
-			URL:    "/foo/bar",
-		}, resp)
+		seedCache(params, http.MethodGet, "/foo/bar", &cachedResponse{
+			Body:       []byte("cached"),
+			StatusCode: http.StatusOK,
+		})
 
 		mw := CreateCacheReadMiddleware(params)
 		assert.NotNil(mw)
@@ -175,7 +147,7 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 
 		mw(handler).ServeHTTP(w, req)
 
-		assert.Equal("fresh", string(w.buf))
+		assert.Equal("cached", string(w.buf))
 	})
 
 	t.Run("restores content-type from cache", func(t *testing.T) {
@@ -186,15 +158,11 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 			},
 		})
 
-		resp := &db.HistoryResponse{
+		seedCache(params, http.MethodGet, "/api/data", &cachedResponse{
 			Body:        []byte(`{"cached": true}`),
 			StatusCode:  http.StatusOK,
 			ContentType: "application/json",
-		}
-		params.DB().History().Set(context.Background(), "/api/data", &db.HistoryRequest{
-			Method: http.MethodGet,
-			URL:    "/api/data",
-		}, resp)
+		})
 
 		mw := CreateCacheReadMiddleware(params)
 
@@ -215,15 +183,10 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 			},
 		})
 
-		resp := &db.HistoryResponse{
-			Body:        []byte(`{"cached": true}`),
-			StatusCode:  http.StatusOK,
-			ContentType: "application/json",
-		}
-		params.DB().History().Set(context.Background(), "/api/cached", &db.HistoryRequest{
-			Method: http.MethodGet,
-			URL:    "/api/cached",
-		}, resp)
+		seedCache(params, http.MethodGet, "/api/cached", &cachedResponse{
+			Body:       []byte(`{"cached": true}`),
+			StatusCode: http.StatusOK,
+		})
 
 		mw := CreateCacheReadMiddleware(params)
 
@@ -234,4 +197,46 @@ func TestCreateCacheReadMiddleware(t *testing.T) {
 
 		assert.Equal(ResponseHeaderSourceCache, w.header.Get(ResponseHeaderSource))
 	})
+
+	t.Run("query string is part of the key", func(t *testing.T) {
+		params := newTestParams(&config.ServiceConfig{
+			Name: "service",
+			Cache: &config.CacheConfig{
+				Requests: true,
+			},
+		})
+
+		seedCache(params, http.MethodGet, "/api/data?page=1", &cachedResponse{
+			Body:       []byte("page one"),
+			StatusCode: http.StatusOK,
+		})
+
+		mw := CreateCacheReadMiddleware(params)
+
+		w := NewBufferedResponseWriter()
+		mw(handler).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/data?page=1", nil))
+		assert.Equal("page one", string(w.buf))
+
+		w = NewBufferedResponseWriter()
+		mw(handler).ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/data?page=2", nil))
+		assert.Equal("fresh", string(w.buf))
+	})
+}
+
+func TestWriteCache_SkipsOversizedBody(t *testing.T) {
+	assert := assert2.New(t)
+
+	params := newTestParams(&config.ServiceConfig{
+		Name:  "service",
+		Cache: &config.CacheConfig{Requests: true},
+	})
+
+	seedCache(params, http.MethodGet, "/api/big", &cachedResponse{
+		Body:       make([]byte, maxCacheBodyBytes+1),
+		StatusCode: http.StatusOK,
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/big", nil)
+	_, ok := readCache(context.Background(), params.DB(), req)
+	assert.False(ok)
 }

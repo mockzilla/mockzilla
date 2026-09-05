@@ -29,7 +29,7 @@ func TestParseConfigOverrides(t *testing.T) {
 		assert.Empty(overrides)
 	})
 
-	t.Run("parses X-Mz headers", func(t *testing.T) {
+	t.Run("parses X-Mockzilla headers", func(t *testing.T) {
 		headers := http.Header{
 			"X-Mockzilla-Cache-Requests": []string{"false"},
 			"X-Mockzilla-Latency":        []string{"100ms"},
@@ -309,7 +309,7 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		assert.Equal(100*time.Millisecond, original.Latency)
 	})
 
-	t.Run("X-Mz headers are preserved on request", func(t *testing.T) {
+	t.Run("X-Mockzilla headers are preserved on request", func(t *testing.T) {
 		params := newTestParams(&config.ServiceConfig{Name: "test"})
 
 		var capturedHeaders http.Header
@@ -367,10 +367,58 @@ func TestCreateConfigOverrideMiddleware(t *testing.T) {
 		kept := strings.Join(historyHeaders(h), "\n")
 
 		assert.Contains(kept, "Content-Type")
-		assert.Contains(kept, "Authorization")
+		assert.NotContains(kept, "Authorization")
 		assert.NotContains(kept, "Accept-Language")
 		assert.NotContains(kept, "Sec-Fetch-Mode")
 		assert.NotContains(kept, "Origin")
+	})
+
+	// The reason for an allow-list: anything unrecognised is dropped, so a
+	// header AWS adds next year is out without anyone changing this file.
+	t.Run("an unknown platform header is dropped without being named", func(t *testing.T) {
+		h := http.Header{}
+		h.Set("Content-Type", "application/json")
+		h.Set("X-Some-Future-Aws-Header", "internal state")
+
+		kept := strings.Join(historyHeaders(h), "\n")
+
+		assert.Contains(kept, "Content-Type")
+		assert.NotContains(kept, "X-Some-Future-Aws-Header")
+	})
+
+	t.Run("platform headers stay out of history", func(t *testing.T) {
+		h := http.Header{}
+		h.Set("Content-Type", "application/json")
+		h.Set("X-Amzn-Request-Context", `{"accountId":"1","apiId":"x"}`)
+		h.Set("X-Amzn-Lambda-Context", `{"awsRequestId":"1"}`)
+		h.Set("X-Amzn-Trace-Id", "Root=1-abc")
+		h.Set("X-Amz-Cf-Id", "abc==")
+		h.Set("Cloudfront-Viewer-Country", "DE")
+		h.Set("Cloudfront-Viewer-Time-Zone", "Europe/Berlin")
+		h.Set("X-Forwarded-For", "1.2.3.4")
+		h.Set("Via", "2.0 cloudfront")
+
+		kept := strings.Join(historyHeaders(h), "\n")
+
+		assert.Contains(kept, "Content-Type")
+		assert.NotContains(kept, "X-Amzn-")
+		assert.NotContains(kept, "X-Amz-Cf-Id")
+		assert.NotContains(kept, "Cloudfront-")
+		assert.NotContains(kept, "X-Forwarded-For")
+		assert.NotContains(kept, "Via")
+	})
+
+	// These are the caller's and they change the response, so a history entry
+	// that hides them cannot explain itself.
+	t.Run("mockzilla control headers stay in history", func(t *testing.T) {
+		h := http.Header{}
+		h.Set("X-Mockzilla-Latency", "1s")
+		h.Set("X-Mockzilla-Cache-Requests", "false")
+
+		kept := strings.Join(historyHeaders(h), "\n")
+
+		assert.Contains(kept, "X-Mockzilla-Latency")
+		assert.Contains(kept, "X-Mockzilla-Cache-Requests")
 	})
 
 	t.Run("browser headers are not forwarded upstream", func(t *testing.T) {

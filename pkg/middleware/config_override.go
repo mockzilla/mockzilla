@@ -33,10 +33,12 @@ const (
 const sourceUI = "ui"
 
 // browserHeaders are headers a browser adds on its own. They say nothing about
-// the call, so history leaves them out and they are not forwarded upstream. They
-// are not removed from the request: a service whose spec declares one - Accept-
-// Language is a parameter of several published APIs - has to be able to read
-// what the caller sent.
+// the call, so they are not forwarded upstream. They are not removed from the
+// request: a service whose spec declares one - Accept-Language is a parameter
+// of several published APIs - has to be able to read what the caller sent.
+//
+// History no longer consults this: historyHeaderAllowList decides what it
+// keeps, and none of these are on it.
 var browserHeaders = map[string]bool{
 	"Origin":                            true,
 	"Referer":                           true,
@@ -58,6 +60,14 @@ var browserHeaders = map[string]bool{
 	"Sec-Purpose":                       true,
 	"Service-Worker-Navigation-Preload": true,
 }
+
+var historyHeaderAllowList = map[string]bool{
+	"Content-Type": true,
+	"User-Agent":   true,
+}
+
+// historyHeaderAllowPrefix keeps the caller's own control headers.
+const historyHeaderAllowPrefix = "X-Mockzilla-"
 
 // CreateConfigOverrideMiddleware creates a middleware that reads X-Mockzilla-* headers
 // and temporarily overrides ServiceConfig values for the current request.
@@ -86,11 +96,20 @@ func CreateConfigOverrideMiddleware(params *Params) func(http.Handler) http.Hand
 func historyHeaders(h http.Header) []string {
 	kept := make(http.Header, len(h))
 	for name, values := range h {
-		if !browserHeaders[http.CanonicalHeaderKey(name)] {
-			kept[name] = values
+		if !keepInHistory(name) {
+			continue
 		}
+		kept[name] = values
 	}
 	return db.FlattenHeaders(kept)
+}
+
+// keepInHistory reports whether a header is the caller's rather than the
+// platform's. Anything unrecognised is dropped: see historyHeaderAllowList.
+func keepInHistory(name string) bool {
+	canonical := http.CanonicalHeaderKey(name)
+	return historyHeaderAllowList[canonical] ||
+		strings.HasPrefix(canonical, historyHeaderAllowPrefix)
 }
 
 // dropBrowserHeaders removes what a browser added from a request about to be
