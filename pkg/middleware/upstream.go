@@ -76,6 +76,7 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 				if cfg.StickyTimeout > 0 {
 					params.DB().Table(stickySourceTable).Delete(req.Context(), svcCfg.Name)
 				}
+				cacheUpstreamResponse(params, svcCfg, req, resp.StatusCode, resp.ContentType, resp.Body)
 				SetRequestIDHeader(w, req)
 				SetDurationHeader(w, req)
 				w.Header().Set(ResponseHeaderSource, ResponseHeaderSourceUpstream)
@@ -104,6 +105,7 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 
 					requestID := GetRequestID(req)
 					duration := GetDuration(req)
+					cacheUpstreamResponse(params, svcCfg, req, httpErr.StatusCode, httpErr.ContentType, []byte(httpErr.Body))
 					if svcCfg.HistoryEnabled() {
 						histReq := &db.HistoryRequest{
 							Method:     req.Method,

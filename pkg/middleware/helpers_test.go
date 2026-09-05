@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -48,6 +49,20 @@ func newTestParams(serviceCfg *config.ServiceConfig) *Params {
 	storage := db.NewStorage(nil)
 	database := storage.NewDB(serviceCfg.Name, 100*time.Second)
 	return NewParams(serviceCfg, database)
+}
+
+// latestHistory returns the newest full history entry, or nil when the log is empty.
+func latestHistory(params *Params) *db.HistoryEntry {
+	history := params.DB().History()
+	summaries := history.Recent(context.Background(), 1)
+	if len(summaries) == 0 {
+		return nil
+	}
+	entry, ok := history.GetByID(context.Background(), summaries[0].ID)
+	if !ok {
+		return nil
+	}
+	return entry
 }
 
 // waitForAsync gives background goroutines time to complete.

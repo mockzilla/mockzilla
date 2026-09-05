@@ -221,7 +221,7 @@ func TestHistoryHandler_clear(t *testing.T) {
 		_ = CreateHistoryRoutes(router)
 
 		// Verify entry exists
-		assert.Equal(t, 1, database.History().Len(context.Background()))
+		assert.Len(t, database.History().Recent(context.Background(), 10), 1)
 
 		// Clear
 		req := httptest.NewRequest(http.MethodDelete, "/.history?service=test-service", nil)
@@ -236,7 +236,7 @@ func TestHistoryHandler_clear(t *testing.T) {
 		assert.Empty(t, response.Items)
 
 		// Verify cleared
-		assert.Equal(t, 0, database.History().Len(context.Background()))
+		assert.Empty(t, database.History().Recent(context.Background(), 10))
 	})
 
 	t.Run("Returns 404 for unknown service", func(t *testing.T) {
@@ -337,7 +337,7 @@ func TestHistoryHandler_slashInServiceName(t *testing.T) {
 		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, 0, database.History().Len(context.Background()))
+		assert.Empty(t, database.History().Recent(context.Background(), 10))
 	})
 }
 

@@ -27,7 +27,7 @@ func (s *memoryStorage) NewDB(serviceName string, historyDuration time.Duration)
 		storage:         s,
 		serviceName:     serviceName,
 		historyDuration: historyDuration,
-		history:         newMemoryHistoryTable(newMemoryTable(), historyDuration),
+		history:         newMemoryHistoryTable(historyDuration),
 	}
 }
 

@@ -2,40 +2,61 @@ package db
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
+
+	"github.com/google/uuid"
 )
 
+// MaxHistoryEntries is the number of newest entries a backend keeps and the
+// history API returns. Storage backends trim to this at write time so a list
+// read never pays for entries no caller can reach.
+const MaxHistoryEntries = 100
+
 // HistoryTable provides typed access to request/response history.
+// It is an append-only log: entries are written once and read back either as
+// a body-less page of summaries or in full by ID.
 type HistoryTable interface {
-	// Get retrieves the latest request record matching the HTTP request's method and URL.
-	Get(ctx context.Context, req *http.Request) (*HistoryEntry, bool)
-
-	// Set stores a request record with a unique ID.
+	// Set appends a record and returns the stored entry.
 	Set(ctx context.Context, resource string, req *HistoryRequest, response *HistoryResponse) *HistoryEntry
-
-	// SetResponse updates the response for the latest request record matching the request's method and URL.
-	SetResponse(ctx context.Context, req *HistoryRequest, response *HistoryResponse)
 
 	// GetByID retrieves a single history entry by its ID.
 	GetByID(ctx context.Context, id string) (*HistoryEntry, bool)
 
-	// Data returns all request records as an ordered log.
-	Data(ctx context.Context) []*HistoryEntry
-
-	// Summaries returns a body-less projection of the most recent entries.
-	Summaries(ctx context.Context) []*HistorySummary
-
-	// Len returns the number of history entries.
-	Len(ctx context.Context) int
+	// Recent returns up to limit body-less summaries, newest first.
+	Recent(ctx context.Context, limit int) []*HistorySummary
 
 	// Clear removes all history records.
 	Clear(ctx context.Context)
 }
 
-// HistorySummary is the body-less view returned by HistoryTable.Summaries.
+var historyIDSeq atomic.Uint64
+
+// NewHistoryID returns a time-ordered, lexicographically sortable entry ID.
+// Generating it client-side lets a backend write the entry in a single
+// round trip instead of fetching a sequence number first.
+func NewHistoryID() string {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return fallbackHistoryID()
+	}
+	return id.String()
+}
+
+// fallbackHistoryID covers a failed entropy source. It leads with the same
+// milliseconds a UUIDv7 does, so ids stay unique and in time order either way,
+// and it uses a counter rather than a source that can fail again: uuid's own
+// string helpers panic on the very error that lands us here, and a history
+// write runs on a background goroutine where that would take the process down.
+func fallbackHistoryID() string {
+	return fmt.Sprintf("%012x-%08x", time.Now().UnixMilli(), historyIDSeq.Add(1))
+}
+
+// HistorySummary is the body-less view returned by HistoryTable.Recent.
 // JSON shape mirrors HistoryEntry so the same UI renders list and detail.
 type HistorySummary struct {
 	ID        string                  `json:"id"`

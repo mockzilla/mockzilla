@@ -2,54 +2,37 @@ package db
 
 import (
 	"context"
-	"fmt"
-	"log/slog"
-	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
 // memoryHistoryTable is an in-memory implementation of HistoryTable.
-// It stores entries as an ordered log with unique IDs and maintains
-// an index of METHOD:URL → latest entry for fast lookups.
+// Entries live in a fixed-size ring of MaxHistoryEntries: the oldest is
+// evicted on overflow and dropped from the ID index, so a long-running
+// service does not retain every body it ever served.
 type memoryHistoryTable struct {
-	mu          sync.RWMutex
-	entries     []*HistoryEntry
-	latestIndex map[string]*HistoryEntry // lookupKey → latest entry
-	idIndex     map[string]*HistoryEntry // id → entry
-	counter     atomic.Int64
-	ttl         time.Duration
+	mu      sync.RWMutex
+	ring    []*HistoryEntry
+	next    int
+	size    int
+	byID    map[string]*HistoryEntry
+	ttl     time.Duration
+	maxSize int
 }
 
-// newMemoryHistoryTable creates a new in-memory history table.
-// ttl specifies how long each entry lives before expiring (0 means no expiry).
-func newMemoryHistoryTable(_ *memoryTable, ttl time.Duration) *memoryHistoryTable {
+// A ttl of 0 means entries never expire.
+func newMemoryHistoryTable(ttl time.Duration) *memoryHistoryTable {
 	return &memoryHistoryTable{
-		latestIndex: make(map[string]*HistoryEntry),
-		idIndex:     make(map[string]*HistoryEntry),
-		ttl:         ttl,
+		ring:    make([]*HistoryEntry, MaxHistoryEntries),
+		byID:    make(map[string]*HistoryEntry, MaxHistoryEntries),
+		ttl:     ttl,
+		maxSize: MaxHistoryEntries,
 	}
 }
 
-// Get retrieves the latest non-expired request record matching the HTTP request's method and URL.
-func (h *memoryHistoryTable) Get(_ context.Context, req *http.Request) (*HistoryEntry, bool) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	entry, ok := h.latestIndex[lookupKey(req.Method, req.URL.String())]
-	if !ok || h.isExpired(entry) {
-		return nil, false
-	}
-	return entry, true
-}
-
-// Set stores a request record with a unique ID.
 func (h *memoryHistoryTable) Set(_ context.Context, resource string, req *HistoryRequest, response *HistoryResponse) *HistoryEntry {
-	id := fmt.Sprintf("%d", h.counter.Add(1))
-
 	entry := &HistoryEntry{
-		ID:        id,
+		ID:        NewHistoryID(),
 		Resource:  resource,
 		Request:   req,
 		Response:  response,
@@ -57,95 +40,68 @@ func (h *memoryHistoryTable) Set(_ context.Context, resource string, req *Histor
 	}
 
 	h.mu.Lock()
-	h.entries = append(h.entries, entry)
-	h.latestIndex[lookupKey(req.Method, req.URL)] = entry
-	h.idIndex[id] = entry
-	h.mu.Unlock()
+	defer h.mu.Unlock()
+
+	if evicted := h.ring[h.next]; evicted != nil {
+		delete(h.byID, evicted.ID)
+	}
+	h.ring[h.next] = entry
+	h.byID[entry.ID] = entry
+	h.next = (h.next + 1) % h.maxSize
+	if h.size < h.maxSize {
+		h.size++
+	}
 
 	return entry
 }
 
-// SetResponse updates the response for the latest request record matching the request's method and URL.
-func (h *memoryHistoryTable) SetResponse(_ context.Context, req *HistoryRequest, response *HistoryResponse) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	entry, ok := h.latestIndex[lookupKey(req.Method, req.URL)]
-	if !ok {
-		slog.Info(fmt.Sprintf("Request for URL %s not found. Cannot set response", req.URL))
-		return
-	}
-	entry.Response = response
-}
-
-// GetByID retrieves a single non-expired history entry by its ID.
 func (h *memoryHistoryTable) GetByID(_ context.Context, id string) (*HistoryEntry, bool) {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	entry, ok := h.idIndex[id]
+	entry, ok := h.byID[id]
 	if !ok || h.isExpired(entry) {
 		return nil, false
 	}
 	return entry, true
 }
 
-// Data returns all non-expired request records as an ordered log.
-func (h *memoryHistoryTable) Data(_ context.Context) []*HistoryEntry {
+func (h *memoryHistoryTable) Recent(_ context.Context, limit int) []*HistorySummary {
+	if limit <= 0 {
+		return nil
+	}
+
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	var result []*HistoryEntry
-	for _, entry := range h.entries {
-		if !h.isExpired(entry) {
-			result = append(result, entry)
+	result := make([]*HistorySummary, 0, min(limit, h.size))
+	for i := 0; i < h.size && len(result) < limit; i++ {
+		idx := h.next - 1 - i
+		if idx < 0 {
+			idx += h.maxSize
 		}
+		entry := h.ring[idx]
+		if h.isExpired(entry) {
+			continue
+		}
+		result = append(result, SummaryOf(entry))
+	}
+
+	if len(result) == 0 {
+		return nil
 	}
 	return result
 }
 
-// Summaries returns body-less projections of all non-expired entries.
-func (h *memoryHistoryTable) Summaries(_ context.Context) []*HistorySummary {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	var result []*HistorySummary
-	for _, entry := range h.entries {
-		if !h.isExpired(entry) {
-			result = append(result, SummaryOf(entry))
-		}
-	}
-	return result
-}
-
-// Len returns the number of non-expired history entries.
-func (h *memoryHistoryTable) Len(_ context.Context) int {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	count := 0
-	for _, entry := range h.entries {
-		if !h.isExpired(entry) {
-			count++
-		}
-	}
-	return count
-}
-
-// Clear removes all history records.
 func (h *memoryHistoryTable) Clear(_ context.Context) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.entries = nil
-	h.latestIndex = make(map[string]*HistoryEntry)
-	h.idIndex = make(map[string]*HistoryEntry)
+	h.ring = make([]*HistoryEntry, h.maxSize)
+	h.byID = make(map[string]*HistoryEntry, h.maxSize)
+	h.next = 0
+	h.size = 0
 }
 
-func lookupKey(method, url string) string {
-	return method + ":" + url
-}
-
-// isExpired returns true if the entry has expired based on the table's TTL.
 func (h *memoryHistoryTable) isExpired(entry *HistoryEntry) bool {
 	return h.ttl > 0 && time.Now().After(entry.CreatedAt.Add(h.ttl))
 }

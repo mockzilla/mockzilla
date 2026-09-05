@@ -2,8 +2,6 @@ package db
 
 import (
 	"context"
-	"net/http"
-	"net/url"
 	"testing"
 	"time"
 
@@ -17,48 +15,6 @@ func newTestRedisHistory(t *testing.T) (*redisHistoryTable, *miniredis.Miniredis
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	history := newRedisHistoryTable(client, "test:history", 5*time.Minute)
 	return history, mr
-}
-
-func TestRedisHistory_Get(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("get existing entry", func(t *testing.T) {
-		history, _ := newTestRedisHistory(t)
-		history.Set(ctx, "/users/123", &HistoryRequest{Method: "GET", URL: "/users/123"}, &HistoryResponse{
-			StatusCode: 200,
-			Body:       []byte(`{"id":123}`),
-		})
-
-		req := &http.Request{Method: "GET", URL: &url.URL{Path: "/users/123"}}
-		entry, ok := history.Get(ctx, req)
-		assert.True(t, ok)
-		assert.Equal(t, "/users/123", entry.Resource)
-		assert.Equal(t, 200, entry.Response.StatusCode)
-		assert.NotEmpty(t, entry.ID)
-	})
-
-	t.Run("get non-existing entry", func(t *testing.T) {
-		history, _ := newTestRedisHistory(t)
-		req := &http.Request{Method: "GET", URL: &url.URL{Path: "/notfound"}}
-
-		entry, ok := history.Get(ctx, req)
-		assert.False(t, ok)
-		assert.Nil(t, entry)
-	})
-
-	t.Run("get returns latest entry", func(t *testing.T) {
-		history, _ := newTestRedisHistory(t)
-		histReq := &HistoryRequest{Method: "GET", URL: "/test"}
-
-		history.Set(ctx, "first", histReq, &HistoryResponse{StatusCode: 100})
-		history.Set(ctx, "second", histReq, &HistoryResponse{StatusCode: 200})
-
-		req := &http.Request{Method: "GET", URL: &url.URL{Path: "/test"}}
-		entry, ok := history.Get(ctx, req)
-		assert.True(t, ok)
-		assert.Equal(t, "second", entry.Resource)
-		assert.Equal(t, 200, entry.Response.StatusCode)
-	})
 }
 
 func TestRedisHistory_Set(t *testing.T) {
@@ -131,7 +87,15 @@ func TestRedisHistory_Set(t *testing.T) {
 		e2 := history.Set(ctx, "/test", histReq, nil)
 
 		assert.NotEqual(t, e1.ID, e2.ID)
-		assert.Len(t, history.Data(ctx), 2)
+		assert.Len(t, history.Recent(ctx, 10), 2)
+	})
+
+	t.Run("writes one index key and one entry key", func(t *testing.T) {
+		history, mr := newTestRedisHistory(t)
+		history.Set(ctx, "/test", &HistoryRequest{Method: "GET", URL: "/test"}, nil)
+
+		assert.Len(t, mr.Keys(), 2)
+		assert.Contains(t, mr.Keys(), "test:history:index")
 	})
 }
 
@@ -153,78 +117,17 @@ func TestRedisHistory_GetByID(t *testing.T) {
 		_, ok := history.GetByID(ctx, "nonexistent")
 		assert.False(t, ok)
 	})
-}
 
-func TestRedisHistory_SetResponse(t *testing.T) {
-	ctx := context.Background()
+	t.Run("returns false for invalid json", func(t *testing.T) {
+		history, mr := newTestRedisHistory(t)
+		_ = mr.Set("test:history:entry:bad", "not-valid-json{")
 
-	t.Run("update existing entry", func(t *testing.T) {
-		history, _ := newTestRedisHistory(t)
-		histReq := &HistoryRequest{Method: "GET", URL: "/test"}
-		history.Set(ctx, "/test", histReq, nil)
-
-		history.SetResponse(ctx, histReq, &HistoryResponse{
-			StatusCode:  200,
-			Body:        []byte(`{"ok":true}`),
-			ContentType: "application/json",
-		})
-
-		req := &http.Request{Method: "GET", URL: &url.URL{Path: "/test"}}
-		entry, ok := history.Get(ctx, req)
-		assert.True(t, ok)
-		assert.Equal(t, 200, entry.Response.StatusCode)
-		assert.Equal(t, "application/json", entry.Response.ContentType)
-	})
-
-	t.Run("set response for non-existing entry", func(t *testing.T) {
-		history, _ := newTestRedisHistory(t)
-
-		// Should not panic, just log
-		history.SetResponse(ctx, &HistoryRequest{Method: "GET", URL: "/missing"}, &HistoryResponse{StatusCode: 200})
-
-		// Entry should still not exist
-		req := &http.Request{Method: "GET", URL: &url.URL{Path: "/missing"}}
-		_, ok := history.Get(ctx, req)
+		_, ok := history.GetByID(ctx, "bad")
 		assert.False(t, ok)
 	})
 }
 
-func TestRedisHistory_Data(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("returns all entries", func(t *testing.T) {
-		history, _ := newTestRedisHistory(t)
-		history.Set(ctx, "/a", &HistoryRequest{Method: "GET", URL: "/a"}, &HistoryResponse{StatusCode: 200})
-		history.Set(ctx, "/b", &HistoryRequest{Method: "POST", URL: "/b"}, &HistoryResponse{StatusCode: 201})
-
-		data := history.Data(ctx)
-
-		assert.Len(t, data, 2)
-	})
-
-	t.Run("empty history", func(t *testing.T) {
-		history, _ := newTestRedisHistory(t)
-
-		data := history.Data(ctx)
-
-		assert.Empty(t, data)
-	})
-
-	t.Run("skips invalid json entries", func(t *testing.T) {
-		history, mr := newTestRedisHistory(t)
-		history.Set(ctx, "/valid", &HistoryRequest{Method: "GET", URL: "/valid"}, &HistoryResponse{StatusCode: 200})
-
-		// Inject invalid JSON directly into an entry key
-		_ = mr.Set("test:history:entry:bad", "not-valid-json{")
-
-		data := history.Data(ctx)
-
-		// Should only contain the valid entry
-		assert.Len(t, data, 1)
-	})
-}
-
-func TestRedisHistory_Summaries(t *testing.T) {
+func TestRedisHistory_Recent(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("returns body-less projection", func(t *testing.T) {
@@ -241,7 +144,7 @@ func TestRedisHistory_Summaries(t *testing.T) {
 			Duration:    42 * time.Millisecond,
 		})
 
-		summaries := history.Summaries(ctx)
+		summaries := history.Recent(ctx, 10)
 		assert.Len(t, summaries, 1)
 		s := summaries[0]
 		assert.Equal(t, "/foo/{id}", s.Resource)
@@ -251,48 +154,160 @@ func TestRedisHistory_Summaries(t *testing.T) {
 		assert.Equal(t, 42*time.Millisecond, s.Response.Duration)
 	})
 
+	t.Run("newest first", func(t *testing.T) {
+		history, _ := newTestRedisHistory(t)
+		history.Set(ctx, "/a", &HistoryRequest{Method: "GET", URL: "/a"}, nil)
+		history.Set(ctx, "/b", &HistoryRequest{Method: "GET", URL: "/b"}, nil)
+
+		summaries := history.Recent(ctx, 10)
+		assert.Len(t, summaries, 2)
+		assert.Equal(t, "/b", summaries[0].Resource)
+		assert.Equal(t, "/a", summaries[1].Resource)
+	})
+
+	t.Run("honours limit", func(t *testing.T) {
+		history, _ := newTestRedisHistory(t)
+		for i := 0; i < 5; i++ {
+			history.Set(ctx, "/test", &HistoryRequest{Method: "GET", URL: "/test"}, nil)
+		}
+
+		assert.Len(t, history.Recent(ctx, 2), 2)
+		assert.Nil(t, history.Recent(ctx, 0))
+	})
+
 	t.Run("empty history", func(t *testing.T) {
 		history, _ := newTestRedisHistory(t)
-		assert.Empty(t, history.Summaries(ctx))
+		assert.Empty(t, history.Recent(ctx, 10))
+	})
+
+	t.Run("skips invalid json entries", func(t *testing.T) {
+		history, mr := newTestRedisHistory(t)
+		history.Set(ctx, "/valid", &HistoryRequest{Method: "GET", URL: "/valid"}, nil)
+		_, _ = mr.Lpush("test:history:index", "not-valid-json{")
+
+		summaries := history.Recent(ctx, 10)
+		assert.Len(t, summaries, 1)
+		assert.Equal(t, "/valid", summaries[0].Resource)
+	})
+
+	t.Run("index is trimmed to the cap", func(t *testing.T) {
+		history, mr := newTestRedisHistory(t)
+		for i := 0; i < MaxHistoryEntries+5; i++ {
+			history.Set(ctx, "/test", &HistoryRequest{Method: "GET", URL: "/test"}, nil)
+		}
+
+		length, err := mr.List("test:history:index")
+		assert.NoError(t, err)
+		assert.Len(t, length, MaxHistoryEntries)
+		assert.Len(t, history.Recent(ctx, MaxHistoryEntries*2), MaxHistoryEntries)
 	})
 }
 
-func TestRedisHistory_Len(t *testing.T) {
+func TestRedisHistory_Recent_TTL(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("empty", func(t *testing.T) {
-		history, _ := newTestRedisHistory(t)
-		assert.Equal(t, 0, history.Len(ctx))
-	})
+	mr := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	history := newRedisHistoryTable(client, "test:history", 50*time.Millisecond)
 
-	t.Run("counts entries", func(t *testing.T) {
-		history, _ := newTestRedisHistory(t)
-		histReq := &HistoryRequest{Method: "GET", URL: "/test"}
-		history.Set(ctx, "/test", histReq, nil)
-		history.Set(ctx, "/test", histReq, nil)
+	history.Set(ctx, "/old", &HistoryRequest{Method: "GET", URL: "/old"}, nil)
+	assert.Len(t, history.Recent(ctx, 10), 1)
 
-		assert.Equal(t, 2, history.Len(ctx))
-	})
+	time.Sleep(80 * time.Millisecond)
+	history.Set(ctx, "/new", &HistoryRequest{Method: "GET", URL: "/new"}, nil)
+
+	summaries := history.Recent(ctx, 10)
+	assert.Len(t, summaries, 1)
+	assert.Equal(t, "/new", summaries[0].Resource)
+}
+
+func TestRedisHistory_NoTTL(t *testing.T) {
+	ctx := context.Background()
+
+	mr := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	history := newRedisHistoryTable(client, "test:history", 0)
+
+	entry := history.Set(ctx, "/x", &HistoryRequest{Method: "GET", URL: "/x"}, nil)
+
+	assert.Zero(t, mr.TTL("test:history:index"), "no TTL means the index must not expire")
+	assert.Zero(t, mr.TTL(history.entryKey(entry.ID)))
+
+	// Nothing is ever past the cutoff, however old the clock says it is.
+	mr.FastForward(365 * 24 * time.Hour)
+	assert.Len(t, history.Recent(ctx, 10), 1)
+}
+
+func TestRedisHistory_Recent_AllExpired(t *testing.T) {
+	ctx := context.Background()
+
+	mr := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	history := newRedisHistoryTable(client, "test:history", 50*time.Millisecond)
+
+	history.Set(ctx, "/old", &HistoryRequest{Method: "GET", URL: "/old"}, nil)
+	time.Sleep(80 * time.Millisecond)
+
+	assert.Nil(t, history.Recent(ctx, 10), "a page of nothing but expired summaries is empty")
+}
+
+func TestRedisHistory_ListAndDetailCanDisagree(t *testing.T) {
+	ctx := context.Background()
+	history, mr := newTestRedisHistory(t)
+
+	entry := history.Set(ctx, "/x", &HistoryRequest{Method: "GET", URL: "/x"}, nil)
+	mr.Del(history.entryKey(entry.ID))
+
+	// The summary outlives its record, so the row lists but the detail 404s.
+	assert.Len(t, history.Recent(ctx, 10), 1)
+	_, ok := history.GetByID(ctx, entry.ID)
+	assert.False(t, ok)
+}
+
+func TestRedisHistory_ClosedClient(t *testing.T) {
+	ctx := context.Background()
+
+	mr := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
+	history := newRedisHistoryTable(client, "test:history", time.Minute)
+	assert.NoError(t, client.Close())
+
+	// Every operation reports nothing rather than panicking or blocking.
+	assert.NotNil(t, history.Set(ctx, "/x", &HistoryRequest{Method: "GET", URL: "/x"}, nil))
+	assert.Nil(t, history.Recent(ctx, 10))
+	_, ok := history.GetByID(ctx, "any")
+	assert.False(t, ok)
+	history.Clear(ctx)
 }
 
 func TestRedisHistory_Clear(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("clears all entries", func(t *testing.T) {
-		history, _ := newTestRedisHistory(t)
+	t.Run("clears index and entries", func(t *testing.T) {
+		history, mr := newTestRedisHistory(t)
 		history.Set(ctx, "/x", &HistoryRequest{Method: "GET", URL: "/x"}, nil)
 		history.Set(ctx, "/y", &HistoryRequest{Method: "GET", URL: "/y"}, nil)
 
 		history.Clear(ctx)
 
-		data := history.Data(ctx)
-		assert.Empty(t, data)
-		assert.Equal(t, 0, history.Len(ctx))
+		assert.Empty(t, history.Recent(ctx, 10))
+		assert.Empty(t, mr.Keys())
+	})
+
+	t.Run("skips invalid json but still clears the rest", func(t *testing.T) {
+		history, mr := newTestRedisHistory(t)
+		entry := history.Set(ctx, "/x", &HistoryRequest{Method: "GET", URL: "/x"}, nil)
+		_, _ = mr.Lpush("test:history:index", "not-valid-json{")
+
+		history.Clear(ctx)
+
+		assert.Empty(t, mr.Keys())
+		_, ok := history.GetByID(ctx, entry.ID)
+		assert.False(t, ok)
 	})
 
 	t.Run("clear empty history", func(t *testing.T) {
 		history, _ := newTestRedisHistory(t)
-		// Should not panic
 		history.Clear(ctx)
 	})
 }
