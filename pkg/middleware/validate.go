@@ -1009,7 +1009,8 @@ func writeValidationError(w http.ResponseWriter, status int, message string, val
 	})
 }
 
-// Slim payload shape returned in non-verbose mode. Drops every
+// slimValidationErrorPayload is the payload shape returned in non-verbose
+// mode. Drops every
 // libopenapi-validator-supplied envelope field (message, howToFix,
 // validationType/SubType, requestPath, specPath, requestMethod, line/col,
 // parameterName) and keeps only the per-failure reason plus the nested

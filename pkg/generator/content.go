@@ -348,7 +348,7 @@ func generateContentArray(schema *schema.Schema, valueReplacer replacer.ValueRep
 	return res
 }
 
-// generateContentObject generates content from the given schema with type `object`.
+// placeholderForSchema generates content from the given schema with type `object`.
 func placeholderForSchema(s *schema.Schema, name string) any {
 	if s == nil {
 		return name

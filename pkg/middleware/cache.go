@@ -23,16 +23,16 @@ type cachedResponse struct {
 	ContentType string `json:"contentType,omitempty"`
 }
 
-// Only GET is ever read back, so nothing else is worth writing.
 func isRequestCacheEnabled(cfg *config.ServiceConfig, req *http.Request) bool {
+	// Only GET is ever read back, so nothing else is worth writing.
 	return cfg != nil &&
 		cfg.Cache != nil &&
 		cfg.Cache.Requests &&
 		req.Method == http.MethodGet
 }
 
-// Hashed so key length stays bounded regardless of query string size.
 func cacheKey(method, url string) string {
+	// Hashed so key length stays bounded regardless of query string size.
 	sum := sha256.Sum256([]byte(method + " " + url))
 	return hex.EncodeToString(sum[:])
 }

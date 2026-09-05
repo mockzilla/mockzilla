@@ -20,7 +20,7 @@ type memoryHistoryTable struct {
 	maxSize int
 }
 
-// A ttl of 0 means entries never expire.
+// newMemoryHistoryTable reads a ttl of 0 as entries that never expire.
 func newMemoryHistoryTable(ttl time.Duration) *memoryHistoryTable {
 	return &memoryHistoryTable{
 		ring:    make([]*HistoryEntry, MaxHistoryEntries),

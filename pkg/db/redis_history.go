@@ -108,10 +108,10 @@ func (h *redisHistoryTable) Recent(ctx context.Context, limit int) []*HistorySum
 	return summaries
 }
 
-// Entry keys are derived from the index rather than scanned for, so the cost is
-// bounded by MaxHistoryEntries instead of the size of the Redis keyspace. An
-// entry the index has already trimmed away is left to its own TTL: nothing can
-// list it, and finding it would mean the scan this avoids.
+// Clear derives entry keys from the index rather than scanning for them, so the
+// cost is bounded by MaxHistoryEntries instead of by the size of the Redis
+// keyspace. An entry the index has already trimmed away is left to its own TTL:
+// nothing can list it, and finding it would mean the scan this avoids.
 func (h *redisHistoryTable) Clear(ctx context.Context) {
 	vals, err := h.client.LRange(ctx, h.indexKey(), 0, -1).Result()
 	if err != nil {
