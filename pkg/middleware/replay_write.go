@@ -131,12 +131,10 @@ func CreateReplayWriteMiddleware(params *Params) func(http.Handler) http.Handler
 				CreatedAt:      time.Now(),
 			}
 
-			go func() {
-				ctx, cancel := context.WithTimeout(context.Background(), asyncWriteTimeout)
-				defer cancel()
+			safeWrite(log, func(ctx context.Context) {
 				table.Set(ctx, key, rec, ttl)
 				RequestLog(log, req).Info("Replay recorded", "method", req.Method, "path", req.URL.Path)
-			}()
+			})
 
 			writeThrough(w, rw)
 		})

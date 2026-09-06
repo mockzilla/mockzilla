@@ -71,9 +71,7 @@ func CreateCacheWriteMiddleware(params *Params) func(http.Handler) http.Handler 
 
 				resourcePath := GetResourcePath(req)
 				key := cacheKey(req.Method, req.URL.String())
-				go func() {
-					ctx, cancel := context.WithTimeout(context.Background(), asyncWriteTimeout)
-					defer cancel()
+				safeWrite(params.Logger("cache-write"), func(ctx context.Context) {
 					if recordHistory {
 						params.DB().History().Set(ctx, resourcePath, histReq, histResp)
 					}
@@ -84,7 +82,7 @@ func CreateCacheWriteMiddleware(params *Params) func(http.Handler) http.Handler 
 							ContentType: respContentType,
 						}, cacheTTL(cfg))
 					}
-				}()
+				})
 			}
 
 			// Set our custom headers before writing

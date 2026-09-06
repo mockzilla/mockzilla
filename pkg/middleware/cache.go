@@ -63,15 +63,13 @@ func cacheUpstreamResponse(params *Params, cfg *config.ServiceConfig, req *http.
 	key := cacheKey(req.Method, req.URL.String())
 	ttl := cacheTTL(cfg)
 	database := params.DB()
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), asyncWriteTimeout)
-		defer cancel()
+	safeWrite(params.Logger("cache"), func(ctx context.Context) {
 		writeCache(ctx, database, key, &cachedResponse{
 			Body:        body,
 			StatusCode:  status,
 			ContentType: contentType,
 		}, ttl)
-	}()
+	})
 }
 
 // cacheTTL returns how long a cached response stays valid. The request cache

@@ -4,15 +4,11 @@ import (
 	"bytes"
 	"log/slog"
 	"net/http"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/db"
 )
-
-// asyncWriteTimeout is the maximum time allowed for background DB writes.
-const asyncWriteTimeout = 5 * time.Second
 
 // ResponseHeaderSource is the response header indicating where the response came from.
 const ResponseHeaderSource = "X-Mockzilla-Source"
