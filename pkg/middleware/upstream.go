@@ -124,11 +124,9 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 						params.transformHistory(svcCfg, histReq, histResp)
 						resourcePath := GetResourcePath(req)
 
-						go func() {
-							ctx, cancel := context.WithTimeout(context.Background(), asyncWriteTimeout)
-							defer cancel()
+						safeWrite(log, func(ctx context.Context) {
 							params.DB().History().Set(ctx, resourcePath, histReq, histResp)
-						}()
+						})
 					}
 
 					SetRequestIDHeader(w, req)
@@ -254,11 +252,9 @@ func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, cfg *co
 		}
 		params.transformHistory(svcCfg, histReq, histResp)
 		resourcePath := GetResourcePath(req)
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), asyncWriteTimeout)
-			defer cancel()
+		safeWrite(log, func(ctx context.Context) {
 			history.Set(ctx, resourcePath, histReq, histResp)
-		}()
+		})
 	}
 
 	return &upstreamResponse{
