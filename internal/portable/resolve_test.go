@@ -8,8 +8,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/mockzilla/mockzilla/v2/internal/files"
+	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -763,5 +765,28 @@ func TestBuildOverrides(t *testing.T) {
 	t.Run("errors on bad latency", func(t *testing.T) {
 		_, err := buildOverrides(flags{latency: "fast"})
 		assert.Error(t, err)
+	})
+}
+
+func TestCliOverridesApplyTo(t *testing.T) {
+	t.Run("errors take effect", func(t *testing.T) {
+		cfg := config.NewServiceConfig()
+		o := &cliOverrides{errors: map[string]int{"p100": 503}}
+		o.applyTo(cfg)
+		assert.Equal(t, 503, cfg.GetError())
+	})
+	t.Run("latency and mount", func(t *testing.T) {
+		cfg := config.NewServiceConfig()
+		o := &cliOverrides{latency: 150 * time.Millisecond, mount: "pets/v2"}
+		o.applyTo(cfg)
+		assert.Equal(t, 150*time.Millisecond, cfg.GetLatency())
+		assert.Equal(t, "pets/v2", cfg.Mount)
+	})
+	t.Run("nil overrides leave config alone", func(t *testing.T) {
+		cfg := config.NewServiceConfig()
+		cfg.Mount = "keep"
+		var o *cliOverrides
+		o.applyTo(cfg)
+		assert.Equal(t, "keep", cfg.Mount)
 	})
 }

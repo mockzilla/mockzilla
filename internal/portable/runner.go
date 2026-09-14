@@ -278,20 +278,12 @@ func (o *cliOverrides) applyTo(cfg *config.ServiceConfig) {
 	if o == nil {
 		return
 	}
-	if o.latency > 0 {
-		cfg.Latency = o.latency
-	}
-	if o.mount != "" {
-		cfg.Mount = o.mount
-	}
-	if len(o.errors) > 0 {
-		if cfg.Errors == nil {
-			cfg.Errors = make(map[string]int)
-		}
-		for k, v := range o.errors {
-			cfg.Errors[k] = v
-		}
-	}
+	// OverwriteWith rebuilds the parsed percentile table. Writing cfg.Errors
+	// directly left that table empty, so --errors never fired.
+	cfg.OverwriteWith(&config.ServiceConfig{
+		BehaviorConfig: config.BehaviorConfig{Latency: o.latency, Errors: o.errors},
+		Mount:          o.mount,
+	})
 }
 
 // boolFlags lists flag names that don't take a value. The hand-rolled
