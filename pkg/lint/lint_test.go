@@ -58,6 +58,34 @@ func TestSpec_MissingFile(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestSpecBytes_CyclicSchema(t *testing.T) {
+	defects, err := SpecBytes([]byte(`
+openapi: 3.0.3
+info: {title: t, version: "1"}
+paths: {}
+components:
+  schemas:
+    Node:
+      type: object
+      required: [child]
+      properties:
+        child:
+          $ref: '#/components/schemas/Node'
+`))
+	require.NoError(t, err)
+	assert.Empty(t, defects)
+}
+
+func TestSpecBytes_Swagger2(t *testing.T) {
+	_, err := SpecBytes([]byte(`
+swagger: "2.0"
+info: {title: t, version: "1"}
+paths: {}
+`))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "swagger 2.0 specs are not supported")
+}
+
 // TestSpec_RealValidationSpecs spot-checks the spec-defect cases we observed
 // during validation runs to make sure each lands on the expected rule.
 // Skipped when testdata isn't present (e.g. running outside the repo).
@@ -92,6 +120,47 @@ func TestSpec_RealValidationSpecs(t *testing.T) {
 			assert.True(t, seen, "expected to find rule %q among defects: %v", tc.wantRule, defects)
 		})
 	}
+}
+
+func TestSpec_ComponentReportedOnce(t *testing.T) {
+	spec := writeSpec(t, "shared.yml", `
+openapi: 3.0.0
+info: {title: t, version: "1"}
+paths:
+  /tags:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tags'
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Tags'
+      responses:
+        '204':
+          description: ok
+components:
+  schemas:
+    Pet:
+      type: object
+      properties:
+        tags:
+          $ref: '#/components/schemas/Tags'
+    Tags:
+      type: array
+      items: {type: string}
+      enum: [a, b]
+`)
+	defects, err := Spec(spec)
+	require.NoError(t, err)
+	require.Len(t, defects, 1)
+	assert.Equal(t, "components.schemas.Tags", defects[0].Path)
 }
 
 // TestSpec_ParamMissingSchema covers the OAS-2.0-style parameter

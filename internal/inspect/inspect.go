@@ -11,12 +11,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"strings"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/pack"
 	"github.com/pb33f/libopenapi"
+	"github.com/pb33f/libopenapi/datamodel"
 )
 
 const (
@@ -168,7 +170,12 @@ func loadPackageManifest(src string) (*pack.Manifest, error) {
 // Summarize parses an OpenAPI document and returns its summary. Exposed
 // so unit tests can exercise it without going through stdin/stdout.
 func Summarize(raw []byte) (Summary, error) {
-	doc, err := libopenapi.NewDocument(raw)
+	cfg := datamodel.NewDocumentConfiguration()
+	// Match the serve path, which accepts cyclic specs. The default libopenapi
+	// logger writes JSON lines to stdout and would corrupt the summary.
+	cfg.SkipCircularReferenceCheck = true
+	cfg.Logger = slog.New(slog.DiscardHandler)
+	doc, err := libopenapi.NewDocumentWithConfiguration(raw, cfg)
 	if err != nil {
 		return Summary{}, fmt.Errorf("parse OpenAPI: %w", err)
 	}

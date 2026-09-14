@@ -18,20 +18,23 @@ package lint
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/pb33f/libopenapi"
+	"github.com/pb33f/libopenapi/datamodel"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	v3 "github.com/pb33f/libopenapi/datamodel/high/v3"
+	"github.com/pb33f/libopenapi/utils"
 )
 
 // Defect describes one location in a spec that fails strict JSON Schema
 // validation. Path is the YAML pointer (e.g. `components.schemas.Foo`),
 // Detail is a short human-readable description.
 type Defect struct {
-	Rule   string
-	Path   string
-	Detail string
+	Rule   string `json:"rule"`
+	Path   string `json:"path"`
+	Detail string `json:"detail"`
 }
 
 // Spec parses the OpenAPI document at the given path and returns all
@@ -43,9 +46,22 @@ func Spec(path string) ([]Defect, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read spec: %w", err)
 	}
-	doc, err := libopenapi.NewDocument(data)
+	return SpecBytes(data)
+}
+
+// SpecBytes is Spec for a document that is already in memory.
+func SpecBytes(data []byte) ([]Defect, error) {
+	cfg := datamodel.NewDocumentConfiguration()
+	// Match the serve path: the walker bounds cycles itself, and the default
+	// libopenapi logger writes JSON lines to stdout.
+	cfg.SkipCircularReferenceCheck = true
+	cfg.Logger = slog.New(slog.DiscardHandler)
+	doc, err := libopenapi.NewDocumentWithConfiguration(data, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("parse spec: %w", err)
+	}
+	if info := doc.GetSpecInfo(); info != nil && info.SpecType == utils.OpenApi2 {
+		return nil, fmt.Errorf("swagger 2.0 specs are not supported, convert to OpenAPI 3 first")
 	}
 	v3model, err := doc.BuildV3Model()
 	if err != nil {
@@ -75,6 +91,11 @@ func (w *walker) walkV3(doc *v3.Document) {
 		return
 	}
 	if doc.Components != nil && doc.Components.Schemas != nil {
+		// Refs to a component build a separate *Schema, so without marking them
+		// up front a component's defect is reported again wherever it is referenced.
+		for name := range doc.Components.Schemas.FromOldest() {
+			w.seenRefs["#/components/schemas/"+name] = true
+		}
 		for name, proxy := range doc.Components.Schemas.FromOldest() {
 			w.walkProxy(proxy, "components.schemas."+name)
 		}
@@ -92,16 +113,22 @@ func (w *walker) walkPathItem(item *v3.PathItem, base string) {
 	}
 	w.walkParameters(item.Parameters, base+".parameters")
 
-	ops := map[string]*v3.Operation{
-		"get": item.Get, "post": item.Post, "put": item.Put, "delete": item.Delete,
-		"patch": item.Patch, "head": item.Head, "options": item.Options, "trace": item.Trace,
+	// A slice, not a map: refs are reported once, at the first place the walk
+	// meets them, so a random order would change the reported paths run to run.
+	ops := []struct {
+		method string
+		op     *v3.Operation
+	}{
+		{"get", item.Get}, {"post", item.Post}, {"put", item.Put}, {"delete", item.Delete},
+		{"patch", item.Patch}, {"head", item.Head}, {"options", item.Options}, {"trace", item.Trace},
 	}
 
-	for method, op := range ops {
+	for _, entry := range ops {
+		op := entry.op
 		if op == nil {
 			continue
 		}
-		prefix := base + "." + method
+		prefix := base + "." + entry.method
 
 		w.walkParameters(op.Parameters, prefix+".parameters")
 

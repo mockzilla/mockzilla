@@ -68,6 +68,34 @@ paths: {}
 		assert.Equal(t, "3.1.0", summary.OpenAPIVersion)
 	})
 
+	t.Run("accepts cyclic schemas", func(t *testing.T) {
+		spec := []byte(`
+openapi: 3.0.3
+info: {title: Tree, version: "1.0"}
+paths:
+  /tree:
+    get:
+      responses:
+        '200':
+          description: ok
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Node'
+components:
+  schemas:
+    Node:
+      type: object
+      required: [child]
+      properties:
+        child:
+          $ref: '#/components/schemas/Node'
+`)
+		s, err := Summarize(spec)
+		require.NoError(t, err)
+		assert.Equal(t, 1, s.EndpointCount)
+	})
+
 	t.Run("returns an error on unparseable input", func(t *testing.T) {
 		_, err := Summarize([]byte("not: a valid: openapi: doc:"))
 		assert.Error(t, err)

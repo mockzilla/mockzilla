@@ -92,7 +92,7 @@ func main() {
 }
 
 // run is the top-level dispatcher: routes the invocation to a
-// subcommand (info / simplify / pack), portable mode (file/URL/dir/
+// subcommand (info / simplify / pack / lint), portable mode (file/URL/dir/
 // package arg), or the codegen-mode app server. Returns the process
 // exit code so main can decide whether to re-exec on a hot reload.
 func run() int {
@@ -132,12 +132,14 @@ func dispatchSubcommand(args []string) (int, bool) {
 	case "info":
 		// `mockzilla info <url-or-file>` prints a JSON summary of a
 		// spec or a .mockz manifest and exits. Used by the MCP
-		// bridge's peek_openapi tool.
+		// bridge's info tool.
 		return inspect.Run(args[1:]), true
 	case "simplify":
 		return runCobraSubcommand(simplifyCommand(), args), true
 	case "pack":
 		return runCobraSubcommand(packCommand(), args), true
+	case "lint":
+		return runCobraSubcommand(lintCommand(), args), true
 	}
 	return 0, false
 }
@@ -321,6 +323,7 @@ Usage:
   mockzilla info <spec.yaml | https://...>     Print a JSON summary of a spec and exit
   mockzilla simplify <spec.yaml | https://...> Simplify a spec (drop unions, limit optional props)
   mockzilla pack <dir>                         Pack a service directory into a .mockz archive
+  mockzilla lint <spec.yaml | https://...>     Find schemas no value can satisfy (exit 1 if any)
   mockzilla [<app-dir>]                        App mode: serve a configured mockzilla project
   mockzilla --version                          Print version and exit
   mockzilla --help                             Print this message
@@ -371,6 +374,7 @@ Examples:
   mockzilla https://example.com/my-api.mockz
   mockzilla info https://petstore3.swagger.io/api/v3/openapi.json
   mockzilla simplify --output simplified.yml --optional 5 ./openapi.yml
+  mockzilla lint --json ./openapi.yml
   mockzilla --ready-stamp --port 0 ./openapi.yml
 
 Run 'mockzilla <subcommand> --help' for subcommand-specific flags (e.g. 'mockzilla simplify --help').
