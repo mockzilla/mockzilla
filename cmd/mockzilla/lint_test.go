@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -24,6 +25,8 @@ paths:
         '200':
           description: ok
 `), 0o644))
+	unparseable := filepath.Join(dir, "unparseable.yml")
+	require.NoError(t, os.WriteFile(unparseable, []byte("this: is: not: yaml: at: all\n  - and: a: list"), 0o644))
 	broken := filepath.Join(dir, "broken.yml")
 	require.NoError(t, os.WriteFile(broken, []byte(`
 openapi: 3.0.0
@@ -59,6 +62,7 @@ components:
 			wantErr: "1 defect(s) found",
 		},
 		{name: "missing file", argv: []string{filepath.Join(dir, "nope.yml")}, wantErr: "reading spec"},
+		{name: "unparseable spec", argv: []string{unparseable}, wantErr: "parse spec"},
 		{name: "unknown format", argv: []string{"--format", "sarif", clean}, wantErr: `--format must be text or json, got "sarif"`},
 	}
 
@@ -80,4 +84,20 @@ components:
 			assert.Equal(t, tc.wantOut, out.String())
 		})
 	}
+
+	t.Run("json write error", func(t *testing.T) {
+		cmd := lintCommand()
+		cmd.SetArgs([]string{"--format", "json", clean})
+		cmd.SetOut(failingWriter{})
+		cmd.SetErr(io.Discard)
+
+		err := cmd.Execute()
+		require.ErrorIs(t, err, errWriteFailed)
+	})
 }
+
+var errWriteFailed = errors.New("write failed")
+
+type failingWriter struct{}
+
+func (failingWriter) Write([]byte) (int, error) { return 0, errWriteFailed }
