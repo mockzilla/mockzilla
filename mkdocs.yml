@@ -84,5 +84,6 @@ nav:
   - Commands:
       - service: 'commands/service.md'
       - simplify: 'commands/simplify.md'
+      - lint: 'commands/lint.md'
   - API:
       - Overview: 'api/index.md'
