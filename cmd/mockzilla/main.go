@@ -374,7 +374,7 @@ Examples:
   mockzilla https://example.com/my-api.mockz
   mockzilla info https://petstore3.swagger.io/api/v3/openapi.json
   mockzilla simplify --output simplified.yml --optional 5 ./openapi.yml
-  mockzilla lint --json ./openapi.yml
+  mockzilla lint --format json ./openapi.yml
   mockzilla --ready-stamp --port 0 ./openapi.yml
 
 Run 'mockzilla <subcommand> --help' for subcommand-specific flags (e.g. 'mockzilla simplify --help').

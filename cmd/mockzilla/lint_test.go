@@ -44,7 +44,8 @@ components:
 		wantErr string
 	}{
 		{name: "clean text", argv: []string{clean}, wantOut: "No defects found\n"},
-		{name: "clean json", argv: []string{"--json", clean}, wantOut: `{"defects":[]}` + "\n"},
+		{name: "clean json", argv: []string{"--format", "json", clean}, wantOut: `{"defects":[]}` + "\n"},
+		{name: "explicit text", argv: []string{"--format=text", clean}, wantOut: "No defects found\n"},
 		{
 			name:    "defects text",
 			argv:    []string{broken},
@@ -53,11 +54,12 @@ components:
 		},
 		{
 			name:    "defects json",
-			argv:    []string{"--json", broken},
+			argv:    []string{"--format", "json", broken},
 			wantOut: `{"defects":[{"rule":"array-enum-scalars","path":"components.schemas.Tags","detail":"type: array with scalar enum: arrays can never equal a scalar, schema is unsatisfiable"}]}` + "\n",
 			wantErr: "1 defect(s) found",
 		},
 		{name: "missing file", argv: []string{filepath.Join(dir, "nope.yml")}, wantErr: "reading spec"},
+		{name: "unknown format", argv: []string{"--format", "sarif", clean}, wantErr: `--format must be text or json, got "sarif"`},
 	}
 
 	for _, tc := range tests {

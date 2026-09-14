@@ -9,7 +9,7 @@ import (
 )
 
 func lintCommand() *cobra.Command {
-	var flagJSON bool
+	var flagFormat string
 
 	cmd := &cobra.Command{
 		Use:   "lint [flags] <spec>",
@@ -26,12 +26,16 @@ Use '-' as <spec> to read the spec from stdin.
 
 Examples:
   mockzilla lint openapi.yml
-  mockzilla lint --json https://example.com/openapi.json
+  mockzilla lint --format json https://example.com/openapi.json
   cat openapi.yml | mockzilla lint -`,
 		Args:          cobra.ExactArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if flagFormat != "text" && flagFormat != "json" {
+				return fmt.Errorf("--format must be text or json, got %q", flagFormat)
+			}
+
 			specBytes, err := readSpec(args[0])
 			if err != nil {
 				return fmt.Errorf("reading spec: %w", err)
@@ -43,16 +47,17 @@ Examples:
 			}
 
 			out := cmd.OutOrStdout()
-			if flagJSON {
+			switch {
+			case flagFormat == "json":
 				if defects == nil {
 					defects = []lint.Defect{}
 				}
 				if err := json.NewEncoder(out).Encode(map[string]any{"defects": defects}); err != nil {
 					return err
 				}
-			} else if len(defects) == 0 {
+			case len(defects) == 0:
 				_, _ = fmt.Fprintln(out, "No defects found")
-			} else {
+			default:
 				for _, d := range defects {
 					_, _ = fmt.Fprintf(out, "%s: %s [%s]\n", d.Path, d.Detail, d.Rule)
 				}
@@ -65,6 +70,6 @@ Examples:
 		},
 	}
 
-	cmd.Flags().BoolVar(&flagJSON, "json", false, `Print {"defects": [{rule, path, detail}]} instead of text`)
+	cmd.Flags().StringVar(&flagFormat, "format", "text", `Output format: text, or json for {"defects": [{rule, path, detail}]}`)
 	return cmd
 }

@@ -22,7 +22,7 @@ mockzilla lint [flags] <path-to-spec>
 
 | Flag | Description |
 |------|-------------|
-| `--json` | Print `{"defects": [{"rule", "path", "detail"}]}` instead of text. |
+| `--format` | Output format: `text` (default) or `json`. JSON is `{"defects": [{"rule", "path", "detail"}]}`. |
 | `-h, --help` | Show help and exit. |
 
 ## Exit Codes
@@ -57,7 +57,7 @@ operations reference it.
 mockzilla lint openapi.yml
 
 # JSON output, from a URL
-mockzilla lint --json https://petstore3.swagger.io/api/v3/openapi.json
+mockzilla lint --format json https://petstore3.swagger.io/api/v3/openapi.json
 
 # Read spec from stdin
 cat openapi.yml | mockzilla lint -
