@@ -263,35 +263,10 @@ func isImplicitServicesRoot(dir string, hasConfigFile bool, specs []string) bool
 	if hasConfigFile || len(specs) > 0 {
 		return false
 	}
-	if hasTopLevelIndexFile(dir) {
+	if cmdapi.HasRootEndpoint(dir) {
 		return false
 	}
 	return hasServiceCandidateSubdir(dir)
-}
-
-// hasTopLevelIndexFile reports whether the dir has an `index.<ext>` file
-// directly at its top level (a static endpoint for the service root).
-// Used as a "this dir IS a service" signal.
-func hasTopLevelIndexFile(dir string) bool {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return false
-	}
-
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		stem := strings.TrimSuffix(name, filepath.Ext(name))
-		if stem != "index" {
-			continue
-		}
-		if cmdapi.GetContentType(filepath.Ext(name)) != "" {
-			return true
-		}
-	}
-	return false
 }
 
 // excludeSpecAssetRoute drops the auto-generated `GET /<spec-basename>`

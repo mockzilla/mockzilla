@@ -15,7 +15,7 @@ func BuildSchemaFromContent(content []byte, contentType string) (*Schema, error)
 
 	// Determine how to parse based on content type
 	switch {
-	case strings.Contains(contentType, "application/json"):
+	case strings.Contains(contentType, "application/json"), strings.Contains(contentType, "+json"):
 		return buildSchemaFromJSON([]byte(trimmedContent))
 	case strings.Contains(contentType, "application/xml"), strings.Contains(contentType, "text/xml"):
 		return buildSchemaFromXML([]byte(trimmedContent))

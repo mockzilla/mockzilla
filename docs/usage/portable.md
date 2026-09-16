@@ -200,16 +200,22 @@ Every service folder is matched against one of three shapes:
 | `users/{id}/index.<ext>` | `GET /users/{id}` |
 | `users/{id}/delete/index.<ext>` | `DELETE /users/{id}` |
 | `notes.json` (not `index.*`) | `GET /notes.json` (literal asset) |
+| `users/post/meta.json` | status and headers for `POST /users` (never served) |
+| `users/{id}/delete/meta.json` alone | `DELETE /users/{id}` with no body |
 
 The verb defaults to `GET`. To use a different HTTP method, place
 `index.<ext>` under a lowercased method directory (`get`, `post`,
 `put`, `patch`, `delete`, `head`, `options`, `trace`). Extension
 drives content-type: `.json`, `.yaml`/`.yml`, `.html`, `.xml`, `.txt`.
 
+A `meta.json` next to an `index.<ext>` sets that response's status and
+headers: `{"status": 201, "headers": {"Location": "/users/42"}}`. See
+[Status and headers](../services.md#status-and-headers).
+
 ### Reserved at the service folder root
 
-`config.yml`, `context.yml`, `app.yml`, and any `index.<ext>` are
-never treated as spec candidates. Dotted, underscore-prefixed, and
+`config.yml`, `context.yml`, `app.yml`, `meta.json`, and any
+`index.<ext>` are never treated as spec candidates. Dotted, underscore-prefixed, and
 well-known noise dirs (`node_modules`, `vendor`, `target`, `dist`)
 are skipped during the static scan.
 

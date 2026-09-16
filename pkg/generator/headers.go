@@ -31,6 +31,10 @@ func generateHeaders(headers map[string]*schema.Schema, valueReplacer replacer.V
 		if skipHeaders[name] {
 			continue
 		}
+		if s.StaticContent != "" {
+			res.Set(name, s.StaticContent)
+			continue
+		}
 
 		// Response headers are read-only content: without the flag the
 		// `in-response-header` area never matches and `readOnly` header

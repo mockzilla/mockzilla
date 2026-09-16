@@ -117,10 +117,11 @@ func (h *handler) handleRequest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Set content-type if not already set by response headers.
-	// Prefer the content-type declared in the spec for this operation's success
-	// response, falling back to application/json when the spec doesn't declare one.
-	if w.Header().Get("Content-Type") == "" {
+	// Set content-type if not already set by response headers and there is
+	// a body to describe. Prefer the content-type declared in the spec for
+	// this operation's success response, falling back to application/json
+	// when the spec doesn't declare one.
+	if resp.Body != nil && w.Header().Get("Content-Type") == "" {
 		contentType := "application/json"
 		if op != nil && op.Response != nil {
 			if item := op.Response.GetSuccess(); item != nil && item.ContentType != "" {

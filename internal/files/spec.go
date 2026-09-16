@@ -52,7 +52,7 @@ func IsSpec(name string) bool {
 // legal spec extension.
 func IsReservedName(name string) bool {
 	switch strings.TrimSuffix(name, filepath.Ext(name)) {
-	case "config", "context", "app", "codegen", "index":
+	case "config", "context", "app", "codegen", "index", "meta":
 		return true
 	}
 	return false

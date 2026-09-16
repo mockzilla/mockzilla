@@ -90,4 +90,22 @@ func TestGenerateHeaders(t *testing.T) {
 		// Other headers should be present
 		assert.Equal("custom-value", res.Get("X-Custom-Header"))
 	})
+
+	t.Run("static values bypass the replacer and keep transport filtering", func(t *testing.T) {
+		valueReplacer := func(schema any, state *replacer.ReplaceState) any {
+			return "replaced"
+		}
+
+		headers := map[string]*schema.Schema{
+			"Location":     {Type: "string", StaticContent: "/users/42"},
+			"X-Generated":  {Type: "string"},
+			"Content-Type": {Type: "string", StaticContent: "text/plain"},
+		}
+
+		res := generateHeaders(headers, valueReplacer)
+
+		assert.Equal("/users/42", res.Get("Location"))
+		assert.Equal("replaced", res.Get("X-Generated"))
+		assert.Equal("", res.Get("Content-Type"))
+	})
 }

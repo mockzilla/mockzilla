@@ -1,9 +1,15 @@
 package api
 
 import (
+	"bytes"
+	"cmp"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
@@ -16,10 +22,21 @@ type Route struct {
 	Path        string
 	ContentType string
 	Content     string
+	Status      int
+	Headers     map[string]string
 	// SourceFile is the on-disk path the route was scanned from,
 	// relative to nothing (caller decides what to do with it). Empty
 	// for synthetic routes that weren't materialised as a file.
 	SourceFile string
+}
+
+// staticMetaFile sits next to index.<ext> and carries that response's
+// status and headers. Reserved at every depth so it is never served.
+const staticMetaFile = "meta.json"
+
+type staticMeta struct {
+	Status  int               `json:"status"`
+	Headers map[string]string `json:"headers"`
 }
 
 // httpMethods is the set of recognized HTTP methods used to identify method directories.
@@ -88,10 +105,11 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 			}
 			return nil
 		}
-
-		ext := filepath.Ext(info.Name())
+		name := info.Name()
+		ext := filepath.Ext(name)
 		contentType := GetContentType(ext)
-		if contentType == "" {
+		isMeta := name == staticMetaFile
+		if !isMeta && contentType == "" {
 			return nil
 		}
 
@@ -100,17 +118,42 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 			return err
 		}
 		segments := strings.Split(filepath.ToSlash(relPath), "/")
-		stem := strings.TrimSuffix(info.Name(), ext)
+		stem := strings.TrimSuffix(name, ext)
 
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return fmt.Errorf("reading file %s: %w", path, err)
+		// Next to an index file, meta.json is that file's sidecar and
+		// the index pass reads it. On its own it declares an endpoint
+		// without a body.
+		var body string
+		if isMeta {
+			if hasIndexFile(filepath.Dir(path)) {
+				return nil
+			}
+			stem, contentType = "index", ""
+		} else {
+			content, err := os.ReadFile(path)
+			if err != nil {
+				return fmt.Errorf("reading file %s: %w", path, err)
+			}
+			body = strings.TrimRight(string(content), "\n\r\t ")
 		}
-		body := strings.TrimRight(string(content), "\n\r\t ")
+
+		var meta staticMeta
+		if stem == "index" {
+			if meta, err = readStaticMeta(filepath.Dir(path)); err != nil {
+				return err
+			}
+
+			for name, value := range meta.Headers {
+				if strings.EqualFold(name, "Content-Type") {
+					contentType = value
+					delete(meta.Headers, name)
+				}
+			}
+		}
 
 		// Top-level file (no parent dir inside the service folder).
 		if len(segments) == 1 {
-			if reservedConfigFiles[info.Name()] {
+			if reservedConfigFiles[name] {
 				return nil
 			}
 			if stem == "index" {
@@ -118,12 +161,13 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 				routes = append(routes, Route{
 					Method: "GET", Path: "/",
 					ContentType: contentType, Content: body,
+					Status: meta.Status, Headers: meta.Headers,
 					SourceFile: path,
 				})
 			} else {
 				// Literal asset (e.g. spec file fetchable at its path).
 				routes = append(routes, Route{
-					Method: "GET", Path: "/" + info.Name(),
+					Method: "GET", Path: "/" + name,
 					ContentType: contentType, Content: body,
 					SourceFile: path,
 				})
@@ -151,9 +195,9 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 		// (e.g. `users/admin.json` becomes `/users/admin.json`).
 		if stem != "index" {
 			if urlPath == "/" {
-				urlPath = "/" + info.Name()
+				urlPath = "/" + name
 			} else {
-				urlPath = urlPath + "/" + info.Name()
+				urlPath = urlPath + "/" + name
 			}
 		}
 
@@ -162,6 +206,8 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 			Path:        urlPath,
 			ContentType: contentType,
 			Content:     body,
+			Status:      meta.Status,
+			Headers:     meta.Headers,
 			SourceFile:  path,
 		})
 		return nil
@@ -175,7 +221,8 @@ func scanStaticFiles(staticDir string) ([]Route, error) {
 }
 
 // HasStaticEndpoints reports whether the directory contains at least
-// one `<…>/index.<ext>` file (with or without an explicit method dir).
+// one `<…>/index.<ext>` or `<…>/meta.json` file (with or without an
+// explicit method dir).
 // Used by service-folder discovery to decide between spec mode and
 // static mode.
 func HasStaticEndpoints(dir string) bool {
@@ -194,6 +241,10 @@ func HasStaticEndpoints(dir string) bool {
 			return nil
 		}
 		filename := info.Name()
+		if filename == staticMetaFile {
+			found = true
+			return filepath.SkipDir
+		}
 		stem := strings.TrimSuffix(filename, filepath.Ext(filename))
 		if stem != "index" {
 			return nil
@@ -210,6 +261,17 @@ func HasStaticEndpoints(dir string) bool {
 		return filepath.SkipDir
 	})
 	return found
+}
+
+// HasRootEndpoint reports whether dir serves a static response at its
+// own root: a top-level `index.<ext>` or a bodiless `meta.json`.
+func HasRootEndpoint(dir string) bool {
+	if hasIndexFile(dir) {
+		return true
+	}
+
+	_, err := os.Stat(filepath.Join(dir, staticMetaFile))
+	return err == nil
 }
 
 // GetContentType returns the content type for a file extension.
@@ -281,25 +343,42 @@ func generateOpenAPIFromStatic(routes []Route, serviceName string) ([]byte, erro
 func buildStaticOperation(route Route) (map[string]any, error) {
 	method := strings.ToLower(route.Method)
 
-	responseSchema, err := schema.BuildSchemaFromContent([]byte(route.Content), route.ContentType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build schema for %s %s: %w", route.Method, route.Path, err)
+	code := cmp.Or(route.Status, http.StatusOK)
+	response := map[string]any{
+		"description": cmp.Or(http.StatusText(code), "Static response"),
 	}
-	schemaMap := schemaToMap(responseSchema)
+
+	// A body rides on its media type; a bodiless response has no media
+	// type, so the marker goes on the response itself.
+	if route.Content == "" {
+		response["x-static-response"] = true
+	} else {
+		responseSchema, err := schema.BuildSchemaFromContent([]byte(route.Content), route.ContentType)
+		if err != nil {
+			return nil, fmt.Errorf("failed to build schema for %s %s: %w", route.Method, route.Path, err)
+		}
+		response["content"] = map[string]any{
+			route.ContentType: map[string]any{
+				"schema":            schemaToMap(responseSchema),
+				"x-static-response": route.Content,
+			},
+		}
+	}
+
+	if len(route.Headers) > 0 {
+		headers := make(map[string]any, len(route.Headers))
+		for name, value := range route.Headers {
+			headers[name] = map[string]any{
+				"schema":            map[string]any{"type": "string"},
+				"x-static-response": value,
+			}
+		}
+		response["headers"] = headers
+	}
 
 	operation := map[string]any{
 		"operationId": generateOperationId(method, route.Path),
-		"responses": map[string]any{
-			"200": map[string]any{
-				"description": "Success",
-				"content": map[string]any{
-					route.ContentType: map[string]any{
-						"schema":            schemaMap,
-						"x-static-response": route.Content,
-					},
-				},
-			},
-		},
+		"responses":   map[string]any{strconv.Itoa(code): response},
 		"parameters": []any{
 			map[string]any{
 				"name":     "q",
@@ -502,4 +581,50 @@ func GenerateSpecFromStaticDir(staticDir, serviceName string) ([]byte, error) {
 	}
 
 	return specBytes, nil
+}
+
+func readStaticMeta(dir string) (staticMeta, error) {
+	var meta staticMeta
+	path := filepath.Join(dir, staticMetaFile)
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return meta, nil
+	}
+	if err != nil {
+		return meta, err
+	}
+
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&meta); err != nil {
+		return meta, fmt.Errorf("parsing %s: %w", path, err)
+	}
+
+	if meta.Status != 0 && (meta.Status < 200 || meta.Status > 599) {
+		return meta, fmt.Errorf("parsing %s: status %d out of range 200-599", path, meta.Status)
+	}
+	for name, value := range meta.Headers {
+		if value == "" {
+			return meta, fmt.Errorf("parsing %s: header %q has an empty value", path, name)
+		}
+	}
+
+	return meta, nil
+}
+
+func hasIndexFile(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+
+	for _, e := range entries {
+		name := e.Name()
+		ext := filepath.Ext(name)
+		if !e.IsDir() && strings.TrimSuffix(name, ext) == "index" && GetContentType(ext) != "" {
+			return true
+		}
+	}
+
+	return false
 }
