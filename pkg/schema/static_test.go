@@ -45,6 +45,14 @@ func TestBuildSchemaFromContent(t *testing.T) {
 		assert.Contains(t, schema.Items.Properties, "name")
 	})
 
+	t.Run("JSON suffix media type", func(t *testing.T) {
+		schema, err := BuildSchemaFromContent([]byte(`{"title": "missing"}`), "application/problem+json")
+		assert.NoError(t, err)
+
+		assert.Equal(t, "object", schema.Type)
+		assert.Contains(t, schema.Properties, "title")
+	})
+
 	t.Run("JSON with nested object", func(t *testing.T) {
 		content := []byte(`{
   "user": {

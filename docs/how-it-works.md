@@ -226,6 +226,9 @@ static/{service}/{path}/{method}/index.json
 
 Example: `static/petstore/pets/get/index.json` overrides `GET /petstore/pets`
 
+An optional `meta.json` in the same directory sets the status code and
+headers: `{"status": 404, "headers": {"Content-Type": "application/problem+json"}}`.
+
 ### x-static-response Extension
 
 Define static responses directly in your OpenAPI spec:
@@ -240,6 +243,25 @@ paths:
             application/json:
               x-static-response: |
                 [{"id": 1, "name": "Fluffy"}]
+```
+
+The same extension on a response header fixes that header's value:
+
+```yaml
+      responses:
+        '201':
+          headers:
+            Location:
+              schema: {type: string}
+              x-static-response: /pets/42
+```
+
+A response without a body carries the marker on the response object:
+
+```yaml
+      responses:
+        '204':
+          x-static-response: true
 ```
 
 ## Replay

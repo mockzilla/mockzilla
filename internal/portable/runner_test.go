@@ -120,9 +120,11 @@ func TestIntegration_PackageRoundtrip(t *testing.T) {
 	specBytes := loadTestSpec(t, "petstore.yml")
 
 	pkg := buildPackage(t, t.TempDir(), "test.mockz", map[string][]byte{
-		"services/petstore/openapi.yml": specBytes,
-		"services/petstore/config.yml":  []byte("latency: 1ms"),
-		"app.yml":                       []byte("port: 0"),
+		"services/petstore/openapi.yml":       specBytes,
+		"services/petstore/config.yml":        []byte("latency: 1ms"),
+		"services/petstore/health/index.json": []byte(`{"ok":false}`),
+		"services/petstore/health/meta.json":  []byte(`{"status":503,"headers":{"Retry-After":"30"}}`),
+		"app.yml":                             []byte("port: 0"),
 	})
 
 	services, err := resolveServices([]string{pkg})
@@ -140,6 +142,12 @@ func TestIntegration_PackageRoundtrip(t *testing.T) {
 	require.NoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	respH, err := http.Get(ts.URL + "/petstore/health")
+	require.NoError(t, err)
+	defer func() { _ = respH.Body.Close() }()
+	assert.Equal(t, http.StatusServiceUnavailable, respH.StatusCode)
+	assert.Equal(t, "30", respH.Header.Get("Retry-After"))
 }
 
 // TestIntegration_MergeSpecAndStatic confirms the user-facing rule for
@@ -164,6 +172,10 @@ func TestIntegration_MergeSpecAndStatic(t *testing.T) {
 	require.NoError(t, os.WriteFile(
 		filepath.Join(dir, "extra", "get", "index.json"),
 		[]byte(`{"extra":true}`), 0o644,
+	))
+	require.NoError(t, os.WriteFile(
+		filepath.Join(dir, "extra", "get", "meta.json"),
+		[]byte(`{"status":201,"headers":{"X-Source":"static"}}`), 0o644,
 	))
 
 	services, err := resolveServices([]string{dir})
@@ -194,11 +206,13 @@ func TestIntegration_MergeSpecAndStatic(t *testing.T) {
 	assert.Contains(t, string(body), `"id":"static"`)
 	assert.Contains(t, string(body), `"name":"fixture"`)
 
-	// 3. New endpoint /extra wasn't in the spec; comes from static.
+	// 3. New endpoint /extra wasn't in the spec; comes from static,
+	// with status and headers from its meta.json.
 	respE, err := http.Get(ts.URL + "/merged-svc/extra")
 	require.NoError(t, err)
 	defer func() { _ = respE.Body.Close() }()
-	assert.Equal(t, http.StatusOK, respE.StatusCode)
+	assert.Equal(t, http.StatusCreated, respE.StatusCode)
+	assert.Equal(t, "static", respE.Header.Get("X-Source"))
 
 	// 4. The spec file is NOT re-served as one of its own endpoints.
 	// (It was the input; surfacing it as a regular endpoint would be
@@ -258,6 +272,81 @@ func TestIntegration_ImplicitGetStatic(t *testing.T) {
 		assert.Equal(t, http.StatusOK, resp.StatusCode, "%s %s", c.method, c.path)
 		assert.Contains(t, string(body), c.wantSubstr, "%s %s body", c.method, c.path)
 	}
+}
+
+// TestIntegration_StaticMeta covers the optional meta.json sidecar:
+// status and headers for the index file next to it, a Content-Type
+// override, a non-2xx body served verbatim, a bodiless endpoint from a
+// meta.json alone, and the sidecar itself never being served. The top-level pair also proves a root meta.json
+// is not mistaken for the service spec.
+func TestIntegration_StaticMeta(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "metasvc")
+	write := func(rel, content string) {
+		path := filepath.Join(dir, filepath.FromSlash(rel))
+		require.NoError(t, os.MkdirAll(filepath.Dir(path), 0o755))
+		require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+	}
+	write("index.json", `{"service":"root"}`)
+	write("meta.json", `{"status":203}`)
+	write("users/post/index.json", `{"id":42}`)
+	write("users/post/meta.json", `{"status":201,"headers":{"Location":"/users/42","X-Request-Id":"abc"}}`)
+	write("missing/index.json", `{"title":"missing"}`)
+	write("missing/meta.json", `{"status":404,"headers":{"Content-Type":"application/problem+json"}}`)
+	write("plain/index.json", `{"plain":true}`)
+	write("gone/delete/meta.json", `{"status":204,"headers":{"X-Deleted":"yes"}}`)
+
+	services, err := resolveServices([]string{dir})
+	require.NoError(t, err)
+	require.Len(t, services, 1)
+
+	router := testRouter(t)
+	_ = api.CreateServiceRoutes(router)
+	handlers := make(map[string]*swappableHandler)
+	require.NoError(t, registerService(router, services[0], nil, handlers, &sync.WaitGroup{}))
+
+	ts := httptest.NewServer(router)
+	defer ts.Close()
+
+	for _, c := range []struct {
+		method, path string
+		wantStatus   int
+		wantHeaders  map[string]string
+		wantBody     string
+	}{
+		{"GET", "/metasvc/", http.StatusNonAuthoritativeInfo,
+			map[string]string{"Content-Type": "application/json"},
+			`{"service":"root"}`},
+		{"POST", "/metasvc/users", http.StatusCreated,
+			map[string]string{"Location": "/users/42", "X-Request-Id": "abc", "Content-Type": "application/json"},
+			`{"id":42}`},
+		{"GET", "/metasvc/missing", http.StatusNotFound,
+			map[string]string{"Content-Type": "application/problem+json"},
+			`{"title":"missing"}`},
+		{"GET", "/metasvc/plain", http.StatusOK,
+			map[string]string{"Content-Type": "application/json"},
+			`{"plain":true}`},
+		{"DELETE", "/metasvc/gone", http.StatusNoContent,
+			map[string]string{"X-Deleted": "yes", "Content-Type": ""},
+			""},
+	} {
+		req, _ := http.NewRequest(c.method, ts.URL+c.path, nil)
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		assert.Equal(t, c.wantStatus, resp.StatusCode, "%s %s", c.method, c.path)
+		for name, value := range c.wantHeaders {
+			assert.Equal(t, value, resp.Header.Get(name), "%s %s header %s", c.method, c.path, name)
+		}
+		assert.Equal(t, c.wantBody, string(body), "%s %s body", c.method, c.path)
+	}
+
+	resp, err := http.Get(ts.URL + "/metasvc/missing/meta.json")
+	require.NoError(t, err)
+	body, _ := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
+	assert.Contains(t, string(body), "no matching operation")
 }
 
 // TestIntegration_ScannerSkipsNoisyDirs verifies that node_modules /

@@ -363,6 +363,8 @@ Layout:
       context.yml              # optional: flat replacement values (no service-name wrapper)
       users/index.json         # optional static endpoint -> GET /users
       users/post/index.json    # optional static endpoint -> POST /users
+      users/post/meta.json     # optional: {"status":201,"headers":{...}} for POST /users
+      users/{id}/delete/meta.json  # optional: alone, a bodiless endpoint -> DELETE /users/{id}
       users/{id}/index.json    # optional static endpoint -> GET /users/{id}
     app.yml                    # optional global: port, history, storage, etc.
 

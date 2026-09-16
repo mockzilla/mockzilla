@@ -148,6 +148,48 @@ Extension drives content-type: `.json`, `.html`, `.xml`, `.yaml`/`.yml`,
 
 If no spec is present, Mockzilla synthesizes one from the file tree.
 
+#### Status and headers
+
+Static responses answer `200` with no extra headers. To change that,
+put a `meta.json` next to the `index.<ext>`:
+
+```text
+services/petstore/
+  pets/post/index.json             → POST /petstore/pets, the body
+  pets/post/meta.json              → status and headers for that response
+```
+
+```json
+{
+  "status": 201,
+  "headers": {
+    "Location": "/pets/42",
+    "Cache-Control": "no-store"
+  }
+}
+```
+
+Both keys are optional. `status` defaults to `200` and must be between
+200 and 599. Header values are strings. A `Content-Type` header replaces
+the content type derived from the extension, so a `404` can be served as
+`application/problem+json`. Unknown keys are an error, so a typo does
+not pass silently.
+
+The file applies only to the `index.<ext>` in the same directory and is
+never served itself.
+
+A `meta.json` with no `index.<ext>` next to it declares a response with
+no body:
+
+```text
+services/petstore/
+  pets/{id}/delete/meta.json       → DELETE /petstore/pets/{id}, no body
+```
+
+```json
+{"status": 204}
+```
+
 ### Merge mode
 
 Combine the spec generator with surgical overrides. Drop a single
@@ -181,7 +223,8 @@ services/<name>/
 ### Reserved filenames at the folder root
 
 `config.yml`, `context.yml`, and `app.yml` are reserved. They are
-never treated as specs or static assets.
+never treated as specs or static assets. `meta.json` is reserved at
+every depth; see [Status and headers](#status-and-headers).
 
 ### Skipped directories
 

@@ -239,6 +239,52 @@ paths:
 	require.NotNil(t, op.Response.GetResponse(302), "the real 302 entry stays available for factory.SuccessStatusCode")
 }
 
+func TestRegistry_ConvertResponses_StaticNon2xxKeepsCode(t *testing.T) {
+	const head = `openapi: 3.0.0
+info: {title: t, version: 1}
+paths:
+  /missing:
+    get:
+      responses:
+        '404':
+          description: missing
+          headers:
+            X-Reason:
+              schema: {type: string}
+              x-static-response: gone
+          content:
+            application/problem+json:
+              schema: {type: object}
+`
+	for _, c := range []struct {
+		name        string
+		extension   string
+		wantCode    int
+		wantContent string
+	}{
+		{"static overlay is served as declared", `              x-static-response: '{"title":"missing"}'` + "\n", 404, `{"title":"missing"}`},
+		{"generated 4xx-only still fabricates 204", "", 204, ""},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			reg, err := NewRegistry([]byte(head+c.extension), Options{})
+			require.NoError(t, err)
+			op := reg.FindOperation("/missing", "GET")
+			require.NotNil(t, op)
+			assert.Equal(t, c.wantCode, op.Response.SuccessCode)
+			success := op.Response.GetSuccess()
+			require.NotNil(t, success)
+			if c.wantContent == "" {
+				assert.Nil(t, success.Content)
+				assert.Empty(t, success.Headers)
+				return
+			}
+			assert.Equal(t, c.wantContent, success.Content.StaticContent)
+			assert.Equal(t, "application/problem+json", success.ContentType)
+			assert.Equal(t, "gone", success.Headers["X-Reason"].StaticContent)
+		})
+	}
+}
+
 func TestRegistry_ConvertResponses_DefaultResponseInheritedIntoSyntheticEntry(t *testing.T) {
 	// default-only operations need the default's content-type to flow into
 	// the synthetic 204 so the response writer picks the right content-type

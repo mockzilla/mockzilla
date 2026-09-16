@@ -270,7 +270,7 @@ func (r *Registry) convertResponses(responses *v3.Responses, method, path string
 				continue
 			}
 			item := r.convertResponseItem(code, resp, ctx)
-			if static, ok := r.staticResponses[newStaticResponseKey(method, path, code)]; ok && item != nil {
+			if static, ok := r.staticResponses[newStaticResponseKey(method, path, code)]; ok && static != "" && item != nil {
 				if item.Content == nil {
 					item.Content = &schema.Schema{}
 				}
@@ -281,12 +281,14 @@ func (r *Registry) convertResponses(responses *v3.Responses, method, path string
 	}
 
 	// When no 2xx is declared, fabricate an entry to serve as SuccessCode.
+	// A static overlay on the picked code is served as declared instead.
 	// If a `default` response is declared, inherit its content/headers so
 	// the response writer picks the right content-type and schema; otherwise
 	// the entry stays empty. factory.SuccessStatusCode still substitutes a
 	// spec-declared code for the HTTP status line.
 	successCode := pickSuccessCode(all)
-	if successCode < 200 || successCode >= 300 {
+	_, isStatic := r.staticResponses[newStaticResponseKey(method, path, successCode)]
+	if !isStatic && (successCode < 200 || successCode >= 300) {
 		fabricated := &schema.ResponseItem{StatusCode: 204}
 		if responses != nil && responses.Default != nil {
 			if item := r.convertResponseItem(204, responses.Default, ctx); item != nil {
@@ -322,9 +324,15 @@ func (r *Registry) convertResponseItem(code int, resp *v3.Response, ctx *convert
 			if h == nil {
 				continue
 			}
-			if sub := convertProxy(h.Schema, ctx); sub != nil {
-				headers[k] = sub
+			sub := convertProxy(h.Schema, ctx)
+			if sub == nil {
+				continue
 			}
+
+			if value := staticExtension(h.Extensions); value != "" {
+				sub.StaticContent = value
+			}
+			headers[k] = sub
 		}
 	}
 
@@ -337,7 +345,9 @@ func (r *Registry) convertResponseItem(code int, resp *v3.Response, ctx *convert
 }
 
 // collectStaticResponses walks an operation's responses and records any
-// x-static-response extension values. Called from buildIndex so the
+// x-static-response extension values. A response-level
+// `x-static-response: true` marks a bodiless static response and records
+// an empty body. Called from buildIndex so the
 // extraction happens during the same model walk that builds the
 // operation index (no separate libopenapi parse). Returns true if at
 // least one (status code, content type) was a static overlay, so the
@@ -348,26 +358,32 @@ func (r *Registry) collectStaticResponses(path, method string, op *v3.Operation)
 	}
 	found := false
 	for codeStr, resp := range op.Responses.Codes.FromOldest() {
-		if resp == nil || resp.Content == nil {
+		if resp == nil {
 			continue
 		}
 		code, err := strconv.Atoi(codeStr)
 		if err != nil {
 			continue
 		}
+		key := newStaticResponseKey(method, path, code)
+
+		if staticExtension(resp.Extensions) == "true" {
+			r.staticResponses[key] = ""
+			found = true
+		}
+		if resp.Content == nil {
+			continue
+		}
+
 		for _, mt := range resp.Content.FromOldest() {
-			if mt == nil || mt.Extensions == nil {
+			if mt == nil {
 				continue
 			}
-			ext, ok := mt.Extensions.Get(extStaticResponse)
-			if !ok || ext == nil {
-				continue
-			}
-			value := strings.TrimSpace(ext.Value)
+			value := staticExtension(mt.Extensions)
 			if value == "" {
 				continue
 			}
-			r.staticResponses[newStaticResponseKey(method, path, code)] = value
+			r.staticResponses[key] = value
 			found = true
 		}
 	}

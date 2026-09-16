@@ -20,7 +20,7 @@ func TestIsSpecFile(t *testing.T) {
 
 func TestIsReservedName(t *testing.T) {
 	t.Run("every reserved stem, in every spec extension", func(t *testing.T) {
-		for _, stem := range []string{"config", "context", "app", "codegen", "index"} {
+		for _, stem := range []string{"config", "context", "app", "codegen", "index", "meta"} {
 			for _, ext := range SpecExts {
 				assert.True(t, IsReservedName(stem+ext), stem+ext)
 			}
