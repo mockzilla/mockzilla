@@ -11,9 +11,6 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 )
 
-// ErrUnknownStorageType is returned when no driver is registered for the configured type.
-var ErrUnknownStorageType = errors.New("unknown storage type")
-
 // Storage is the shared storage backend that can provide per-service DB instances.
 // There should be only one Storage instance per application.
 type Storage interface {
