@@ -119,6 +119,7 @@ storage:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `storage.type` | string | `memory` | Storage type: `memory` or `redis` |
+| `storage.strict` | bool | `false` | Refuse to start when the backend cannot be opened, instead of falling back to memory |
 | `storage.redis.address` | string | - | Redis address (host:port) |
 | `storage.redis.password` | string | - | Redis password |
 | `storage.redis.db` | int | `0` | Redis database number |
@@ -133,6 +134,8 @@ Environment variables override file values:
 | `APP_INTERNAL_URL` | `internalURL` |
 | `ROUTER_HISTORY_DURATION` | `history.duration` |
 | `ROUTER_REPLAY_DURATION` | `replay.duration` |
+| `STORAGE_TYPE` | `storage.type` |
+| `STORAGE_STRICT` | `storage.strict` |
 
 ## Example
 
