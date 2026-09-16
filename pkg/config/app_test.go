@@ -46,6 +46,7 @@ func TestNewDefaultAppConfig(t *testing.T) {
 
 	t.Run("env vars bind without app.yml", func(t *testing.T) {
 		t.Setenv("STORAGE_TYPE", "dynamodb")
+		t.Setenv("STORAGE_STRICT", "true")
 		t.Setenv("ROUTER_HISTORY_ENABLED", "true")
 		t.Setenv("ROUTER_HISTORY_DURATION", "15m")
 		t.Setenv("ROUTER_REPLAY_DURATION", "30m")
@@ -54,6 +55,7 @@ func TestNewDefaultAppConfig(t *testing.T) {
 		assert.NoError(env.Parse(cfg))
 
 		assert.Equal(StorageType("dynamodb"), cfg.Storage.Type)
+		assert.True(cfg.Storage.Strict)
 		assert.NotNil(cfg.History.Enabled)
 		assert.True(*cfg.History.Enabled)
 		assert.Equal(15*time.Minute, cfg.History.Duration)

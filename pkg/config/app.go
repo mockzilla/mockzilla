@@ -201,6 +201,10 @@ type StorageConfig struct {
 	Type         StorageType    `yaml:"type" env:"STORAGE_TYPE"`
 	DriverConfig map[string]any `yaml:"-"`
 
+	// Strict refuses to start when the configured backend cannot be opened,
+	// instead of silently running on in-memory storage.
+	Strict bool `yaml:"strict" env:"STORAGE_STRICT"`
+
 	// Redis is kept for backward compatibility with env tags (REDIS_HOST, etc.).
 	Redis *RedisConfig `yaml:"redis"`
 }
