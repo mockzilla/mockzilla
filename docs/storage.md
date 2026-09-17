@@ -118,6 +118,25 @@ can read the same view off one row.
 - Running multiple instances behind a load balancer
 - Request history should persist across restarts
 
+## Schema install
+
+Some backends need a schema before they can store anything. Memory and Redis
+do not. A storage driver that does implements `db.Installer`:
+
+- `Install(ctx)` creates or migrates the schema. It runs on every start, so it
+  has to be safe to repeat and safe when several instances start together.
+- `VerifyInstall(ctx)` changes nothing. It returns an error when the schema is
+  missing or older than the driver needs.
+
+Mockzilla calls `Install` right after it opens the backend. Set
+`storage.install: false` (or `STORAGE_INSTALL=false`) when the application is
+not allowed to change the schema, for example when an administrator applies it
+by hand. Mockzilla then calls `VerifyInstall` instead.
+
+A failure in either call counts as a failure to open the backend. With
+`storage.strict: true` the process refuses to start. Without it, mockzilla
+falls back to memory.
+
 ## The request cache
 
 `cache.requests: true` stores GET responses in the `cache` table, keyed by a

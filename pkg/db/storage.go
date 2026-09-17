@@ -3,6 +3,7 @@
 package db
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,6 +11,8 @@ import (
 
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 )
+
+const installTimeout = time.Minute
 
 // Storage is the shared storage backend that can provide per-service DB instances.
 // There should be only one Storage instance per application.
@@ -20,6 +23,19 @@ type Storage interface {
 
 	// Close releases any resources held by the storage backend.
 	Close()
+}
+
+// Installer is an optional capability of a Storage that needs a schema.
+// OpenStorage calls Install once the backend is open. When storage.install is
+// false it calls VerifyInstall instead, so a missing schema still fails the open.
+type Installer interface {
+	// Install creates or migrates the schema. It must be safe to call on every
+	// start and from several replicas at once.
+	Install(ctx context.Context) error
+
+	// VerifyInstall changes nothing. It returns an error when the schema is
+	// missing or older than the driver needs.
+	VerifyInstall(ctx context.Context) error
 }
 
 // NewStorage creates a shared storage backend based on configuration.
@@ -47,6 +63,7 @@ func NewStorage(storageCfg *config.StorageConfig) Storage {
 
 // OpenStorage creates the configured storage backend and returns an error
 // instead of falling back to memory when it cannot be opened.
+// A backend that is an Installer gets its schema installed or verified first.
 func OpenStorage(storageCfg *config.StorageConfig) (Storage, error) {
 	if storageCfg == nil || storageCfg.Type == "" || storageCfg.Type == config.StorageTypeMemory {
 		return newMemoryStorage(), nil
@@ -61,5 +78,34 @@ func OpenStorage(storageCfg *config.StorageConfig) (Storage, error) {
 	if err != nil {
 		return nil, fmt.Errorf("opening %s storage: %w", storageCfg.Type, err)
 	}
+
+	if err := install(storage, storageCfg); err != nil {
+		storage.Close()
+		return nil, err
+	}
 	return storage, nil
+}
+
+// install runs the backend's install step, or only verifies it when
+// storage.install is off. A backend that is not an Installer is left alone.
+func install(storage Storage, storageCfg *config.StorageConfig) error {
+	installer, ok := storage.(Installer)
+	if !ok {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), installTimeout)
+	defer cancel()
+
+	if !storageCfg.InstallEnabled() {
+		if err := installer.VerifyInstall(ctx); err != nil {
+			return fmt.Errorf("verifying %s storage install: %w", storageCfg.Type, err)
+		}
+		return nil
+	}
+
+	if err := installer.Install(ctx); err != nil {
+		return fmt.Errorf("installing %s storage: %w", storageCfg.Type, err)
+	}
+	return nil
 }

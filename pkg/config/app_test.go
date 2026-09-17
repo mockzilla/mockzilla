@@ -47,6 +47,7 @@ func TestNewDefaultAppConfig(t *testing.T) {
 	t.Run("env vars bind without app.yml", func(t *testing.T) {
 		t.Setenv("STORAGE_TYPE", "dynamodb")
 		t.Setenv("STORAGE_STRICT", "true")
+		t.Setenv("STORAGE_INSTALL", "false")
 		t.Setenv("ROUTER_HISTORY_ENABLED", "true")
 		t.Setenv("ROUTER_HISTORY_DURATION", "15m")
 		t.Setenv("ROUTER_REPLAY_DURATION", "30m")
@@ -56,6 +57,7 @@ func TestNewDefaultAppConfig(t *testing.T) {
 
 		assert.Equal(StorageType("dynamodb"), cfg.Storage.Type)
 		assert.True(cfg.Storage.Strict)
+		assert.False(cfg.Storage.InstallEnabled())
 		assert.NotNil(cfg.History.Enabled)
 		assert.True(*cfg.History.Enabled)
 		assert.Equal(15*time.Minute, cfg.History.Duration)
@@ -104,6 +106,27 @@ func TestStorageConfig(t *testing.T) {
 		assert.Equal("secret", cfg.Redis.Password)
 		assert.Equal(1, cfg.Redis.DB)
 	})
+}
+
+func TestStorageConfig_InstallEnabled(t *testing.T) {
+	on, off := true, false
+
+	tests := []struct {
+		name    string
+		install *bool
+		want    bool
+	}{
+		{name: "unset is on", install: nil, want: true},
+		{name: "true is on", install: &on, want: true},
+		{name: "false is off", install: &off, want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &StorageConfig{Install: tt.install}
+			assert2.Equal(t, tt.want, cfg.InstallEnabled())
+		})
+	}
 }
 
 func TestStorageConfig_DriverOptions(t *testing.T) {
@@ -292,6 +315,16 @@ storage:
 		assert.NotNil(cfg.Storage.DriverConfig)
 		assert.Equal("localhost:6379", cfg.Storage.DriverConfig["address"])
 		assert.Equal("secret", cfg.Storage.DriverConfig["password"])
+	})
+
+	t.Run("storage install is on unless turned off", func(t *testing.T) {
+		cfg, err := NewAppConfigFromBytes([]byte("storage:\n  type: redis\n"), "/test")
+		assert.NoError(err)
+		assert.True(cfg.Storage.InstallEnabled())
+
+		cfg, err = NewAppConfigFromBytes([]byte("storage:\n  type: redis\n  install: false\n"), "/test")
+		assert.NoError(err)
+		assert.False(cfg.Storage.InstallEnabled())
 	})
 
 	t.Run("parses baseURL and internalURL", func(t *testing.T) {
