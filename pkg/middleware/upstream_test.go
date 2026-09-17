@@ -835,3 +835,77 @@ func TestGetUpstreamError(t *testing.T) {
 		assert.Equal("", GetUpstreamError(req))
 	})
 }
+
+func TestUpstreamHistorySourceHeader(t *testing.T) {
+	assert := assert2.New(t)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("Hello, from local!"))
+	})
+
+	sourceOf := func(rec *db.HistoryEntry) string {
+		for _, h := range rec.Response.Headers {
+			if strings.HasPrefix(strings.ToLower(h), strings.ToLower(ResponseHeaderSource)+":") {
+				return strings.TrimSpace(h[strings.Index(h, ":")+1:])
+			}
+		}
+		return ""
+	}
+
+	t.Run("an upstream that is itself Mockzilla does not mislabel the entry", func(t *testing.T) {
+		// The upstream tags its own answer. Recording that verbatim used to
+		// store `cache` on an entry this server served as `upstream`.
+		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set(ResponseHeaderSource, ResponseHeaderSourceCache)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"from": "remote"}`))
+		}))
+		defer upstreamServer.Close()
+
+		w := NewBufferedResponseWriter()
+		req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
+		params := newTestParams(&config.ServiceConfig{
+			Name: "test",
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
+				URL: upstreamServer.URL,
+			}},
+		})
+
+		CreateUpstreamRequestMiddleware(params)(handler).ServeHTTP(w, req)
+		waitForAsync()
+
+		rec := latestHistory(params)
+		assert.NotNil(rec)
+		assert.True(rec.Response.IsFromUpstream)
+		assert.Equal(ResponseHeaderSourceUpstream, sourceOf(rec),
+			"the recorded source must describe our answer, not the upstream's")
+		// The upstream's other headers are still worth keeping.
+		assert.Contains(rec.Response.Headers, "Content-Type: application/json")
+	})
+
+	t.Run("a fail-on response records its source too", func(t *testing.T) {
+		upstreamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error": "bad request"}`))
+		}))
+		defer upstreamServer.Close()
+
+		w := NewBufferedResponseWriter()
+		req := httptest.NewRequest(http.MethodGet, "/test/foo", nil)
+		params := newTestParams(&config.ServiceConfig{
+			Name: "test",
+			BehaviorConfig: config.BehaviorConfig{Upstream: &config.UpstreamConfig{
+				URL: upstreamServer.URL,
+			}},
+		})
+
+		CreateUpstreamRequestMiddleware(params)(handler).ServeHTTP(w, req)
+		waitForAsync()
+
+		rec := latestHistory(params)
+		assert.NotNil(rec)
+		assert.Equal(http.StatusBadRequest, rec.Response.StatusCode)
+		assert.Equal(ResponseHeaderSourceUpstream, sourceOf(rec))
+	})
+}

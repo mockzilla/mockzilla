@@ -119,6 +119,7 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 							StatusCode:     httpErr.StatusCode,
 							ContentType:    httpErr.ContentType,
 							IsFromUpstream: true,
+							Headers:        upstreamHistoryHeaders(nil),
 							Duration:       duration,
 						}
 						params.transformHistory(svcCfg, histReq, histResp)
@@ -247,7 +248,7 @@ func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, cfg *co
 			ContentType:    contentType,
 			IsFromUpstream: true,
 			UpstreamURL:    outURL,
-			Headers:        db.FlattenHeaders(resp.Header),
+			Headers:        upstreamHistoryHeaders(resp.Header),
 			Duration:       GetDuration(req),
 		}
 		params.transformHistory(svcCfg, histReq, histResp)
@@ -262,6 +263,23 @@ func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, cfg *co
 		ContentType: contentType,
 		StatusCode:  statusCode,
 	}, nil
+}
+
+// upstreamHistoryHeaders snapshots an upstream response's headers for the
+// history log, with X-Mockzilla-Source set to what we return to the client.
+//
+// The upstream sends its own headers, and when it is itself a Mockzilla it
+// sends its own X-Mockzilla-Source: recording that verbatim produced entries
+// tagged `cache` or `generated` for a response this server served as
+// `upstream`, contradicting IsFromUpstream on the same entry. Everywhere else
+// the field describes our own answer, so it does here too.
+func upstreamHistoryHeaders(h http.Header) []string {
+	snapshot := make(http.Header, len(h)+1)
+	for k, v := range h {
+		snapshot[k] = v
+	}
+	snapshot.Set(ResponseHeaderSource, ResponseHeaderSourceUpstream)
+	return db.FlattenHeaders(snapshot)
 }
 
 // cleanUpstreamHeaders removes internal X-Mockzilla-* headers from the request
