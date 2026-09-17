@@ -1,14 +1,24 @@
 name: CI
 
+# Keep these lists identical to the `paths` in ci-docs-only.yml, which
+# reports this workflow's required checks for the changes skipped here.
+# A path listed here but not there is a pull request that can never be
+# merged, because its required checks are never reported.
 on:
   push:
     branches: 'main'
     paths-ignore:
       - 'docs/**'
+      - '**.md'
+      - 'mkdocs.yml'
+      - 'LICENSE'
   pull_request:
     branches: '**'
     paths-ignore:
       - 'docs/**'
+      - '**.md'
+      - 'mkdocs.yml'
+      - 'LICENSE'
 
 permissions: read-all
 
