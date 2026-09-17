@@ -1,29 +1,62 @@
 name: CI
 
-# Keep these lists identical to the `paths` in ci-docs-only.yml, which
-# reports this workflow's required checks for the changes skipped here.
-# A path listed here but not there is a pull request that can never be
-# merged, because its required checks are never reported.
+# No paths-ignore here on purpose. main requires fetch-specs, linter,
+# linter-openapi, test and prepare-integration-matrix, and a workflow
+# skipped by a path filter reports nothing at all, so those checks sit
+# at "Expected - Waiting for status to be reported" and the pull
+# request can never merge. A job skipped by `if:` does report, and a
+# skipped check satisfies the requirement. So the filtering lives in
+# the `changes` job below and every required job keys off it.
 on:
   push:
     branches: 'main'
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - 'mkdocs.yml'
-      - 'LICENSE'
   pull_request:
     branches: '**'
-    paths-ignore:
-      - 'docs/**'
-      - '**.md'
-      - 'mkdocs.yml'
-      - 'LICENSE'
 
 permissions: read-all
 
 jobs:
+  # Does this change touch anything that can affect the build? Paths
+  # listed here are documentation only; everything else counts as code.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Look for non-documentation changes
+        id: filter
+        env:
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          HEAD: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          # A first push or a force push can leave no usable base; when
+          # in doubt run the full suite rather than skip it.
+          if [ -z "${BASE}" ] || [ "${BASE}" = "0000000000000000000000000000000000000000" ] \
+             || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "No usable base commit, running everything."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only "${BASE}" "${HEAD}")
+          echo "Changed files:"
+          echo "${changed}"
+          code=$(echo "${changed}" | grep -vE '^docs/|\.md$|^mkdocs\.yml$|^LICENSE$' || true)
+          if [ -n "${code}" ]; then
+            echo "Non-documentation changes present, running the full suite."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Documentation-only change, skipping the build jobs."
+            echo "code=false" >> "$GITHUB_OUTPUT"
+          fi
+
   fetch-specs:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -47,8 +80,8 @@ jobs:
           retention-days: 1
 
   linter:
-    if: github.event_name == 'pull_request'
-    needs: fetch-specs
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+    needs: [changes, fetch-specs]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -69,7 +102,8 @@ jobs:
           args: --timeout 10m
 
   linter-openapi:
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     env:
       GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
@@ -88,7 +122,8 @@ jobs:
           FILTER_REGEX_INCLUDE: resources/openapi.yml
 
   test:
-    needs: fetch-specs
+    needs: [changes, fetch-specs]
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -133,7 +168,8 @@ jobs:
         file: coverage.out
 
   prepare-integration-matrix:
-    if: github.event_name == 'pull_request'
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -166,8 +202,8 @@ jobs:
         echo "matrix=$matrix" >> $GITHUB_OUTPUT
 
   integration-test:
-    if: github.event_name == 'pull_request'
-    needs: [fetch-specs, prepare-integration-matrix]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+    needs: [changes, fetch-specs, prepare-integration-matrix]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
