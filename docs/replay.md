@@ -37,10 +37,16 @@ Replay activates in two ways:
 
 **Header-based (default):** Send the `X-Mockzilla-Replay` header to activate replay for any request.
 
+> **Sending it empty in curl needs a semicolon.** `-H "X-Mockzilla-Replay;"`
+> sends the header with an empty value. `-H "X-Mockzilla-Replay:"` does not:
+> curl reads a valueless header as an instruction to *remove* it, so nothing
+> is sent, replay never activates, and the response comes back generated with
+> nothing to explain why. Other HTTP clients take a plain empty string.
+
 ```bash
 # Empty header - uses match fields from config
 curl -X POST /svc/foo/123/bar/456 \
-  -H "X-Mockzilla-Replay:" \
+  -H "X-Mockzilla-Replay;" \
   -d '{"data": {"name": "Jane", "address": {"zip": "12345"}}}'
 
 # Header with body fields - overrides config
@@ -151,11 +157,11 @@ endpoints:
 ```bash
 # credit-card and bank-transfer produce different recordings
 curl -X POST /svc/pay/credit-card/tx/123 \
-  -H "X-Mockzilla-Replay:" \
+  -H "X-Mockzilla-Replay;" \
   -d 'reference=REF123'
 
 curl -X POST /svc/pay/bank-transfer/tx/456 \
-  -H "X-Mockzilla-Replay:" \
+  -H "X-Mockzilla-Replay;" \
   -d 'reference=REF123'
 ```
 
@@ -177,7 +183,7 @@ match:
 ```bash
 curl -X POST /svc/search \
   -H "Content-Type: application/json" \
-  -H "X-Mockzilla-Replay:" \
+  -H "X-Mockzilla-Replay;" \
   -d '{"data": {"name": "Jane"}}'
 ```
 
@@ -193,7 +199,7 @@ match:
 ```bash
 curl -X POST /svc/pets \
   -H "Content-Type: application/json" \
-  -H "X-Mockzilla-Replay:" \
+  -H "X-Mockzilla-Replay;" \
   -d '[{"name": "doggie", "tag": "fundamental-window"}]'
 ```
 
@@ -209,7 +215,7 @@ match:
 ```bash
 curl -X POST /svc/pay \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -H "X-Mockzilla-Replay:" \
+  -H "X-Mockzilla-Replay;" \
   -d 'amount=50&biller=BLR0001&reference=REF123'
 ```
 
@@ -226,7 +232,7 @@ match:
 
 ```bash
 curl /svc/pay?amount=50&biller=BLR0001 \
-  -H "X-Mockzilla-Replay:"
+  -H "X-Mockzilla-Replay;"
 ```
 
 ### Mixed: body + query
@@ -245,7 +251,7 @@ match:
 ```bash
 curl -X POST /svc/pay?channel=web \
   -H "Content-Type: application/x-www-form-urlencoded" \
-  -H "X-Mockzilla-Replay:" \
+  -H "X-Mockzilla-Replay;" \
   -d 'amount=50&biller=BLR0001&reference=REF123'
 ```
 
