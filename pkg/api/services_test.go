@@ -298,11 +298,34 @@ func TestRouteDescriptions_Sort(t *testing.T) {
 
 		assert.Equal(t, http.MethodGet, routes[0].Method)
 		assert.Equal(t, http.MethodPost, routes[1].Method)
-		// DELETE, PATCH, PUT should be in alphabetical order (all have order 3)
-		// But since we use stable sort, they maintain their relative order
-		assert.Equal(t, http.MethodPut, routes[2].Method)
-		assert.Equal(t, http.MethodDelete, routes[3].Method)
-		assert.Equal(t, http.MethodPatch, routes[4].Method)
+		assert.Equal(t, http.MethodDelete, routes[2].Method)
+		assert.Equal(t, http.MethodPatch, routes[3].Method)
+		assert.Equal(t, http.MethodPut, routes[4].Method)
+	})
+
+	t.Run("Sorts the same whatever order the routes arrive in", func(t *testing.T) {
+		want := []string{http.MethodGet, http.MethodPost, http.MethodDelete, http.MethodPatch, http.MethodPut}
+		arrivals := [][]string{
+			{http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodPost, http.MethodGet},
+			{http.MethodDelete, http.MethodGet, http.MethodPut, http.MethodPatch, http.MethodPost},
+			{http.MethodPatch, http.MethodPost, http.MethodGet, http.MethodDelete, http.MethodPut},
+		}
+
+		for _, arriving := range arrivals {
+			routes := make(RouteDescriptions, 0, len(arriving))
+			for _, method := range arriving {
+				routes = append(routes, &RouteDescription{Path: "/users", Method: method})
+			}
+
+			routes.Sort()
+
+			sorted := make([]string, 0, len(routes))
+			for _, route := range routes {
+				sorted = append(sorted, route.Method)
+			}
+
+			assert.Equal(t, want, sorted)
+		}
 	})
 
 	t.Run("Complex sorting with multiple paths and methods", func(t *testing.T) {
@@ -377,7 +400,9 @@ func TestComparePathMethod(t *testing.T) {
 		{"same path - POST before DELETE", "/users", "POST", "/users", "DELETE", true},
 		{"same path - DELETE after POST", "/users", "DELETE", "/users", "POST", false},
 		{"same path and method", "/users", "GET", "/users", "GET", false},
-		{"same path - other methods equal priority", "/users", "PUT", "/users", "DELETE", false},
+		{"same path - other methods alphabetically", "/users", "DELETE", "/users", "PUT", true},
+		{"same path - other methods alphabetically, reversed", "/users", "PUT", "/users", "DELETE", false},
+		{"same path - the same other method", "/users", "PUT", "/users", "PUT", false},
 	}
 
 	for _, tc := range testCases {
