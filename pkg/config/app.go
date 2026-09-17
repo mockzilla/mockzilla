@@ -205,8 +205,17 @@ type StorageConfig struct {
 	// instead of silently running on in-memory storage.
 	Strict bool `yaml:"strict" env:"STORAGE_STRICT"`
 
+	// Install lets a backend create or migrate its schema on start. On when unset.
+	// When false the backend only verifies that its schema is already in place.
+	Install *bool `yaml:"install" env:"STORAGE_INSTALL"`
+
 	// Redis is kept for backward compatibility with env tags (REDIS_HOST, etc.).
 	Redis *RedisConfig `yaml:"redis"`
+}
+
+// InstallEnabled reports whether the backend may install its schema on start.
+func (c *StorageConfig) InstallEnabled() bool {
+	return c.Install == nil || *c.Install
 }
 
 // DriverOptions returns the driver-specific config map.

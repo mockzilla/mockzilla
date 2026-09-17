@@ -120,6 +120,7 @@ storage:
 |--------|------|---------|-------------|
 | `storage.type` | string | `memory` | Storage type: `memory` or `redis` |
 | `storage.strict` | bool | `false` | Refuse to start when the backend cannot be opened, instead of falling back to memory |
+| `storage.install` | bool | `true` | Let the backend create or migrate its schema on start. When `false` it only checks that the schema is there |
 | `storage.redis.address` | string | - | Redis address (host:port) |
 | `storage.redis.password` | string | - | Redis password |
 | `storage.redis.db` | int | `0` | Redis database number |
@@ -136,6 +137,7 @@ Environment variables override file values:
 | `ROUTER_REPLAY_DURATION` | `replay.duration` |
 | `STORAGE_TYPE` | `storage.type` |
 | `STORAGE_STRICT` | `storage.strict` |
+| `STORAGE_INSTALL` | `storage.install` |
 
 ## Example
 
