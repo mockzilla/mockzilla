@@ -275,7 +275,11 @@ func ComparePathMethod(path1, method1, path2, method2 string) bool {
 		m2 = 3
 	}
 
-	return m1 < m2
+	if m1 != m2 {
+		return m1 < m2
+	}
+
+	return method1 < method2
 }
 
 // ServiceParams provides access to application and service configuration
