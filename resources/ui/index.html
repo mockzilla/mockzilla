@@ -19,7 +19,7 @@
         }
         console.log(`loaded appConfig:`, appConfig)
     </script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.min.css">
+    <link rel="stylesheet" href="{{.AppConfig.AssetsURL}}lib/normalize/normalize.css?v={{.Version}}">
     {{if .Contents.Styles}}{{.Contents.Styles}}{{else}}<link rel="icon" type="image/svg+xml" href="{{.AppConfig.AssetsURL}}icons/favicon.svg">{{end}}
     <link type="text/css" rel="stylesheet" href="{{.AppConfig.AssetsURL}}css/console.css?v={{.Version}}"/>
     <link type="text/css" rel="stylesheet" href="{{.AppConfig.AssetsURL}}css/overwrite.css?v={{.Version}}"/>
@@ -400,7 +400,7 @@
 </div>
 
 </body>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.43.3/ace.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+<link rel="stylesheet" href="{{.AppConfig.AssetsURL}}lib/fontawesome/css/all.min.css?v={{.Version}}">
+<script src="{{.AppConfig.AssetsURL}}lib/ace/ace.js?v={{.Version}}"></script>
+<script src="{{.AppConfig.AssetsURL}}lib/js-yaml/js-yaml.min.js?v={{.Version}}"></script>
 </html>
