@@ -1,5 +1,6 @@
 import * as config from './config.js';
 import * as commons from './commons.js';
+import { isJSONContentType } from './contenttype.js';
 import * as validators from './validators.js';
 import * as navi from "./navi.js";
 import * as services from "./services.js";
@@ -361,7 +362,7 @@ export const generateResult = (service, ix, path, method) => {
             let formattedBody = ``;
             let reqBodyString = null;
             if (reqBody !== undefined && reqBody !== null) {
-                if (reqContentType === `application/json`) {
+                if (isJSONContentType(reqContentType)) {
                     formattedBody = JSON.stringify(reqBody, null, 2);
                     reqBodyString = JSON.stringify(reqBody);
                 } else if (typeof reqBody === 'string') {
@@ -374,7 +375,7 @@ export const generateResult = (service, ix, path, method) => {
             if (formattedBody.length) {
                 document.getElementById('request-body-container').style.display = 'block';
                 // Use 'text' mode for non-JSON content types
-                const editorMode = reqContentType === 'application/json' ? 'json' : 'text';
+                const editorMode = isJSONContentType(reqContentType) ? 'json' : 'text';
                 const reqView = commons.getCodeEditor(`request-body`, editorMode);
                 reqView.setValue(formattedBody);
                 reqView.clearSelection();
@@ -463,7 +464,7 @@ export const generateResult = (service, ix, path, method) => {
 
                     // Display response in code editor
                     let formattedResponse = responseData.body;
-                    if (responseData.contentType && responseData.contentType.includes('application/json')) {
+                    if (isJSONContentType(responseData.contentType)) {
                         try {
                             // Check if body is already an object or a string
                             const jsonObject = typeof responseData.body === 'string'
@@ -480,8 +481,7 @@ export const generateResult = (service, ix, path, method) => {
                     statusBadge.className = 'response-status-badge status-' + Math.floor(responseData.status / 100) + 'xx';
 
                     document.getElementById('response-body-container').style.display = 'block';
-                    const respContentType = responseData.contentType || '';
-                    const respEditorMode = respContentType.includes('application/json') ? 'json' : 'text';
+                    const respEditorMode = isJSONContentType(responseData.contentType) ? 'json' : 'text';
                     const responseView = commons.getCodeEditor(`response-body`, respEditorMode);
                     responseView.setValue(formattedResponse);
                     responseView.clearSelection();
