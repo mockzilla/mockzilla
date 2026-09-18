@@ -70,12 +70,33 @@ jobs:
       - name: Extract tag name
         run: echo "TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
+      # gh stops at the first failed asset, so a partial publish still reads
+      # as the latest release.
       - name: Create release and upload binaries
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          gh release upload "${{ env.TAG }}" mockzilla-* --clobber
+          set -uo pipefail
+          for attempt in 1 2 3 4 5; do
+            if gh release upload "$TAG" mockzilla-* --clobber; then
+              break
+            fi
+            echo "upload attempt $attempt failed"
+            if [ "$attempt" -lt 5 ]; then
+              sleep $((attempt * 15))
+            fi
+          done
+
+          uploaded=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          missing=0
+          for binary in mockzilla-*; do
+            if ! grep -qxF "$binary" <<<"$uploaded"; then
+              echo "::error::$binary is missing from $TAG"
+              missing=1
+            fi
+          done
+          exit $missing
 
   update-homebrew:
     runs-on: ubuntu-latest
