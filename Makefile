@@ -170,6 +170,17 @@ check-fmt:
 	fi
 	@git ls-files '**/*go.mod' -z | xargs -0 -I{} bash -c 'cd $$(dirname {}) && if [ -f Makefile ] && go list ./... >/dev/null 2>&1; then make check-fmt; fi'
 
+.PHONY: ui-assets
+ui-assets:
+	@scripts/ui-assets.sh
+
+# make ui-assets-bump                          every package to its latest
+# make ui-assets-bump PKG=ace-builds           one package to its latest
+# make ui-assets-bump PKG=ace-builds VERSION=1.43.3
+.PHONY: ui-assets-bump
+ui-assets-bump:
+	@scripts/ui-assets.sh bump $(PKG) $(VERSION)
+
 .PHONY: server
 server:
 	@echo "Building and starting development server with built-in hot-reload..."
