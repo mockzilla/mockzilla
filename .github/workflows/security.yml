@@ -1,0 +1,40 @@
+name: security
+
+# The standing vulnerability scan. A vulnerability is almost always published
+# long after the code carrying it was merged, so the gate runs on a clock as
+# well as on a pull request that changes what this module depends on.
+#
+# Deliberately not a required check. ci.yml explains why: a workflow skipped by
+# a path filter reports nothing at all, so a required check that filters on
+# paths leaves a pull request waiting for a status that never arrives.
+
+on:
+  schedule:
+    # 05:00 UTC = 06:00 CET, with the nightly jobs in the other repos. GitHub
+    # cron is UTC year-round, so in summer this lands at 07:00 Berlin local.
+    - cron: '0 5 * * *'
+  pull_request:
+    branches: '**'
+    paths:
+      - '**/go.mod'
+      - '**/go.sum'
+      - 'Makefile'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  govulncheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Scan for called vulnerabilities
+        run: make vulncheck
