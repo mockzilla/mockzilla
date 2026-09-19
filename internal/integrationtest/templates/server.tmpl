@@ -35,7 +35,7 @@ func main() {
     logger := slog.New(handler)
     slog.SetDefault(logger)
 
-    // NewRouter includes all middleware (RequestID, RealIP, Logger, Duration, Recoverer, Timeout)
+    // NewRouter includes all middleware (RequestID, Logger, Duration, Recoverer, Timeout)
     router := api.NewRouter()
 
     _ = api.CreateHealthRoutes(router)

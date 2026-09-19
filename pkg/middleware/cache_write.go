@@ -51,12 +51,11 @@ func CreateCacheWriteMiddleware(params *Params) func(http.Handler) http.Handler 
 				var histResp *db.HistoryResponse
 				if recordHistory {
 					histReq = &db.HistoryRequest{
-						Method:     req.Method,
-						URL:        req.URL.String(),
-						Body:       requestBody,
-						Headers:    historyHeaders(req.Header),
-						RemoteAddr: req.RemoteAddr,
-						RequestID:  requestID,
+						Method:    req.Method,
+						URL:       req.URL.String(),
+						Body:      requestBody,
+						Headers:   historyHeaders(req.Header),
+						RequestID: requestID,
 					}
 					histResp = &db.HistoryResponse{
 						Body:          respContent,

@@ -119,7 +119,6 @@ type HistoryRequest struct {
 	Body            []byte   `json:"body,omitempty"`
 	IsBodyTruncated bool     `json:"isBodyTruncated,omitempty"`
 	Headers         []string `json:"headers,omitempty"`
-	RemoteAddr      string   `json:"remoteAddr,omitempty"`
 	RequestID       string   `json:"requestId,omitempty"`
 }
 
@@ -127,7 +126,7 @@ type HistoryRequest struct {
 // ID is a unique identifier for this entry
 // Resource is the openapi resource path, i.e. /pets, /pets/{id}
 // Response is the response if present
-// Request is the method, URL, body, headers, and remote address of the original request
+// Request is the method, URL, body and headers of the original request
 type HistoryEntry struct {
 	ID        string           `json:"id"`
 	Resource  string           `json:"resource"`
