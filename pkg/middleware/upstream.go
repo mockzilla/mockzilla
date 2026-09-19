@@ -108,11 +108,10 @@ func CreateUpstreamRequestMiddleware(params *Params) func(http.Handler) http.Han
 					cacheUpstreamResponse(params, svcCfg, req, httpErr.StatusCode, httpErr.ContentType, []byte(httpErr.Body))
 					if svcCfg.HistoryEnabled() {
 						histReq := &db.HistoryRequest{
-							Method:     req.Method,
-							URL:        req.URL.String(),
-							Headers:    historyHeaders(req.Header),
-							RemoteAddr: req.RemoteAddr,
-							RequestID:  requestID,
+							Method:    req.Method,
+							URL:       req.URL.String(),
+							Headers:   historyHeaders(req.Header),
+							RequestID: requestID,
 						}
 						histResp := &db.HistoryResponse{
 							Body:           []byte(httpErr.Body),
@@ -235,12 +234,11 @@ func getUpstreamResponse(log *slog.Logger, svcCfg *config.ServiceConfig, cfg *co
 
 	if recordHistory {
 		histReq := &db.HistoryRequest{
-			Method:     req.Method,
-			URL:        req.URL.String(),
-			Body:       bodyBytes,
-			Headers:    historyHeaders(req.Header),
-			RemoteAddr: req.RemoteAddr,
-			RequestID:  GetRequestID(req),
+			Method:    req.Method,
+			URL:       req.URL.String(),
+			Body:      bodyBytes,
+			Headers:   historyHeaders(req.Header),
+			RequestID: GetRequestID(req),
 		}
 		histResp := &db.HistoryResponse{
 			Body:           body,

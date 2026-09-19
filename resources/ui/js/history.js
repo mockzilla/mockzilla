@@ -104,7 +104,6 @@ const showDetail = (entry) => {
         if (resp.upstreamError) addMetaRow(tbody, 'Upstream Error', resp.upstreamError);
     }
     if (req && req.requestId) addMetaRow(tbody, 'Request ID', req.requestId);
-    if (req && req.remoteAddr) addMetaRow(tbody, 'Remote', req.remoteAddr);
     if (entry.createdAt) {
         const d = new Date(entry.createdAt);
         const pad = (n) => String(n).padStart(2, '0');
