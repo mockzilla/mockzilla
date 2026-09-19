@@ -1,4 +1,4 @@
-FROM golang:1.25.7 AS builder
+FROM golang:1.26.8 AS builder
 ENV CGO_ENABLED=1
 RUN apt-get install -y git make
 
@@ -21,7 +21,7 @@ RUN go build -o /app/.build/mockzilla ./cmd/mockzilla
 # Get version
 RUN git describe --tags --abbrev=0 > version.txt || echo "dev" > version.txt
 
-FROM golang:1.25.7
+FROM golang:1.26.8
 ENV CGO_ENABLED=1
 
 WORKDIR /app

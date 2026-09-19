@@ -246,3 +246,14 @@ $(filter testdata/%, $(MAKECMDGOALS)):
 	@:
 %:
 	@:
+
+# renovate: datasource=go
+govulncheck_module = golang.org/x/vuln/cmd/govulncheck@v1.1.4
+
+# Fail on a vulnerability this code calls. govulncheck exits non-zero only when
+# the code actually reaches one, so an advisory in a module we merely require
+# does not stop the build.
+.PHONY: vulncheck
+vulncheck:
+	go run $(govulncheck_module) ./...
+	@git ls-files '**/*go.mod' -z | xargs -0 -I{} bash -c 'cd $$(dirname {}) && if [ -f Makefile ] && go list ./... >/dev/null 2>&1; then make vulncheck; fi'

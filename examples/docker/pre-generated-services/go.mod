@@ -1,10 +1,10 @@
 module example
 
-go 1.25.7
+go 1.26.8
 
 require (
 	github.com/doordash-oss/oapi-codegen-dd/v3 v3.75.11
-	github.com/go-chi/chi/v5 v5.2.5
+	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-playground/validator/v10 v10.30.3
 	github.com/mockzilla/mockzilla/v2 v2.0.0
 )

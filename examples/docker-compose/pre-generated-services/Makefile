@@ -21,3 +21,9 @@ check-fmt:
 		exit 1; \
 	fi
 
+# renovate: datasource=go
+govulncheck_module = golang.org/x/vuln/cmd/govulncheck@v1.1.4
+
+.PHONY: vulncheck
+vulncheck:
+	go run $(govulncheck_module) ./...

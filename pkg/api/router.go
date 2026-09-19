@@ -57,7 +57,9 @@ func NewRouter(options ...RouterOption) *Router {
 
 	// Apply default middleware
 	r.Use(chiMw.RequestID)
-	r.Use(chiMw.RealIP)
+	// RealIP trusts X-Forwarded-For, so a caller can forge the address it records.
+	// Nothing authorises on it, and behind a proxy RemoteAddr is the proxy's.
+	r.Use(chiMw.RealIP) //nolint:staticcheck
 	r.Use(middleware.LoggerMiddleware)
 	r.Use(middleware.StartTimeMiddleware)
 	r.Use(chiMw.Recoverer)
