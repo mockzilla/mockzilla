@@ -2,13 +2,18 @@ package db
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+const redisAddressEnv = "REDIS_TEST_ADDRESS"
 
 func TestRedisStorage_NewRedisStorage(t *testing.T) {
 	t.Run("nil config returns error", func(t *testing.T) {
@@ -25,8 +30,7 @@ func TestRedisStorage_NewRedisStorage(t *testing.T) {
 	})
 
 	t.Run("successful connection", func(t *testing.T) {
-		mr := miniredis.RunT(t)
-		cfg := &config.RedisConfig{Address: mr.Addr()}
+		cfg := &config.RedisConfig{Address: redisAddress(t)}
 
 		storage, err := newRedisStorage(cfg)
 		assert.NoError(t, err)
@@ -37,8 +41,7 @@ func TestRedisStorage_NewRedisStorage(t *testing.T) {
 
 func TestRedisStorage_NewDB(t *testing.T) {
 	ctx := context.Background()
-	mr := miniredis.RunT(t)
-	cfg := &config.RedisConfig{Address: mr.Addr()}
+	cfg := &config.RedisConfig{Address: redisAddress(t)}
 
 	storage, err := newRedisStorage(cfg)
 	assert.NoError(t, err)
@@ -63,8 +66,7 @@ func TestRedisStorage_NewDB(t *testing.T) {
 
 func TestRedisStorage_SharedBackend(t *testing.T) {
 	ctx := context.Background()
-	mr := miniredis.RunT(t)
-	cfg := &config.RedisConfig{Address: mr.Addr()}
+	cfg := &config.RedisConfig{Address: redisAddress(t)}
 
 	storage, err := newRedisStorage(cfg)
 	assert.NoError(t, err)
@@ -88,8 +90,7 @@ func TestRedisStorage_SharedBackend(t *testing.T) {
 
 func TestRedisStorage_History(t *testing.T) {
 	ctx := context.Background()
-	mr := miniredis.RunT(t)
-	cfg := &config.RedisConfig{Address: mr.Addr()}
+	cfg := &config.RedisConfig{Address: redisAddress(t)}
 
 	storage, err := newRedisStorage(cfg)
 	assert.NoError(t, err)
@@ -106,8 +107,7 @@ func TestRedisStorage_History(t *testing.T) {
 }
 
 func TestRedisStorage_Close(t *testing.T) {
-	mr := miniredis.RunT(t)
-	cfg := &config.RedisConfig{Address: mr.Addr()}
+	cfg := &config.RedisConfig{Address: redisAddress(t)}
 
 	storage, err := newRedisStorage(cfg)
 	assert.NoError(t, err)
@@ -122,4 +122,23 @@ func TestRedisStorage_Close(t *testing.T) {
 
 	// Close storage
 	storage.Close()
+}
+
+// redisAddress is a real server when the environment names one, and a fake otherwise, so the
+// same tests cover an ordinary pull request and the version matrix without being written twice.
+func redisAddress(t *testing.T) string {
+	t.Helper()
+
+	address := os.Getenv(redisAddressEnv)
+	if address == "" {
+		return miniredis.RunT(t).Addr()
+	}
+
+	// A real server is reused by every test in the run, so each one starts from empty.
+	client := redis.NewClient(&redis.Options{Addr: address})
+	defer func() { _ = client.Close() }()
+
+	require.NoError(t, client.FlushDB(t.Context()).Err())
+
+	return address
 }

@@ -167,6 +167,44 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
         file: coverage.out
 
+  # The redis driver's tests run against a fake everywhere else, which says nothing about a
+  # real server. This is the list the driver claims to support, so widening the claim means
+  # widening this first.
+  redis-versions:
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["redis:6.2", "redis:7.2", "redis:8", "valkey/valkey:8"]
+
+    services:
+      redis:
+        image: ${{ matrix.image }}
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping || valkey-cli ping"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      REDIS_TEST_ADDRESS: localhost:6379
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: "1.26.8"
+
+    - name: Redis tests against a real server
+      run: go test -race -count=1 -run Redis ./pkg/db/
+
   prepare-integration-matrix:
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
