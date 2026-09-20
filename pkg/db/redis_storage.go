@@ -13,7 +13,24 @@ import (
 )
 
 func init() {
-	Register("redis", openRedis)
+	RegisterDriver(Driver{Name: "redis", Factory: openRedis, Compat: redisCompat})
+}
+
+// redisCompat is generated from what the test matrix runs. Widen the matrix before widening this.
+var redisCompat = Compat{
+	Kind:    KindServer,
+	Min:     "6.2",
+	Tested:  []string{"6.2", "7.2", "8"},
+	Connect: "Set the host and port, or an address in YAML. The host wins when both are set.",
+	Notes:   "Valkey 8 is tested too. Other forks are not.",
+	Settings: []Setting{
+		{Env: "REDIS_HOST", YAML: "host", Doc: "Server host"},
+		{Env: "REDIS_PORT", YAML: "port", Default: "6379", Doc: "Server port"},
+		{Env: "REDIS_USERNAME", YAML: "username", Doc: "User name, for a server with ACLs"},
+		{Env: "REDIS_PASSWORD", YAML: "password", Doc: "Password", IsSensitive: true},
+		{Env: "REDIS_DB", YAML: "db", Default: "0", Doc: "Database number"},
+		{Env: "REDIS_TLS", YAML: "tls", Default: "false", Doc: "Connect over TLS"},
+	},
 }
 
 // Ensure redisStorage implements Storage interface.

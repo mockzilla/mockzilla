@@ -137,6 +137,35 @@ A failure in either call counts as a failure to open the backend. With
 `storage.strict: true` the process refuses to start. Without it, mockzilla
 falls back to memory.
 
+## What a driver says about itself
+
+A driver can register what it runs on and how to point it there, so an
+operator can be told before anything connects:
+
+```go
+func init() {
+	db.RegisterDriver(db.Driver{Name: "example", Factory: open, Compat: db.Compat{
+		Kind:     db.KindServer,
+		Min:      "14",
+		Tested:   []string{"14", "16", "18"},
+		Connect:  "Set the URL, or the host, user and database separately.",
+		Settings: []db.Setting{{Env: "EXAMPLE_URL", YAML: "url", Doc: "Connection URL"}},
+	}})
+}
+```
+
+`db.Registered()` returns every driver compiled into the build with what each
+one declared, and needs no connection to anything. `db.Register(name, factory)`
+still works and leaves `Compat` empty.
+
+`Tested` is the list the driver's own tests actually run against, so it is
+generated from the test matrix rather than written by hand. A claim wider than
+that list is a guess. `Min` is the oldest version the driver supports and
+belongs in `Tested` too, since an untested floor is not a floor.
+
+`IsSensitive` on a setting marks a value that must never be displayed or
+written into an example file.
+
 ## The request cache
 
 `cache.requests: true` stores GET responses in the `cache` table, keyed by a

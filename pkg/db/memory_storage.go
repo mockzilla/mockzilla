@@ -15,6 +15,20 @@ type memoryStorage struct {
 }
 
 // newMemoryStorage creates a new shared in-memory storage.
+func init() {
+	RegisterDriver(Driver{Name: "memory", Factory: openMemory, Compat: memoryCompat})
+}
+
+// memoryCompat has no settings because there is nothing to point it at.
+var memoryCompat = Compat{
+	Kind:  KindEmbedded,
+	Notes: "Nothing survives a restart and nothing is shared between replicas.",
+}
+
+func openMemory(map[string]any) (Storage, error) {
+	return newMemoryStorage(), nil
+}
+
 func newMemoryStorage() *memoryStorage {
 	return &memoryStorage{
 		tables: make(map[string]*memoryTable),
