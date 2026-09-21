@@ -248,7 +248,7 @@ $(filter testdata/%, $(MAKECMDGOALS)):
 	@:
 
 # renovate: datasource=go
-govulncheck_module = golang.org/x/vuln/cmd/govulncheck@v1.1.4
+govulncheck_module = golang.org/x/vuln/cmd/govulncheck@v1.8.0
 
 # Fail on a vulnerability this code calls. govulncheck exits non-zero only when
 # the code actually reaches one, so an advisory in a module we merely require
