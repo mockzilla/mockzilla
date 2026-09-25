@@ -225,10 +225,18 @@ type OapiHandlerError struct {
 	Message       string
 	ParamName     string
 	ParamLocation string
+
+	// Err is the error that caused this handler error.
+	Err error `json:"-"`
 }
 
 func (e OapiHandlerError) Error() string {
 	return e.Message
+}
+
+// Unwrap returns the underlying error, enabling errors.Is and errors.As.
+func (e OapiHandlerError) Unwrap() error {
+	return e.Err
 }
 
 // OapiErrorResponse is the default JSON error response structure used by OapiDefaultErrorHandler.
@@ -509,6 +517,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "query",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -555,6 +564,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "instructionsRequired",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -569,6 +579,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "fillIngredients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -583,6 +594,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "addRecipeInformation",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -597,6 +609,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "addRecipeNutrition",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -615,6 +628,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "tags",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -629,6 +643,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "recipeBoxId",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -647,6 +662,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxReadyTime",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -661,6 +677,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "ignorePantry",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -683,6 +700,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minCarbs",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -697,6 +715,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxCarbs",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -711,6 +730,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minProtein",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -725,6 +745,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxProtein",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -739,6 +760,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minCalories",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -753,6 +775,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxCalories",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -767,6 +790,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -781,6 +805,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -795,6 +820,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minAlcohol",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -809,6 +835,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxAlcohol",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -823,6 +850,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minCaffeine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -837,6 +865,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxCaffeine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -851,6 +880,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minCopper",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -865,6 +895,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxCopper",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -879,6 +910,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minCalcium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -893,6 +925,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxCalcium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -907,6 +940,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minCholine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -921,6 +955,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxCholine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -935,6 +970,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minCholesterol",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -949,6 +985,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxCholesterol",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -963,6 +1000,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minFluoride",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -977,6 +1015,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxFluoride",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -991,6 +1030,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minSaturatedFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1005,6 +1045,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxSaturatedFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1019,6 +1060,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminA",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1033,6 +1075,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminA",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1047,6 +1090,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminC",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1061,6 +1105,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminC",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1075,6 +1120,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminD",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1089,6 +1135,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminD",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1103,6 +1150,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminE",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1117,6 +1165,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminE",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1131,6 +1180,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminK",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1145,6 +1195,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminK",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1159,6 +1210,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminB1",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1173,6 +1225,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB1",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1187,6 +1240,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminB2",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1201,6 +1255,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB2",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1215,6 +1270,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminB5",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1229,6 +1285,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB5",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1243,6 +1300,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminB3",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1257,6 +1315,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB3",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1271,6 +1330,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminB6",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1285,6 +1345,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB6",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1299,6 +1360,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minVitaminB12",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1313,6 +1375,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB12",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1327,6 +1390,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minFiber",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1341,6 +1405,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxFiber",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1355,6 +1420,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minFolate",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1369,6 +1435,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxFolate",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1383,6 +1450,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minFolicAcid",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1397,6 +1465,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxFolicAcid",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1411,6 +1480,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minIodine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1425,6 +1495,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxIodine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1439,6 +1510,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minIron",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1453,6 +1525,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxIron",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1467,6 +1540,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minMagnesium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1481,6 +1555,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxMagnesium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1495,6 +1570,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minManganese",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1509,6 +1585,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxManganese",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1523,6 +1600,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minPhosphorus",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1537,6 +1615,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxPhosphorus",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1551,6 +1630,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minPotassium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1565,6 +1645,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxPotassium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1579,6 +1660,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minSelenium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1593,6 +1675,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxSelenium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1607,6 +1690,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minSodium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1621,6 +1705,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxSodium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1635,6 +1720,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minSugar",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1649,6 +1735,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxSugar",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1663,6 +1750,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minZinc",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1677,6 +1765,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxZinc",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1691,6 +1780,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "offset",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1705,6 +1795,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1719,6 +1810,7 @@ func (a *HTTPAdapter) SearchRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "limitLicense",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1780,6 +1872,7 @@ func (a *HTTPAdapter) SearchRecipesByIngredients(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "ingredients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1794,6 +1887,7 @@ func (a *HTTPAdapter) SearchRecipesByIngredients(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1808,6 +1902,7 @@ func (a *HTTPAdapter) SearchRecipesByIngredients(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "limitLicense",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1822,6 +1917,7 @@ func (a *HTTPAdapter) SearchRecipesByIngredients(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "ranking",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1836,6 +1932,7 @@ func (a *HTTPAdapter) SearchRecipesByIngredients(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "ignorePantry",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1897,6 +1994,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minCarbs",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1911,6 +2009,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxCarbs",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1925,6 +2024,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minProtein",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1939,6 +2039,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxProtein",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1953,6 +2054,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minCalories",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1967,6 +2069,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxCalories",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1981,6 +2084,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -1995,6 +2099,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2009,6 +2114,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minAlcohol",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2023,6 +2129,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxAlcohol",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2037,6 +2144,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minCaffeine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2051,6 +2159,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxCaffeine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2065,6 +2174,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minCopper",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2079,6 +2189,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxCopper",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2093,6 +2204,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minCalcium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2107,6 +2219,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxCalcium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2121,6 +2234,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minCholine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2135,6 +2249,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxCholine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2149,6 +2264,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minCholesterol",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2163,6 +2279,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxCholesterol",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2177,6 +2294,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minFluoride",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2191,6 +2309,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxFluoride",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2205,6 +2324,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minSaturatedFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2219,6 +2339,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxSaturatedFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2233,6 +2354,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminA",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2247,6 +2369,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminA",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2261,6 +2384,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminC",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2275,6 +2399,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminC",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2289,6 +2414,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminD",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2303,6 +2429,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminD",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2317,6 +2444,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminE",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2331,6 +2459,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminE",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2345,6 +2474,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminK",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2359,6 +2489,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminK",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2373,6 +2504,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminB1",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2387,6 +2519,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB1",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2401,6 +2534,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminB2",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2415,6 +2549,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB2",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2429,6 +2564,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminB5",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2443,6 +2579,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB5",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2457,6 +2594,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminB3",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2471,6 +2609,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB3",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2485,6 +2624,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminB6",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2499,6 +2639,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB6",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2513,6 +2654,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minVitaminB12",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2527,6 +2669,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxVitaminB12",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2541,6 +2684,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minFiber",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2555,6 +2699,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxFiber",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2569,6 +2714,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minFolate",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2583,6 +2729,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxFolate",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2597,6 +2744,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minFolicAcid",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2611,6 +2759,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxFolicAcid",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2625,6 +2774,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minIodine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2639,6 +2789,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxIodine",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2653,6 +2804,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minIron",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2667,6 +2819,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxIron",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2681,6 +2834,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minMagnesium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2695,6 +2849,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxMagnesium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2709,6 +2864,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minManganese",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2723,6 +2879,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxManganese",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2737,6 +2894,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minPhosphorus",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2751,6 +2909,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxPhosphorus",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2765,6 +2924,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minPotassium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2779,6 +2939,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxPotassium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2793,6 +2954,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minSelenium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2807,6 +2969,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxSelenium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2821,6 +2984,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minSodium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2835,6 +2999,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxSodium",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2849,6 +3014,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minSugar",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2863,6 +3029,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxSugar",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2877,6 +3044,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "minZinc",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2891,6 +3059,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "maxZinc",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2905,6 +3074,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "offset",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2919,6 +3089,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2933,6 +3104,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "random",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -2947,6 +3119,7 @@ func (a *HTTPAdapter) SearchRecipesByNutrients(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "limitLicense",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3008,6 +3181,7 @@ func (a *HTTPAdapter) GetRecipeInformation(w http.ResponseWriter, r *http.Reques
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -3025,6 +3199,7 @@ func (a *HTTPAdapter) GetRecipeInformation(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "includeNutrition",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3090,6 +3265,7 @@ func (a *HTTPAdapter) GetRecipeInformationBulk(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "includeNutrition",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3151,6 +3327,7 @@ func (a *HTTPAdapter) GetSimilarRecipes(w http.ResponseWriter, r *http.Request) 
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -3168,6 +3345,7 @@ func (a *HTTPAdapter) GetSimilarRecipes(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3182,6 +3360,7 @@ func (a *HTTPAdapter) GetSimilarRecipes(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "limitLicense",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3243,6 +3422,7 @@ func (a *HTTPAdapter) GetRandomRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "limitLicense",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3257,6 +3437,7 @@ func (a *HTTPAdapter) GetRandomRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "tags",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3271,6 +3452,7 @@ func (a *HTTPAdapter) GetRandomRecipes(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3332,6 +3514,7 @@ func (a *HTTPAdapter) AutocompleteRecipeSearch(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "query",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3346,6 +3529,7 @@ func (a *HTTPAdapter) AutocompleteRecipeSearch(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3407,6 +3591,7 @@ func (a *HTTPAdapter) GetRecipeTasteByID(w http.ResponseWriter, r *http.Request)
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -3424,6 +3609,7 @@ func (a *HTTPAdapter) GetRecipeTasteByID(w http.ResponseWriter, r *http.Request)
 				Message:       err.Error(),
 				ParamName:     "normalize",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3485,6 +3671,7 @@ func (a *HTTPAdapter) RecipeTasteByIDImage(w http.ResponseWriter, r *http.Reques
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -3502,6 +3689,7 @@ func (a *HTTPAdapter) RecipeTasteByIDImage(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "normalize",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3516,6 +3704,7 @@ func (a *HTTPAdapter) RecipeTasteByIDImage(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "rgb",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -3576,6 +3765,7 @@ func (a *HTTPAdapter) GetRecipeEquipmentByID(w http.ResponseWriter, r *http.Requ
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -3636,6 +3826,7 @@ func (a *HTTPAdapter) EquipmentByIDImage(w http.ResponseWriter, r *http.Request)
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -3695,6 +3886,7 @@ func (a *HTTPAdapter) GetRecipePriceBreakdownByID(w http.ResponseWriter, r *http
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -3755,6 +3947,7 @@ func (a *HTTPAdapter) PriceBreakdownByIDImage(w http.ResponseWriter, r *http.Req
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -3814,6 +4007,7 @@ func (a *HTTPAdapter) GetRecipeIngredientsByID(w http.ResponseWriter, r *http.Re
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -3874,6 +4068,7 @@ func (a *HTTPAdapter) IngredientsByIDImage(w http.ResponseWriter, r *http.Reques
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -3942,6 +4137,7 @@ func (a *HTTPAdapter) GetRecipeNutritionWidgetByID(w http.ResponseWriter, r *htt
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -4002,6 +4198,7 @@ func (a *HTTPAdapter) RecipeNutritionByIDImage(w http.ResponseWriter, r *http.Re
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -4061,6 +4258,7 @@ func (a *HTTPAdapter) RecipeNutritionLabelWidget(w http.ResponseWriter, r *http.
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -4078,6 +4276,7 @@ func (a *HTTPAdapter) RecipeNutritionLabelWidget(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "defaultCss",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4092,6 +4291,7 @@ func (a *HTTPAdapter) RecipeNutritionLabelWidget(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "showOptionalNutrients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4106,6 +4306,7 @@ func (a *HTTPAdapter) RecipeNutritionLabelWidget(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "showZeroValues",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4120,6 +4321,7 @@ func (a *HTTPAdapter) RecipeNutritionLabelWidget(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "showIngredients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4179,6 +4381,7 @@ func (a *HTTPAdapter) RecipeNutritionLabelImage(w http.ResponseWriter, r *http.R
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -4196,6 +4399,7 @@ func (a *HTTPAdapter) RecipeNutritionLabelImage(w http.ResponseWriter, r *http.R
 				Message:       err.Error(),
 				ParamName:     "showOptionalNutrients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4210,6 +4414,7 @@ func (a *HTTPAdapter) RecipeNutritionLabelImage(w http.ResponseWriter, r *http.R
 				Message:       err.Error(),
 				ParamName:     "showZeroValues",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4224,6 +4429,7 @@ func (a *HTTPAdapter) RecipeNutritionLabelImage(w http.ResponseWriter, r *http.R
 				Message:       err.Error(),
 				ParamName:     "showIngredients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4284,6 +4490,7 @@ func (a *HTTPAdapter) GetAnalyzedRecipeInstructions(w http.ResponseWriter, r *ht
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -4301,6 +4508,7 @@ func (a *HTTPAdapter) GetAnalyzedRecipeInstructions(w http.ResponseWriter, r *ht
 				Message:       err.Error(),
 				ParamName:     "stepBreakdown",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4366,6 +4574,7 @@ func (a *HTTPAdapter) ExtractRecipeFromWebsite(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "forceExtraction",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4380,6 +4589,7 @@ func (a *HTTPAdapter) ExtractRecipeFromWebsite(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "analyze",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4394,6 +4604,7 @@ func (a *HTTPAdapter) ExtractRecipeFromWebsite(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "includeNutrition",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4408,6 +4619,7 @@ func (a *HTTPAdapter) ExtractRecipeFromWebsite(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "includeTaste",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4469,6 +4681,7 @@ func (a *HTTPAdapter) VisualizeRecipeIngredientsByID(w http.ResponseWriter, r *h
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -4486,6 +4699,7 @@ func (a *HTTPAdapter) VisualizeRecipeIngredientsByID(w http.ResponseWriter, r *h
 				Message:       err.Error(),
 				ParamName:     "defaultCss",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4550,6 +4764,7 @@ func (a *HTTPAdapter) VisualizeRecipeTasteByID(w http.ResponseWriter, r *http.Re
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -4567,6 +4782,7 @@ func (a *HTTPAdapter) VisualizeRecipeTasteByID(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "normalize",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4581,6 +4797,7 @@ func (a *HTTPAdapter) VisualizeRecipeTasteByID(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "rgb",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4640,6 +4857,7 @@ func (a *HTTPAdapter) VisualizeRecipeEquipmentByID(w http.ResponseWriter, r *htt
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -4657,6 +4875,7 @@ func (a *HTTPAdapter) VisualizeRecipeEquipmentByID(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "defaultCss",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4716,6 +4935,7 @@ func (a *HTTPAdapter) VisualizeRecipePriceBreakdownByID(w http.ResponseWriter, r
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -4733,6 +4953,7 @@ func (a *HTTPAdapter) VisualizeRecipePriceBreakdownByID(w http.ResponseWriter, r
 				Message:       err.Error(),
 				ParamName:     "defaultCss",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4792,6 +5013,7 @@ func (a *HTTPAdapter) VisualizeRecipeTaste(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "language",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4806,6 +5028,7 @@ func (a *HTTPAdapter) VisualizeRecipeTaste(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "normalize",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4820,6 +5043,7 @@ func (a *HTTPAdapter) VisualizeRecipeTaste(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "rgb",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4839,6 +5063,7 @@ func (a *HTTPAdapter) VisualizeRecipeTaste(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "Content-Type",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -4853,6 +5078,7 @@ func (a *HTTPAdapter) VisualizeRecipeTaste(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "Accept",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -4868,23 +5094,16 @@ func (a *HTTPAdapter) VisualizeRecipeTaste(w http.ResponseWriter, r *http.Reques
 			Kind:        OapiErrorKindDecode,
 			OperationID: "VisualizeRecipeTaste",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
-	jsonBytes, err := runtime.ConvertFormFields(formBytes)
-	if err != nil {
+	if err := runtime.UnmarshalForm(formBytes, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "VisualizeRecipeTaste",
 			Message:     err.Error(),
-		})
-		return
-	}
-	if err := json.Unmarshal(jsonBytes, &body); err != nil {
-		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
-			Kind:        OapiErrorKindDecode,
-			OperationID: "VisualizeRecipeTaste",
-			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -4942,6 +5161,7 @@ func (a *HTTPAdapter) VisualizeRecipeNutrition(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "language",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -4961,6 +5181,7 @@ func (a *HTTPAdapter) VisualizeRecipeNutrition(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "Content-Type",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -4975,6 +5196,7 @@ func (a *HTTPAdapter) VisualizeRecipeNutrition(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "Accept",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -4990,23 +5212,16 @@ func (a *HTTPAdapter) VisualizeRecipeNutrition(w http.ResponseWriter, r *http.Re
 			Kind:        OapiErrorKindDecode,
 			OperationID: "VisualizeRecipeNutrition",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
-	jsonBytes, err := runtime.ConvertFormFields(formBytes)
-	if err != nil {
+	if err := runtime.UnmarshalForm(formBytes, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "VisualizeRecipeNutrition",
 			Message:     err.Error(),
-		})
-		return
-	}
-	if err := json.Unmarshal(jsonBytes, &body); err != nil {
-		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
-			Kind:        OapiErrorKindDecode,
-			OperationID: "VisualizeRecipeNutrition",
-			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -5064,6 +5279,7 @@ func (a *HTTPAdapter) VisualizePriceBreakdown(w http.ResponseWriter, r *http.Req
 				Message:       err.Error(),
 				ParamName:     "language",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -5083,6 +5299,7 @@ func (a *HTTPAdapter) VisualizePriceBreakdown(w http.ResponseWriter, r *http.Req
 				Message:       err.Error(),
 				ParamName:     "Content-Type",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -5097,6 +5314,7 @@ func (a *HTTPAdapter) VisualizePriceBreakdown(w http.ResponseWriter, r *http.Req
 				Message:       err.Error(),
 				ParamName:     "Accept",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -5112,23 +5330,16 @@ func (a *HTTPAdapter) VisualizePriceBreakdown(w http.ResponseWriter, r *http.Req
 			Kind:        OapiErrorKindDecode,
 			OperationID: "VisualizePriceBreakdown",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
-	jsonBytes, err := runtime.ConvertFormFields(formBytes)
-	if err != nil {
+	if err := runtime.UnmarshalForm(formBytes, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "VisualizePriceBreakdown",
 			Message:     err.Error(),
-		})
-		return
-	}
-	if err := json.Unmarshal(jsonBytes, &body); err != nil {
-		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
-			Kind:        OapiErrorKindDecode,
-			OperationID: "VisualizePriceBreakdown",
-			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -5186,6 +5397,7 @@ func (a *HTTPAdapter) VisualizeEquipment(w http.ResponseWriter, r *http.Request)
 				Message:       err.Error(),
 				ParamName:     "Content-Type",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -5200,6 +5412,7 @@ func (a *HTTPAdapter) VisualizeEquipment(w http.ResponseWriter, r *http.Request)
 				Message:       err.Error(),
 				ParamName:     "Accept",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -5215,23 +5428,16 @@ func (a *HTTPAdapter) VisualizeEquipment(w http.ResponseWriter, r *http.Request)
 			Kind:        OapiErrorKindDecode,
 			OperationID: "VisualizeEquipment",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
-	jsonBytes, err := runtime.ConvertFormFields(formBytes)
-	if err != nil {
+	if err := runtime.UnmarshalForm(formBytes, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "VisualizeEquipment",
 			Message:     err.Error(),
-		})
-		return
-	}
-	if err := json.Unmarshal(jsonBytes, &body); err != nil {
-		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
-			Kind:        OapiErrorKindDecode,
-			OperationID: "VisualizeEquipment",
-			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -5293,6 +5499,7 @@ func (a *HTTPAdapter) AnalyzeRecipe(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "includeNutrition",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -5307,6 +5514,7 @@ func (a *HTTPAdapter) AnalyzeRecipe(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "includeTaste",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -5370,6 +5578,7 @@ func (a *HTTPAdapter) SummarizeRecipe(w http.ResponseWriter, r *http.Request) {
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -5430,6 +5639,7 @@ func (a *HTTPAdapter) CreateRecipeCardGet(w http.ResponseWriter, r *http.Request
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -5510,6 +5720,7 @@ func (a *HTTPAdapter) CreateRecipeCard(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "Content-Type",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -5525,6 +5736,7 @@ func (a *HTTPAdapter) CreateRecipeCard(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindDecode,
 			OperationID: "CreateRecipeCard",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -5585,6 +5797,7 @@ func (a *HTTPAdapter) AnalyzeRecipeInstructions(w http.ResponseWriter, r *http.R
 				Message:       err.Error(),
 				ParamName:     "Content-Type",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -5600,23 +5813,16 @@ func (a *HTTPAdapter) AnalyzeRecipeInstructions(w http.ResponseWriter, r *http.R
 			Kind:        OapiErrorKindDecode,
 			OperationID: "AnalyzeRecipeInstructions",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
-	jsonBytes, err := runtime.ConvertFormFields(formBytes)
-	if err != nil {
+	if err := runtime.UnmarshalForm(formBytes, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "AnalyzeRecipeInstructions",
 			Message:     err.Error(),
-		})
-		return
-	}
-	if err := json.Unmarshal(jsonBytes, &body); err != nil {
-		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
-			Kind:        OapiErrorKindDecode,
-			OperationID: "AnalyzeRecipeInstructions",
-			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -5676,6 +5882,7 @@ func (a *HTTPAdapter) ClassifyCuisine(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "Content-Type",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -5691,23 +5898,16 @@ func (a *HTTPAdapter) ClassifyCuisine(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindDecode,
 			OperationID: "ClassifyCuisine",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
-	jsonBytes, err := runtime.ConvertFormFields(formBytes)
-	if err != nil {
+	if err := runtime.UnmarshalForm(formBytes, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "ClassifyCuisine",
 			Message:     err.Error(),
-		})
-		return
-	}
-	if err := json.Unmarshal(jsonBytes, &body); err != nil {
-		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
-			Kind:        OapiErrorKindDecode,
-			OperationID: "ClassifyCuisine",
-			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -5822,6 +6022,7 @@ func (a *HTTPAdapter) ConvertAmounts(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "sourceAmount",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -5891,6 +6092,7 @@ func (a *HTTPAdapter) ParseIngredients(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "language",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -5910,6 +6112,7 @@ func (a *HTTPAdapter) ParseIngredients(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "Content-Type",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -5925,23 +6128,16 @@ func (a *HTTPAdapter) ParseIngredients(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindDecode,
 			OperationID: "ParseIngredients",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
-	jsonBytes, err := runtime.ConvertFormFields(formBytes)
-	if err != nil {
+	if err := runtime.UnmarshalForm(formBytes, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "ParseIngredients",
 			Message:     err.Error(),
-		})
-		return
-	}
-	if err := json.Unmarshal(jsonBytes, &body); err != nil {
-		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
-			Kind:        OapiErrorKindDecode,
-			OperationID: "ParseIngredients",
-			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -6001,6 +6197,7 @@ func (a *HTTPAdapter) VisualizeRecipeNutritionByID(w http.ResponseWriter, r *htt
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -6018,6 +6215,7 @@ func (a *HTTPAdapter) VisualizeRecipeNutritionByID(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "defaultCss",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6037,6 +6235,7 @@ func (a *HTTPAdapter) VisualizeRecipeNutritionByID(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "Accept",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -6096,6 +6295,7 @@ func (a *HTTPAdapter) VisualizeIngredients(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "language",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6115,6 +6315,7 @@ func (a *HTTPAdapter) VisualizeIngredients(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "Content-Type",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -6129,6 +6330,7 @@ func (a *HTTPAdapter) VisualizeIngredients(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "Accept",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -6144,23 +6346,16 @@ func (a *HTTPAdapter) VisualizeIngredients(w http.ResponseWriter, r *http.Reques
 			Kind:        OapiErrorKindDecode,
 			OperationID: "VisualizeIngredients",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
-	jsonBytes, err := runtime.ConvertFormFields(formBytes)
-	if err != nil {
+	if err := runtime.UnmarshalForm(formBytes, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "VisualizeIngredients",
 			Message:     err.Error(),
-		})
-		return
-	}
-	if err := json.Unmarshal(jsonBytes, &body); err != nil {
-		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
-			Kind:        OapiErrorKindDecode,
-			OperationID: "VisualizeIngredients",
-			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -6269,6 +6464,7 @@ func (a *HTTPAdapter) GetIngredientInformation(w http.ResponseWriter, r *http.Re
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -6286,6 +6482,7 @@ func (a *HTTPAdapter) GetIngredientInformation(w http.ResponseWriter, r *http.Re
 				Message:       err.Error(),
 				ParamName:     "amount",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6351,6 +6548,7 @@ func (a *HTTPAdapter) ComputeIngredientAmount(w http.ResponseWriter, r *http.Req
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -6372,6 +6570,7 @@ func (a *HTTPAdapter) ComputeIngredientAmount(w http.ResponseWriter, r *http.Req
 				Message:       err.Error(),
 				ParamName:     "target",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6437,6 +6636,7 @@ func (a *HTTPAdapter) ComputeGlycemicLoad(w http.ResponseWriter, r *http.Request
 				Message:       err.Error(),
 				ParamName:     "language",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6451,6 +6651,7 @@ func (a *HTTPAdapter) ComputeGlycemicLoad(w http.ResponseWriter, r *http.Request
 			Kind:        OapiErrorKindDecode,
 			OperationID: "ComputeGlycemicLoad",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -6510,6 +6711,7 @@ func (a *HTTPAdapter) AutocompleteIngredientSearch(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "query",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6524,6 +6726,7 @@ func (a *HTTPAdapter) AutocompleteIngredientSearch(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6538,6 +6741,7 @@ func (a *HTTPAdapter) AutocompleteIngredientSearch(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "metaInformation",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6556,6 +6760,7 @@ func (a *HTTPAdapter) AutocompleteIngredientSearch(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "language",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6617,6 +6822,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "query",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6631,6 +6837,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "addChildren",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6645,6 +6852,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minProteinPercent",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6659,6 +6867,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxProteinPercent",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6673,6 +6882,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minFatPercent",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6687,6 +6897,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxFatPercent",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6701,6 +6912,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minCarbsPercent",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6715,6 +6927,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxCarbsPercent",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6729,6 +6942,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "metaInformation",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6755,6 +6969,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "offset",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6769,6 +6984,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6783,6 +6999,7 @@ func (a *HTTPAdapter) IngredientSearch(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "language",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6895,6 +7112,7 @@ func (a *HTTPAdapter) GetIngredientSubstitutesByID(w http.ResponseWriter, r *htt
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -6955,6 +7173,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "query",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6969,6 +7188,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "minCalories",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6983,6 +7203,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "maxCalories",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -6997,6 +7218,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "minCarbs",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7011,6 +7233,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "maxCarbs",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7025,6 +7248,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "minProtein",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7039,6 +7263,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "maxProtein",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7053,6 +7278,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "minFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7067,6 +7293,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "maxFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7081,6 +7308,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "addProductInformation",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7095,6 +7323,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "offset",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7109,6 +7338,7 @@ func (a *HTTPAdapter) SearchGroceryProducts(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7170,6 +7400,7 @@ func (a *HTTPAdapter) SearchGroceryProductsByUPC(w http.ResponseWriter, r *http.
 			Message:       err.Error(),
 			ParamName:     "upc",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -7230,6 +7461,7 @@ func (a *HTTPAdapter) SearchCustomFoods(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "query",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7252,6 +7484,7 @@ func (a *HTTPAdapter) SearchCustomFoods(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "offset",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7266,6 +7499,7 @@ func (a *HTTPAdapter) SearchCustomFoods(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7327,6 +7561,7 @@ func (a *HTTPAdapter) GetProductInformation(w http.ResponseWriter, r *http.Reque
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -7387,6 +7622,7 @@ func (a *HTTPAdapter) GetComparableProducts(w http.ResponseWriter, r *http.Reque
 			Message:       err.Error(),
 			ParamName:     "upc",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -7451,6 +7687,7 @@ func (a *HTTPAdapter) AutocompleteProductSearch(w http.ResponseWriter, r *http.R
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7512,6 +7749,7 @@ func (a *HTTPAdapter) VisualizeProductNutritionByID(w http.ResponseWriter, r *ht
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -7529,6 +7767,7 @@ func (a *HTTPAdapter) VisualizeProductNutritionByID(w http.ResponseWriter, r *ht
 				Message:       err.Error(),
 				ParamName:     "defaultCss",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7548,6 +7787,7 @@ func (a *HTTPAdapter) VisualizeProductNutritionByID(w http.ResponseWriter, r *ht
 				Message:       err.Error(),
 				ParamName:     "Accept",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -7607,6 +7847,7 @@ func (a *HTTPAdapter) ProductNutritionByIDImage(w http.ResponseWriter, r *http.R
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -7666,6 +7907,7 @@ func (a *HTTPAdapter) ProductNutritionLabelWidget(w http.ResponseWriter, r *http
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -7683,6 +7925,7 @@ func (a *HTTPAdapter) ProductNutritionLabelWidget(w http.ResponseWriter, r *http
 				Message:       err.Error(),
 				ParamName:     "defaultCss",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7697,6 +7940,7 @@ func (a *HTTPAdapter) ProductNutritionLabelWidget(w http.ResponseWriter, r *http
 				Message:       err.Error(),
 				ParamName:     "showOptionalNutrients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7711,6 +7955,7 @@ func (a *HTTPAdapter) ProductNutritionLabelWidget(w http.ResponseWriter, r *http
 				Message:       err.Error(),
 				ParamName:     "showZeroValues",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7725,6 +7970,7 @@ func (a *HTTPAdapter) ProductNutritionLabelWidget(w http.ResponseWriter, r *http
 				Message:       err.Error(),
 				ParamName:     "showIngredients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7784,6 +8030,7 @@ func (a *HTTPAdapter) ProductNutritionLabelImage(w http.ResponseWriter, r *http.
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -7801,6 +8048,7 @@ func (a *HTTPAdapter) ProductNutritionLabelImage(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "showOptionalNutrients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7815,6 +8063,7 @@ func (a *HTTPAdapter) ProductNutritionLabelImage(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "showZeroValues",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7829,6 +8078,7 @@ func (a *HTTPAdapter) ProductNutritionLabelImage(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "showIngredients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -7894,6 +8144,7 @@ func (a *HTTPAdapter) ClassifyGroceryProduct(w http.ResponseWriter, r *http.Requ
 			Kind:        OapiErrorKindDecode,
 			OperationID: "ClassifyGroceryProduct",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -7957,6 +8208,7 @@ func (a *HTTPAdapter) ClassifyGroceryProductBulk(w http.ResponseWriter, r *http.
 			Kind:        OapiErrorKindDecode,
 			OperationID: "ClassifyGroceryProductBulk",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -8012,6 +8264,7 @@ func (a *HTTPAdapter) MapIngredientsToGroceryProducts(w http.ResponseWriter, r *
 			Kind:        OapiErrorKindDecode,
 			OperationID: "MapIngredientsToGroceryProducts",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -8075,6 +8328,7 @@ func (a *HTTPAdapter) AutocompleteMenuItemSearch(w http.ResponseWriter, r *http.
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8136,6 +8390,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "query",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8150,6 +8405,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minCalories",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8164,6 +8420,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxCalories",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8178,6 +8435,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minCarbs",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8192,6 +8450,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxCarbs",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8206,6 +8465,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minProtein",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8220,6 +8480,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxProtein",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8234,6 +8495,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8248,6 +8510,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxFat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8262,6 +8525,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "addMenuItemInformation",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8276,6 +8540,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "offset",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8290,6 +8555,7 @@ func (a *HTTPAdapter) SearchMenuItems(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8351,6 +8617,7 @@ func (a *HTTPAdapter) GetMenuItemInformation(w http.ResponseWriter, r *http.Requ
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -8411,6 +8678,7 @@ func (a *HTTPAdapter) VisualizeMenuItemNutritionByID(w http.ResponseWriter, r *h
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -8428,6 +8696,7 @@ func (a *HTTPAdapter) VisualizeMenuItemNutritionByID(w http.ResponseWriter, r *h
 				Message:       err.Error(),
 				ParamName:     "defaultCss",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8447,6 +8716,7 @@ func (a *HTTPAdapter) VisualizeMenuItemNutritionByID(w http.ResponseWriter, r *h
 				Message:       err.Error(),
 				ParamName:     "Accept",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -8506,6 +8776,7 @@ func (a *HTTPAdapter) MenuItemNutritionByIDImage(w http.ResponseWriter, r *http.
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -8565,6 +8836,7 @@ func (a *HTTPAdapter) MenuItemNutritionLabelWidget(w http.ResponseWriter, r *htt
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -8582,6 +8854,7 @@ func (a *HTTPAdapter) MenuItemNutritionLabelWidget(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "defaultCss",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8596,6 +8869,7 @@ func (a *HTTPAdapter) MenuItemNutritionLabelWidget(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "showOptionalNutrients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8610,6 +8884,7 @@ func (a *HTTPAdapter) MenuItemNutritionLabelWidget(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "showZeroValues",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8624,6 +8899,7 @@ func (a *HTTPAdapter) MenuItemNutritionLabelWidget(w http.ResponseWriter, r *htt
 				Message:       err.Error(),
 				ParamName:     "showIngredients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8683,6 +8959,7 @@ func (a *HTTPAdapter) MenuItemNutritionLabelImage(w http.ResponseWriter, r *http
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -8700,6 +8977,7 @@ func (a *HTTPAdapter) MenuItemNutritionLabelImage(w http.ResponseWriter, r *http
 				Message:       err.Error(),
 				ParamName:     "showOptionalNutrients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8714,6 +8992,7 @@ func (a *HTTPAdapter) MenuItemNutritionLabelImage(w http.ResponseWriter, r *http
 				Message:       err.Error(),
 				ParamName:     "showZeroValues",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8728,6 +9007,7 @@ func (a *HTTPAdapter) MenuItemNutritionLabelImage(w http.ResponseWriter, r *http
 				Message:       err.Error(),
 				ParamName:     "showIngredients",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8792,6 +9072,7 @@ func (a *HTTPAdapter) GenerateMealPlan(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "targetCalories",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8868,6 +9149,7 @@ func (a *HTTPAdapter) GetMealPlanWeek(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "hash",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -8936,6 +9218,7 @@ func (a *HTTPAdapter) ClearMealPlanDay(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "hash",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9004,6 +9287,7 @@ func (a *HTTPAdapter) AddToMealPlan(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "hash",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9069,6 +9353,7 @@ func (a *HTTPAdapter) DeleteFromMealPlan(w http.ResponseWriter, r *http.Request)
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -9086,6 +9371,7 @@ func (a *HTTPAdapter) DeleteFromMealPlan(w http.ResponseWriter, r *http.Request)
 				Message:       err.Error(),
 				ParamName:     "hash",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9154,6 +9440,7 @@ func (a *HTTPAdapter) GetMealPlanTemplates(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "hash",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9275,6 +9562,7 @@ func (a *HTTPAdapter) GetMealPlanTemplate(w http.ResponseWriter, r *http.Request
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -9292,6 +9580,7 @@ func (a *HTTPAdapter) GetMealPlanTemplate(w http.ResponseWriter, r *http.Request
 				Message:       err.Error(),
 				ParamName:     "hash",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9355,6 +9644,7 @@ func (a *HTTPAdapter) DeleteMealPlanTemplate(w http.ResponseWriter, r *http.Requ
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -9430,6 +9720,7 @@ func (a *HTTPAdapter) GetShoppingList(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "hash",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9500,6 +9791,7 @@ func (a *HTTPAdapter) GenerateShoppingList(w http.ResponseWriter, r *http.Reques
 				Message:       err.Error(),
 				ParamName:     "hash",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9613,6 +9905,7 @@ func (a *HTTPAdapter) AddToShoppingList(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "hash",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9678,6 +9971,7 @@ func (a *HTTPAdapter) DeleteFromShoppingList(w http.ResponseWriter, r *http.Requ
 			Message:       err.Error(),
 			ParamName:     "id",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -9695,6 +9989,7 @@ func (a *HTTPAdapter) DeleteFromShoppingList(w http.ResponseWriter, r *http.Requ
 				Message:       err.Error(),
 				ParamName:     "hash",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9762,6 +10057,7 @@ func (a *HTTPAdapter) SearchRestaurants(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "lat",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9776,6 +10072,7 @@ func (a *HTTPAdapter) SearchRestaurants(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "lng",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9790,6 +10087,7 @@ func (a *HTTPAdapter) SearchRestaurants(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "distance",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9804,6 +10102,7 @@ func (a *HTTPAdapter) SearchRestaurants(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "budget",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9822,6 +10121,7 @@ func (a *HTTPAdapter) SearchRestaurants(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "min-rating",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9836,6 +10136,7 @@ func (a *HTTPAdapter) SearchRestaurants(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "is-open",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9854,6 +10155,7 @@ func (a *HTTPAdapter) SearchRestaurants(w http.ResponseWriter, r *http.Request) 
 				Message:       err.Error(),
 				ParamName:     "page",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -9970,6 +10272,7 @@ func (a *HTTPAdapter) GetWinePairing(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxPrice",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10086,6 +10389,7 @@ func (a *HTTPAdapter) GetWineRecommendation(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "maxPrice",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10100,6 +10404,7 @@ func (a *HTTPAdapter) GetWineRecommendation(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "minRating",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10114,6 +10419,7 @@ func (a *HTTPAdapter) GetWineRecommendation(w http.ResponseWriter, r *http.Reque
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10328,6 +10634,7 @@ func (a *HTTPAdapter) DetectFoodInText(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "Content-Type",
 				ParamLocation: "header",
+				Err:           err,
 			})
 			return
 		}
@@ -10343,23 +10650,16 @@ func (a *HTTPAdapter) DetectFoodInText(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindDecode,
 			OperationID: "DetectFoodInText",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
-	jsonBytes, err := runtime.ConvertFormFields(formBytes)
-	if err != nil {
+	if err := runtime.UnmarshalForm(formBytes, &body); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "DetectFoodInText",
 			Message:     err.Error(),
-		})
-		return
-	}
-	if err := json.Unmarshal(jsonBytes, &body); err != nil {
-		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
-			Kind:        OapiErrorKindDecode,
-			OperationID: "DetectFoodInText",
-			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -10474,6 +10774,7 @@ func (a *HTTPAdapter) SearchAllFood(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "offset",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10488,6 +10789,7 @@ func (a *HTTPAdapter) SearchAllFood(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10549,6 +10851,7 @@ func (a *HTTPAdapter) SearchFoodVideos(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "query",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10583,6 +10886,7 @@ func (a *HTTPAdapter) SearchFoodVideos(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "minLength",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10597,6 +10901,7 @@ func (a *HTTPAdapter) SearchFoodVideos(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "maxLength",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10611,6 +10916,7 @@ func (a *HTTPAdapter) SearchFoodVideos(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "offset",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10625,6 +10931,7 @@ func (a *HTTPAdapter) SearchFoodVideos(w http.ResponseWriter, r *http.Request) {
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}
@@ -10825,6 +11132,7 @@ func (a *HTTPAdapter) GetConversationSuggests(w http.ResponseWriter, r *http.Req
 				Message:       err.Error(),
 				ParamName:     "number",
 				ParamLocation: "query",
+				Err:           err,
 			})
 			return
 		}

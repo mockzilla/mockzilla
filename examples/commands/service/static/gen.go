@@ -53,10 +53,18 @@ type OapiHandlerError struct {
 	Message       string
 	ParamName     string
 	ParamLocation string
+
+	// Err is the error that caused this handler error.
+	Err error `json:"-"`
 }
 
 func (e OapiHandlerError) Error() string {
 	return e.Message
+}
+
+// Unwrap returns the underlying error, enabling errors.Is and errors.As.
+func (e OapiHandlerError) Unwrap() error {
+	return e.Err
 }
 
 // OapiErrorResponse is the default JSON error response structure used by OapiDefaultErrorHandler.
@@ -139,15 +147,22 @@ func (a *HTTPAdapter) PostFooBar(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	defer r.Body.Close()
 	var body PostFooBarBody
-	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
+	switch err := a.jsonBodyDecoder(r.Body, &body); {
+	case errors.Is(err, runtime.ErrRequestBodyEmpty):
+		// requestBody is optional, so a request carrying none leaves opts.Body
+		// nil rather than failing. Decoding into the zero value instead would
+		// hand the validator a body nobody sent, and fail on its required fields.
+	case err != nil:
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "PostFooBar",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
+	default:
+		opts.Body = &body
 	}
-	opts.Body = &body
 
 	// Call business logic
 	resp, err := a.svc.PostFooBar(ctx, opts)

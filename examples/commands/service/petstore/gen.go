@@ -108,10 +108,18 @@ type OapiHandlerError struct {
 	Message       string
 	ParamName     string
 	ParamLocation string
+
+	// Err is the error that caused this handler error.
+	Err error `json:"-"`
 }
 
 func (e OapiHandlerError) Error() string {
 	return e.Message
+}
+
+// Unwrap returns the underlying error, enabling errors.Is and errors.As.
+func (e OapiHandlerError) Unwrap() error {
+	return e.Err
 }
 
 // OapiErrorResponse is the default JSON error response structure used by OapiDefaultErrorHandler.
@@ -228,6 +236,7 @@ func (a *HTTPAdapter) UpdatePet(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindDecode,
 			OperationID: "UpdatePet",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -238,6 +247,7 @@ func (a *HTTPAdapter) UpdatePet(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "UpdatePet",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -261,6 +271,7 @@ func (a *HTTPAdapter) UpdatePet(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "UpdatePet",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -306,6 +317,7 @@ func (a *HTTPAdapter) AddPet(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindDecode,
 			OperationID: "AddPet",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -316,6 +328,7 @@ func (a *HTTPAdapter) AddPet(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "AddPet",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -339,6 +352,7 @@ func (a *HTTPAdapter) AddPet(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "AddPet",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -391,6 +405,7 @@ func (a *HTTPAdapter) FindPetsByStatus(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "FindPetsByStatus",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -414,6 +429,7 @@ func (a *HTTPAdapter) FindPetsByStatus(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "FindPetsByStatus",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -465,6 +481,7 @@ func (a *HTTPAdapter) FindPetsByTags(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "FindPetsByTags",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -488,6 +505,7 @@ func (a *HTTPAdapter) FindPetsByTags(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "FindPetsByTags",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -537,6 +555,7 @@ func (a *HTTPAdapter) GetPetByID(w http.ResponseWriter, r *http.Request) {
 			Message:       err.Error(),
 			ParamName:     "petId",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -548,6 +567,7 @@ func (a *HTTPAdapter) GetPetByID(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "GetPetByID",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -571,6 +591,7 @@ func (a *HTTPAdapter) GetPetByID(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "GetPetByID",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -620,6 +641,7 @@ func (a *HTTPAdapter) UpdatePetWithForm(w http.ResponseWriter, r *http.Request) 
 			Message:       err.Error(),
 			ParamName:     "petId",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -643,6 +665,7 @@ func (a *HTTPAdapter) UpdatePetWithForm(w http.ResponseWriter, r *http.Request) 
 			Kind:        OapiErrorKindValidation,
 			OperationID: "UpdatePetWithForm",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -666,6 +689,7 @@ func (a *HTTPAdapter) UpdatePetWithForm(w http.ResponseWriter, r *http.Request) 
 					Kind:        OapiErrorKindValidation,
 					OperationID: "UpdatePetWithForm",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -715,6 +739,7 @@ func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
 			Message:       err.Error(),
 			ParamName:     "petId",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -735,6 +760,7 @@ func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "DeletePet",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -758,6 +784,7 @@ func (a *HTTPAdapter) DeletePet(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "DeletePet",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -799,6 +826,7 @@ func (a *HTTPAdapter) UploadFile(w http.ResponseWriter, r *http.Request) {
 			Message:       err.Error(),
 			ParamName:     "petId",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -820,6 +848,7 @@ func (a *HTTPAdapter) UploadFile(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "UploadFile",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -843,6 +872,7 @@ func (a *HTTPAdapter) UploadFile(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "UploadFile",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -897,6 +927,7 @@ func (a *HTTPAdapter) GetInventory(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "GetInventory",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -937,21 +968,29 @@ func (a *HTTPAdapter) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	defer r.Body.Close()
 	var body PlaceOrderBody
-	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
+	switch err := a.jsonBodyDecoder(r.Body, &body); {
+	case errors.Is(err, runtime.ErrRequestBodyEmpty):
+		// requestBody is optional, so a request carrying none leaves opts.Body
+		// nil rather than failing. Decoding into the zero value instead would
+		// hand the validator a body nobody sent, and fail on its required fields.
+	case err != nil:
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "PlaceOrder",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
+	default:
+		opts.Body = &body
 	}
-	opts.Body = &body
 	// Validate request
 	if err := opts.Validate(); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindValidation,
 			OperationID: "PlaceOrder",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -975,6 +1014,7 @@ func (a *HTTPAdapter) PlaceOrder(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "PlaceOrder",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -1024,6 +1064,7 @@ func (a *HTTPAdapter) GetOrderByID(w http.ResponseWriter, r *http.Request) {
 			Message:       err.Error(),
 			ParamName:     "orderId",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -1035,6 +1076,7 @@ func (a *HTTPAdapter) GetOrderByID(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "GetOrderByID",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -1058,6 +1100,7 @@ func (a *HTTPAdapter) GetOrderByID(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "GetOrderByID",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -1107,6 +1150,7 @@ func (a *HTTPAdapter) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 			Message:       err.Error(),
 			ParamName:     "orderId",
 			ParamLocation: "path",
+			Err:           err,
 		})
 		return
 	}
@@ -1118,6 +1162,7 @@ func (a *HTTPAdapter) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "DeleteOrder",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -1141,6 +1186,7 @@ func (a *HTTPAdapter) DeleteOrder(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "DeleteOrder",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -1173,21 +1219,29 @@ func (a *HTTPAdapter) CreateUser(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	defer r.Body.Close()
 	var body CreateUserBody
-	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
+	switch err := a.jsonBodyDecoder(r.Body, &body); {
+	case errors.Is(err, runtime.ErrRequestBodyEmpty):
+		// requestBody is optional, so a request carrying none leaves opts.Body
+		// nil rather than failing. Decoding into the zero value instead would
+		// hand the validator a body nobody sent, and fail on its required fields.
+	case err != nil:
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "CreateUser",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
+	default:
+		opts.Body = &body
 	}
-	opts.Body = &body
 	// Validate request
 	if err := opts.Validate(); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindValidation,
 			OperationID: "CreateUser",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -1211,6 +1265,7 @@ func (a *HTTPAdapter) CreateUser(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "CreateUser",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -1251,21 +1306,29 @@ func (a *HTTPAdapter) CreateUsersWithListInput(w http.ResponseWriter, r *http.Re
 	// Parse request body
 	defer r.Body.Close()
 	var body CreateUsersWithListInputBody
-	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
+	switch err := a.jsonBodyDecoder(r.Body, &body); {
+	case errors.Is(err, runtime.ErrRequestBodyEmpty):
+		// requestBody is optional, so a request carrying none leaves opts.Body
+		// nil rather than failing. Decoding into the zero value instead would
+		// hand the validator a body nobody sent, and fail on its required fields.
+	case err != nil:
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "CreateUsersWithListInput",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
+	default:
+		opts.Body = &body
 	}
-	opts.Body = &body
 	// Validate request
 	if err := opts.Validate(); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindValidation,
 			OperationID: "CreateUsersWithListInput",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -1289,6 +1352,7 @@ func (a *HTTPAdapter) CreateUsersWithListInput(w http.ResponseWriter, r *http.Re
 					Kind:        OapiErrorKindValidation,
 					OperationID: "CreateUsersWithListInput",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -1344,6 +1408,7 @@ func (a *HTTPAdapter) LoginUser(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "LoginUser",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -1367,6 +1432,7 @@ func (a *HTTPAdapter) LoginUser(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "LoginUser",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -1421,6 +1487,7 @@ func (a *HTTPAdapter) LogoutUser(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "LogoutUser",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -1461,6 +1528,7 @@ func (a *HTTPAdapter) GetUserByName(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "GetUserByName",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -1484,6 +1552,7 @@ func (a *HTTPAdapter) GetUserByName(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "GetUserByName",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -1529,21 +1598,29 @@ func (a *HTTPAdapter) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	// Parse request body
 	defer r.Body.Close()
 	var body UpdateUserBody
-	if err := a.jsonBodyDecoder(r.Body, &body); err != nil {
+	switch err := a.jsonBodyDecoder(r.Body, &body); {
+	case errors.Is(err, runtime.ErrRequestBodyEmpty):
+		// requestBody is optional, so a request carrying none leaves opts.Body
+		// nil rather than failing. Decoding into the zero value instead would
+		// hand the validator a body nobody sent, and fail on its required fields.
+	case err != nil:
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindDecode,
 			OperationID: "UpdateUser",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
+	default:
+		opts.Body = &body
 	}
-	opts.Body = &body
 	// Validate request
 	if err := opts.Validate(); err != nil {
 		a.errHandler.HandleError(w, r, http.StatusBadRequest, OapiHandlerError{
 			Kind:        OapiErrorKindValidation,
 			OperationID: "UpdateUser",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -1567,6 +1644,7 @@ func (a *HTTPAdapter) UpdateUser(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "UpdateUser",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
@@ -1607,6 +1685,7 @@ func (a *HTTPAdapter) DeleteUser(w http.ResponseWriter, r *http.Request) {
 			Kind:        OapiErrorKindValidation,
 			OperationID: "DeleteUser",
 			Message:     err.Error(),
+			Err:         err,
 		})
 		return
 	}
@@ -1630,6 +1709,7 @@ func (a *HTTPAdapter) DeleteUser(w http.ResponseWriter, r *http.Request) {
 					Kind:        OapiErrorKindValidation,
 					OperationID: "DeleteUser",
 					Message:     fmt.Sprintf("response validation failed: %v", err),
+					Err:         err,
 				})
 				return
 			}
