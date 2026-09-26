@@ -34,7 +34,6 @@ func main() {
 	_ = api.CreateServiceRoutes(router)
 	_ = api.CreateHistoryRoutes(router)
 	_ = api.CreateReplayRoutes(router)
-	_ = api.CreateServiceConfigRoutes(router)
 
 	// Register this service directly
 	handler.RegisterAPIRouter(router)

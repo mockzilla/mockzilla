@@ -79,7 +79,7 @@ Environment variables also work and override file values:
 ```yaml
 environment:
   - ROUTER_HISTORY_ENABLED=false
-  - APP_DISABLE_CONFIG_UI=true
+  - ROUTER_REPLAY_ENABLED=true
 ```
 
 See [Service Config](../config/service.md) for per-service options.

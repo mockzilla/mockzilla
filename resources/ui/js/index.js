@@ -5,7 +5,6 @@ import * as home from './home.js';
 import * as resources from './resources.js';
 import * as history from './history.js';
 import * as replay from './replay.js';
-import * as configuration from './configuration.js';
 
 const pageMap = new Map([
     ['', home.home],
@@ -19,10 +18,6 @@ if (appConfig.historyUrl) {
 
 if (appConfig.replayUrl) {
     pageMap.set('#/replay/:name*', replay.show);
-}
-
-if (!appConfig.disableConfigUI) {
-    pageMap.set('#/configuration/:name*', configuration.show);
 }
 
 async function onLoad() {

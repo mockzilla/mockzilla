@@ -62,12 +62,9 @@ const showTabs = (service) => {
     config.tabHistory.style.display = config.historyEnabled ? '' : 'none';
     config.tabReplay.href = `#/replay/${service}`;
     config.tabReplay.style.display = config.replayEnabled ? '' : 'none';
-    config.tabConfiguration.href = `#/configuration/${service}`;
-    config.tabConfiguration.style.display = config.configEnabled ? '' : 'none';
     config.tabResources.classList.remove('active');
     config.tabHistory.classList.add('active');
     config.tabReplay.classList.remove('active');
-    config.tabConfiguration.classList.remove('active');
 };
 
 const showDetail = (entry) => {
