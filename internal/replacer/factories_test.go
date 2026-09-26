@@ -43,6 +43,17 @@ func TestCreateValueReplacer(t *testing.T) {
 		assert.Nil(res)
 	})
 
+	t.Run("with-force-null-on-any-type", func(t *testing.T) {
+		fn := CreateValueReplacer([]Replacer{forceNullReplacer, intReplacer}, nil)
+		for _, s := range []*schema.Schema{
+			{Type: types.TypeInteger},
+			{Type: types.TypeBoolean},
+			{Type: types.TypeString, Format: "email"},
+		} {
+			assert.Nil(fn(s, nil), s.Type)
+		}
+	})
+
 	t.Run("continues-on-nil", func(t *testing.T) {
 		fn := CreateValueReplacer([]Replacer{nilReplacer, fooReplacer}, nil)
 		res := fn("foo", nil)

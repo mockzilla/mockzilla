@@ -1722,6 +1722,12 @@ func TestReplaceFromSchemaExample(t *testing.T) {
 		res := replaceFromSchemaExample(newTestReplaceContext(s))
 		assert.Equal("hallo, welt!", res)
 	})
+
+	t.Run("null-outside-the-enum", func(t *testing.T) {
+		s := &schema.Schema{Type: types.TypeString, Enum: []any{"a", "b"}, Example: NULL}
+		res := replaceFromSchemaExample(newTestReplaceContext(s))
+		assert.Equal(NULL, res)
+	})
 }
 
 func TestApplySchemaConstraints(t *testing.T) {
