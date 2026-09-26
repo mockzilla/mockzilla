@@ -93,6 +93,7 @@ type ServiceConfig struct {
 	Replay      *ReplayConfig                         `yaml:"replay,omitempty"`
 	History     *HistoryConfig                        `yaml:"history,omitempty"`
 	Mount       string                                `yaml:"mount,omitempty"`
+	IsUIHidden  bool                                  `yaml:"ui-hidden,omitempty"`
 	SpecOptions *SpecOptions                          `yaml:"spec,omitempty"`
 	Validate    *ValidateConfig                       `yaml:"validate,omitempty"`
 	Extra       map[string]any                        `yaml:"extra,omitempty"`
@@ -264,6 +265,10 @@ func (s *ServiceConfig) OverwriteWith(other *ServiceConfig) *ServiceConfig {
 		s.Mount = other.Mount
 	}
 
+	if other.IsUIHidden {
+		s.IsUIHidden = true
+	}
+
 	// Overwrite pointer fields if not nil
 	if other.Upstream != nil {
 		s.Upstream = other.Upstream
@@ -405,6 +410,8 @@ func (s *ServiceConfig) GetEndpointConfig(requestPath, method string) *EndpointC
 // Upstream for this endpoint only.
 type EndpointConfig struct {
 	BehaviorConfig `yaml:",inline"`
+
+	IsUIHidden bool `yaml:"ui-hidden,omitempty"`
 }
 
 func parsePercentileLatencies(m map[string]time.Duration) []*KeyValue[int, time.Duration] {

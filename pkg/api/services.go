@@ -67,9 +67,13 @@ func (h *ServiceHandler) list(w http.ResponseWriter, r *http.Request) {
 	items := make([]*ServiceItemResponse, 0)
 	for _, key := range keys {
 		svcItem := services[key]
+		if svcItem.Config != nil && svcItem.Config.IsUIHidden {
+			continue
+		}
+
 		var resourceCount int
 		if svcItem.Handler != nil {
-			resourceCount = len(svcItem.Handler.Routes())
+			resourceCount = len(visibleRoutes(svcItem))
 		}
 
 		var prefix string
@@ -98,7 +102,7 @@ func (h *ServiceHandler) routes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	routes := svc.Handler.Routes()
+	routes := visibleRoutes(svc)
 	routes.Sort()
 	res := &ServiceResourcesResponse{
 		Endpoints: routes,
@@ -314,4 +318,21 @@ type ServiceParams struct {
 
 	// DB is the database connection for this service.
 	DB db.DB
+}
+
+func visibleRoutes(svc *ServiceItem) RouteDescriptions {
+	routes := svc.Handler.Routes()
+	if svc.Config == nil {
+		return routes
+	}
+
+	res := make(RouteDescriptions, 0, len(routes))
+	for _, route := range routes {
+		ep := svc.Config.GetEndpointConfig(route.Path, route.Method)
+		if ep != nil && ep.IsUIHidden {
+			continue
+		}
+		res = append(res, route)
+	}
+	return res
 }

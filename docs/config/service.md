@@ -211,6 +211,33 @@ endpoints:
       latency: 200ms
 ```
 
+## Hiding from the API Explorer
+
+Set `ui-hidden` to leave a service or an endpoint out of the API Explorer.
+It only changes what the explorer lists. Hidden routes still serve requests,
+record history and follow their latency, error and upstream settings.
+
+To hide the whole service from the service list:
+
+```yaml
+ui-hidden: true
+```
+
+To hide single endpoints, set it inside `endpoints`:
+
+```yaml
+endpoints:
+  /health:
+    GET:
+      ui-hidden: true
+  /internal/{id}:
+    POST:
+      ui-hidden: true
+```
+
+Endpoints match the same way as the overrides above: by path pattern and
+method, with path parameters matching any value.
+
 ## Caching
 
 Cache responses for GET requests:
