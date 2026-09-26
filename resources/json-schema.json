@@ -367,11 +367,6 @@
         "upstream": {
           "$ref": "#/$defs/upstreamConfig",
           "description": "Upstream override for this endpoint only. Replaces (not merges with) the service-level upstream."
-        },
-        "ui-hidden": {
-          "type": "boolean",
-          "description": "Leave this endpoint out of the API Explorer. It still serves requests.",
-          "default": false
         }
       }
     }

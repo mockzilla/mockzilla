@@ -410,8 +410,6 @@ func (s *ServiceConfig) GetEndpointConfig(requestPath, method string) *EndpointC
 // Upstream for this endpoint only.
 type EndpointConfig struct {
 	BehaviorConfig `yaml:",inline"`
-
-	IsUIHidden bool `yaml:"ui-hidden,omitempty"`
 }
 
 func parsePercentileLatencies(m map[string]time.Duration) []*KeyValue[int, time.Duration] {

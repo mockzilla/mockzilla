@@ -70,22 +70,14 @@ spec:
 		assert.False(t, cfg.SpecOptions.Compress)
 	})
 
-	t.Run("Parses ui-hidden for the service and its endpoints", func(t *testing.T) {
+	t.Run("Parses ui-hidden", func(t *testing.T) {
 		yamlData := []byte(`
 ui-hidden: true
-endpoints:
-  /health:
-    get:
-      ui-hidden: true
-    post:
-      latency: 10ms
 `)
 
 		cfg, err := NewServiceConfigFromBytes(yamlData)
 		assert.NoError(t, err)
 		assert.True(t, cfg.IsUIHidden)
-		assert.True(t, cfg.Endpoints["/health"]["GET"].IsUIHidden)
-		assert.False(t, cfg.Endpoints["/health"]["POST"].IsUIHidden)
 	})
 
 	t.Run("Returns error for invalid YAML", func(t *testing.T) {

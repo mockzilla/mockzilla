@@ -201,34 +201,6 @@ func TestServiceHandler_list(t *testing.T) {
 		assert.Len(t, response.Items, 1)
 		assert.Equal(t, "shown", response.Items[0].Name)
 	})
-
-	t.Run("Counts only endpoints without ui-hidden", func(t *testing.T) {
-		router := newTestRouter(t)
-		router.config.ServiceURL = "/api/services"
-
-		svcCfg := config.NewServiceConfig()
-		svcCfg.Endpoints = map[string]map[string]*config.EndpointConfig{
-			"/health": {http.MethodGet: {IsUIHidden: true}},
-		}
-		service := &mockServiceWithRoutes{
-			mockService: mockService{name: "petstore", config: svcCfg, routes: func(r chi.Router) {}},
-			routeDescriptions: RouteDescriptions{
-				{Path: "/pets", Method: http.MethodGet},
-				{Path: "/health", Method: http.MethodGet},
-			},
-		}
-		registerTestServiceWithRoutes(router, service)
-		_ = CreateServiceRoutes(router)
-
-		req := httptest.NewRequest(http.MethodGet, "/api/services/", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		var response ServiceListResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &response)
-		assert.Len(t, response.Items, 1)
-		assert.Equal(t, 1, response.Items[0].ResourceNumber)
-	})
 }
 
 func TestServiceHandler_getService(t *testing.T) {
@@ -572,35 +544,6 @@ func TestServiceHandler_routes(t *testing.T) {
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
 		assert.Len(t, response.Endpoints, 2)
-	})
-
-	t.Run("Leaves out endpoints with ui-hidden", func(t *testing.T) {
-		router := newTestRouter(t)
-		router.config.ServiceURL = "/.services"
-
-		svcCfg := config.NewServiceConfig()
-		svcCfg.Endpoints = map[string]map[string]*config.EndpointConfig{
-			"/users/{userId}": {http.MethodDelete: {IsUIHidden: true}},
-		}
-		service := &mockServiceWithRoutes{
-			mockService: mockService{name: "test-service", config: svcCfg, routes: func(r chi.Router) {}},
-			routeDescriptions: RouteDescriptions{
-				{Path: "/users/{id}", Method: http.MethodGet},
-				{Path: "/users/{id}", Method: http.MethodDelete},
-			},
-		}
-		registerTestServiceWithRoutes(router, service)
-		_ = CreateServiceRoutes(router)
-
-		req := httptest.NewRequest(http.MethodGet, "/.services/test-service/routes", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		var response ServiceResourcesResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Len(t, response.Endpoints, 1)
-		assert.Equal(t, http.MethodGet, response.Endpoints[0].Method)
 	})
 }
 

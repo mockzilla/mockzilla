@@ -49,6 +49,16 @@ This allows multiple APIs to coexist on the same server without route conflicts.
 2. Otherwise → inferred from directory name (e.g., `openapi/stripe/` → `stripe`)
 3. For flat specs → inferred from filename (e.g., `openapi/petstore.yml` → `petstore`)
 
+### Hiding from the API Explorer
+
+```yaml
+ui-hidden: true
+```
+
+Leaves the service out of the API Explorer's service list. The service still
+serves requests, records history and follows its latency, error and upstream
+settings.
+
 ### History
 
 ```yaml
@@ -210,33 +220,6 @@ endpoints:
     GET:
       latency: 200ms
 ```
-
-## Hiding from the API Explorer
-
-Set `ui-hidden` to leave a service or an endpoint out of the API Explorer.
-It only changes what the explorer lists. Hidden routes still serve requests,
-record history and follow their latency, error and upstream settings.
-
-To hide the whole service from the service list:
-
-```yaml
-ui-hidden: true
-```
-
-To hide single endpoints, set it inside `endpoints`:
-
-```yaml
-endpoints:
-  /health:
-    GET:
-      ui-hidden: true
-  /internal/{id}:
-    POST:
-      ui-hidden: true
-```
-
-Endpoints match the same way as the overrides above: by path pattern and
-method, with path parameters matching any value.
 
 ## Caching
 
