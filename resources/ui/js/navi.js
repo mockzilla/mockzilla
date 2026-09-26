@@ -190,7 +190,7 @@ export const applySelection = (targetEl, selectionClassName) => {
 export const setActiveView = (view) => {
     const cp = document.querySelector('.content-panels');
     if (!cp) return;
-    cp.classList.remove('view-resources', 'view-history', 'view-replay', 'view-config');
+    cp.classList.remove('view-resources', 'view-history', 'view-replay');
     if (view) cp.classList.add(`view-${view}`);
 
     const hint = document.getElementById('right-pane-hint');
@@ -219,11 +219,6 @@ export const resetContents = () => {
     document.getElementById('history-table-body').innerHTML = '';
     document.getElementById('replay-table-list').style.display = 'none';
     document.getElementById('replay-table-body').innerHTML = '';
-    // Hide the wrap; the inner #configuration-editor must keep display:''
-    // so ace can size it. Setting display:none on the editor element directly
-    // sticks even after the wrap becomes visible, leaving an invisible editor.
-    const _cfgWrap = document.getElementById('configuration-editor-wrap');
-    if (_cfgWrap) _cfgWrap.style.display = 'none';
     document.getElementById('history-actions').style.display = 'none';
     document.getElementById('replay-actions').style.display = 'none';
 
@@ -250,8 +245,6 @@ export const resetContents = () => {
     if (hTabs) hTabs.style.display = 'none';
     const rTabs = document.getElementById('replay-tabs');
     if (rTabs) rTabs.style.display = 'none';
-    const cfgWrap = document.getElementById('configuration-editor-wrap');
-    if (cfgWrap) cfgWrap.style.display = 'none';
     const hint = document.getElementById('right-pane-hint');
     if (hint) hint.style.display = 'none';
 

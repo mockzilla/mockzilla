@@ -142,7 +142,6 @@ func BuildSetup(args []string) (*Setup, error) {
 	_ = api.CreateServiceRoutes(router)
 	_ = api.CreateHistoryRoutes(router)
 	_ = api.CreateReplayRoutes(router)
-	_ = api.CreateServiceConfigRoutes(router)
 
 	overrides, err := buildOverrides(fl)
 	if err != nil {

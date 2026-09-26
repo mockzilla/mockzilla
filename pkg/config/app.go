@@ -24,7 +24,6 @@ type AppConfig struct {
 
 	ContextAreaPrefix string            `yaml:"contextAreaPrefix"`
 	DisableUI         bool              `yaml:"disableUI" env:"APP_DISABLE_UI"`
-	DisableConfigUI   bool              `yaml:"disableConfigUI" env:"APP_DISABLE_CONFIG_UI"`
 	Paths             Paths             `yaml:"-"`
 	Editor            *EditorConfig     `yaml:"editor"`
 	History           *AppHistoryConfig `yaml:"history"`

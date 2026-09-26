@@ -194,11 +194,6 @@ a:hover { color: var(--primary-dark); }
     min-width: 200px;
 }
 
-/* Configuration view occupies the LEFT pane only; hide the right pane and the inter-pane resizer. */
-.content-panels.view-config .panel-results,
-.content-panels.view-config > .panel-resizer { display: none; }
-.content-panels.view-config .panel-resources { width: 100%; }
-
 .panel-resizer {
     width: 16px;
     flex-shrink: 0;
@@ -551,14 +546,6 @@ pre, .code {
     font-style: italic;
 }
 
-/* Configuration editor: wrap gives the editor a relative parent so the copy button can sit at top-right */
-.config-editor-wrap {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
-.config-editor-wrap:hover .copy-btn { opacity: 0.7; }
-
 .filter-input {
     width: 100%;
     border: 1px solid var(--border);
@@ -575,8 +562,7 @@ pre, .code {
 
 .resource-filter-row { margin-bottom: 8px; }
 .content-panels.view-history .resource-filter-row,
-.content-panels.view-replay .resource-filter-row,
-.content-panels.view-config .resource-filter-row { display: none; }
+.content-panels.view-replay .resource-filter-row { display: none; }
 
 .resource-tab {
     display: inline-flex;
