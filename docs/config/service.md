@@ -49,6 +49,16 @@ This allows multiple APIs to coexist on the same server without route conflicts.
 2. Otherwise → inferred from directory name (e.g., `openapi/stripe/` → `stripe`)
 3. For flat specs → inferred from filename (e.g., `openapi/petstore.yml` → `petstore`)
 
+### Hiding from the API Explorer
+
+```yaml
+ui-hidden: true
+```
+
+Leaves the service out of the API Explorer's service list. The service still
+serves requests, records history and follows its latency, error and upstream
+settings.
+
 ### History
 
 ```yaml

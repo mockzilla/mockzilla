@@ -93,6 +93,7 @@ type ServiceConfig struct {
 	Replay      *ReplayConfig                         `yaml:"replay,omitempty"`
 	History     *HistoryConfig                        `yaml:"history,omitempty"`
 	Mount       string                                `yaml:"mount,omitempty"`
+	IsUIHidden  bool                                  `yaml:"ui-hidden,omitempty"`
 	SpecOptions *SpecOptions                          `yaml:"spec,omitempty"`
 	Validate    *ValidateConfig                       `yaml:"validate,omitempty"`
 	Extra       map[string]any                        `yaml:"extra,omitempty"`
@@ -262,6 +263,10 @@ func (s *ServiceConfig) OverwriteWith(other *ServiceConfig) *ServiceConfig {
 
 	if other.Mount != "" {
 		s.Mount = other.Mount
+	}
+
+	if other.IsUIHidden {
+		s.IsUIHidden = true
 	}
 
 	// Overwrite pointer fields if not nil

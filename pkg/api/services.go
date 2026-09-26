@@ -67,6 +67,10 @@ func (h *ServiceHandler) list(w http.ResponseWriter, r *http.Request) {
 	items := make([]*ServiceItemResponse, 0)
 	for _, key := range keys {
 		svcItem := services[key]
+		if svcItem.Config != nil && svcItem.Config.IsUIHidden {
+			continue
+		}
+
 		var resourceCount int
 		if svcItem.Handler != nil {
 			resourceCount = len(svcItem.Handler.Routes())

@@ -70,6 +70,16 @@ spec:
 		assert.False(t, cfg.SpecOptions.Compress)
 	})
 
+	t.Run("Parses ui-hidden", func(t *testing.T) {
+		yamlData := []byte(`
+ui-hidden: true
+`)
+
+		cfg, err := NewServiceConfigFromBytes(yamlData)
+		assert.NoError(t, err)
+		assert.True(t, cfg.IsUIHidden)
+	})
+
 	t.Run("Returns error for invalid YAML", func(t *testing.T) {
 		yamlData := []byte(`invalid: yaml: data: [`)
 
@@ -615,6 +625,24 @@ func TestServiceConfig_OverwriteWith(t *testing.T) {
 		result := cfg.OverwriteWith(other)
 
 		assert.Equal(t, "/overwritten", result.Mount)
+	})
+
+	t.Run("Sets IsUIHidden when other has it", func(t *testing.T) {
+		cfg := &ServiceConfig{}
+		other := &ServiceConfig{IsUIHidden: true}
+
+		result := cfg.OverwriteWith(other)
+
+		assert.True(t, result.IsUIHidden)
+	})
+
+	t.Run("Keeps IsUIHidden when other leaves it unset", func(t *testing.T) {
+		cfg := &ServiceConfig{IsUIHidden: true}
+		other := &ServiceConfig{}
+
+		result := cfg.OverwriteWith(other)
+
+		assert.True(t, result.IsUIHidden)
 	})
 
 	t.Run("Overwrites Upstream when other has non-nil Upstream", func(t *testing.T) {

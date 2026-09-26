@@ -181,6 +181,26 @@ func TestServiceHandler_list(t *testing.T) {
 		assert.Equal(t, "mango", response.Items[1].Name)
 		assert.Equal(t, "zebra", response.Items[2].Name)
 	})
+
+	t.Run("Leaves out services with ui-hidden", func(t *testing.T) {
+		router := newTestRouter(t)
+		router.config.ServiceURL = "/api/services"
+
+		hiddenCfg := config.NewServiceConfig()
+		hiddenCfg.IsUIHidden = true
+		registerTestService(router, &mockService{name: "hidden", config: hiddenCfg, routes: func(r chi.Router) {}})
+		registerTestService(router, &mockService{name: "shown", config: config.NewServiceConfig(), routes: func(r chi.Router) {}})
+		_ = CreateServiceRoutes(router)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/services/", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		var response ServiceListResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+		assert.Len(t, response.Items, 1)
+		assert.Equal(t, "shown", response.Items[0].Name)
+	})
 }
 
 func TestServiceHandler_getService(t *testing.T) {
