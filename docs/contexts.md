@@ -427,6 +427,23 @@ When generating values, contexts are checked in the following order. The first m
 
 User context overrides service context, which overrides defaults. This applies to both request and response generation.
 
+## Leaving a Field Empty
+
+`__null__` gives a field no value: it is left out of the body, or sent as
+`null` when it is required and nullable.
+
+```yaml
+properties:
+  canceled_at:
+    type: integer
+    nullable: true
+    example: __null__
+```
+
+As a schema `example` it works on a field of any type, object and array
+included. As a context value it reaches scalar fields only, since an object or
+array is built from its members.
+
 ## Per-Request Context via Header
 
 Context replacements can be passed with any HTTP request using the `X-Mockzilla-Context` header. The value should be base64-encoded JSON:

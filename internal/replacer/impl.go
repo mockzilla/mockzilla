@@ -684,7 +684,7 @@ func replaceFromSchemaExample(ctx *ReplaceContext) any {
 	// while the enum lives on the typed branch; returning a non-enum
 	// example would lose the constraint. Fall through so the primitive
 	// replacer picks a valid enum value.
-	if len(s.Enum) > 0 && !exampleSatisfiesEnum(s.Example, s.Enum) {
+	if len(s.Enum) > 0 && s.Example != NULL && !exampleSatisfiesEnum(s.Example, s.Enum) {
 		return nil
 	}
 	return s.Example

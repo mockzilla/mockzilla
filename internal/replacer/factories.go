@@ -97,6 +97,11 @@ func CreateValueReplacer(replacers []Replacer, contexts []map[string]any) ValueR
 
 		for _, fn := range replacers {
 			res := fn(ctx)
+			// __null__ asks for no value, so the field's type and format do not apply to it.
+			if res == NULL {
+				return nil
+			}
+
 			if res != nil && ctx.schema != nil {
 				if !hasCorrectSchemaValue(ctx, res) {
 					continue

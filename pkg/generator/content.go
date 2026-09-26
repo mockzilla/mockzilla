@@ -66,6 +66,11 @@ func generateContentFromSchema(schema *schema.Schema, valueReplacer replacer.Val
 		typ = "string"
 	}
 
+	// Objects and arrays never reach the value replacer, so their __null__ example is read here.
+	if (typ == types.TypeObject || typ == types.TypeArray) && schema.Example == replacer.NULL {
+		return nil
+	}
+
 	// Handle 'any' type - used for empty schemas (items: {}) from OpenAPI specs
 	// oapi-codegen generates struct{} for these, which can only unmarshal from {}
 	// Generate empty objects {} that can be unmarshaled into struct{}

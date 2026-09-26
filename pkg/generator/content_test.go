@@ -415,6 +415,26 @@ properties:
 	})
 }
 
+func TestGenerateContentFromSchema_NullExample(t *testing.T) {
+	s := createSchemaFromString(t, `
+type: object
+properties:
+  kept: {type: string, example: here}
+  count: {type: integer, example: __null__}
+  flag: {type: boolean, example: __null__}
+  reason: {type: string, enum: [a, b], example: __null__}
+  shipping: {type: object, properties: {name: {type: string}}, example: __null__}
+  tags: {type: array, items: {type: string}, example: __null__}
+  refund: {type: object, nullable: true, properties: {id: {type: string}}, example: __null__}
+required: [refund]
+`)
+	valueReplacer := replacer.CreateValueReplacer(replacer.Replacers, nil)
+
+	res := generateContentFromSchema(s, valueReplacer, nil)
+
+	assert2.Equal(t, map[string]any{"kept": "here", "refund": json.RawMessage("null")}, res)
+}
+
 func TestGenerateContentFromSchema_IndirectRecursionWithRequiredField(t *testing.T) {
 	assert := assert2.New(t)
 
