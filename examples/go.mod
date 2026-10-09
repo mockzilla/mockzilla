@@ -6,7 +6,7 @@ replace github.com/mockzilla/mockzilla/v2 => ../
 
 require (
 	github.com/go-chi/chi/v5 v5.3.2
-	github.com/mockzilla/mockzilla-codegen v1.0.1
+	github.com/mockzilla/mockzilla-codegen v1.0.2
 	github.com/mockzilla/mockzilla/v2 v2.0.0
 )
 

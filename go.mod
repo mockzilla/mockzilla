@@ -12,7 +12,7 @@ require (
 	github.com/jaswdr/faker/v2 v2.9.1
 	github.com/joho/godotenv v1.5.1
 	github.com/lmittmann/tint v1.1.2
-	github.com/mockzilla/mockzilla-codegen v1.0.1
+	github.com/mockzilla/mockzilla-codegen v1.0.2
 	github.com/pb33f/libopenapi v0.38.7
 	github.com/pb33f/libopenapi-validator v0.13.7
 	github.com/redis/go-redis/v9 v9.13.0
