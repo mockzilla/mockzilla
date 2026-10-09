@@ -1,6 +1,6 @@
 module github.com/mockzilla/mockzilla/v2
 
-go 1.26.8
+go 1.26.9
 
 require (
 	github.com/alicebob/miniredis/v2 v2.37.0
