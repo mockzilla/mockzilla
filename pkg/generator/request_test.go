@@ -166,7 +166,7 @@ func TestRequestPayload(t *testing.T) {
 			"currency=USD&amount=10")).(map[string]any)
 		assert.True(ok)
 		assert.Equal("USD", payload["currency"])
-		assert.Equal(float64(10), payload["amount"])
+		assert.Equal(int64(10), payload["amount"])
 	})
 
 	t.Run("form encoded deep object", func(t *testing.T) {

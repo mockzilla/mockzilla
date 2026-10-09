@@ -1,11 +1,12 @@
 package generator
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"strings"
 
-	"github.com/mockzilla/mockzilla/v2/internal/formenc"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 )
 
@@ -40,11 +41,11 @@ func requestPayload(r *http.Request) any {
 	}
 
 	if strings.Contains(strings.ToLower(r.Header.Get("Content-Type")), "application/x-www-form-urlencoded") {
-		converted, err := formenc.ToJSON(body)
-		if err != nil {
+		var form map[string]any
+		if err := runtime.DecodeForm(bytes.NewReader(body), &form, false, nil); err != nil {
 			return nil
 		}
-		body = converted
+		return form
 	}
 
 	var payload any
