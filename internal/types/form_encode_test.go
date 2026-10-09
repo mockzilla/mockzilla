@@ -3,7 +3,7 @@ package types
 import (
 	"testing"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
+	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -42,7 +42,7 @@ func TestEncodeFormData(t *testing.T) {
 			},
 		}
 
-		encoding := map[string]codegen.RequestBodyEncoding{
+		encoding := map[string]schema.RequestBodyEncoding{
 			"flow_data": {
 				Style:   "deepObject",
 				Explode: boolPtr(true),

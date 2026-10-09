@@ -1,6 +1,6 @@
 // Package spoonacular This file is generated ONCE as a starting point and will NOT be overwritten.
 // Modify it freely to add your business logic.
-// To regenerate, delete this file or set generate.handler.output.overwrite: true in config.
+// To regenerate, delete this file or set server.scaffold.overwrite: true in codegen.yml.
 package spoonacular
 
 import (
@@ -372,8 +372,8 @@ func (s *service) SearchGroceryProducts(ctx context.Context, opts *SearchGrocery
 	return nil, nil
 }
 
-// SearchGroceryProductsByUPC handles GET /food/products/upc/{upc}
-func (s *service) SearchGroceryProductsByUPC(ctx context.Context, opts *SearchGroceryProductsByUPCServiceRequestOptions) (*SearchGroceryProductsByUPCResponseData, error) {
+// SearchGroceryProductsByUpc handles GET /food/products/upc/{upc}
+func (s *service) SearchGroceryProductsByUpc(ctx context.Context, opts *SearchGroceryProductsByUpcServiceRequestOptions) (*SearchGroceryProductsByUpcResponseData, error) {
 	// TODO: Implement your business logic here.
 	// Return nil, nil to use the generated mock response.
 	return nil, nil

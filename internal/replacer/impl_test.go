@@ -17,11 +17,6 @@ import (
 	assert2 "github.com/stretchr/testify/assert"
 )
 
-// ptr is a helper function to create pointers to values for tests
-func ptr[T any](v T) *T {
-	return &v
-}
-
 func TestIsMatchSchemaReadWriteToState(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -795,22 +790,6 @@ func TestResolveRequestRef(t *testing.T) {
 		assert.Equal("GBP", resolveRequestRef(ctx, contexts.RequestRef{Path: "order.amounts[1].currency"}))
 		assert.Nil(resolveRequestRef(ctx, contexts.RequestRef{Path: "order.amounts[9].currency"}))
 	})
-}
-
-func testRequestPayload(t *testing.T) any {
-	t.Helper()
-
-	var payload any
-	err := json.Unmarshal([]byte(`{
-		"order": {
-			"payment": {"amount": {"currency": "EUR", "value": 10.5}},
-			"amounts": [{"currency": "USD"}, {"currency": "GBP"}]
-		}
-	}`), &payload)
-	if err != nil {
-		t.Fatalf("invalid test payload: %v", err)
-	}
-	return payload
 }
 
 func TestCastToSchemaFormat(t *testing.T) {
@@ -2001,8 +1980,7 @@ func TestApplySchemaStringConstraints(t *testing.T) {
 	})
 
 	t.Run("nullable-enum-filters-null-string", func(t *testing.T) {
-		// Nullable enums with "null" as a string value should filter it out
-		// oapi-codegen doesn't generate constants for null, so we should never return "null"
+		// The string "null" stands for a null value, so it is never returned as an enum value
 		s := &schema.Schema{
 			Type:     types.TypeString,
 			Nullable: true,
@@ -2898,4 +2876,25 @@ func TestSnapToMultipleOf(t *testing.T) {
 		// snapped=10 is below 11, but hasMin=false so no bump
 		assert.Equal(10.0, snapToMultipleOf(12.0, s, 11, 100, false, true))
 	})
+}
+
+// ptr is a helper function to create pointers to values for tests
+func ptr[T any](v T) *T {
+	return &v
+}
+
+func testRequestPayload(t *testing.T) any {
+	t.Helper()
+
+	var payload any
+	err := json.Unmarshal([]byte(`{
+		"order": {
+			"payment": {"amount": {"currency": "EUR", "value": 10.5}},
+			"amounts": [{"currency": "USD"}, {"currency": "GBP"}]
+		}
+	}`), &payload)
+	if err != nil {
+		t.Fatalf("invalid test payload: %v", err)
+	}
+	return payload
 }

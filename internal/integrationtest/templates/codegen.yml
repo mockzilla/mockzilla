@@ -1,8 +1,6 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/doordash-oss/oapi-codegen-dd/main/configuration-schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla-codegen/main/config.schema.json
 # Integration test codegen overrides - merged with default template
-generate:
-  handler:
-    kind: chi
-    validation:
-      request: true
-      response: true
+server:
+  validation:
+    request: true
+    response: true

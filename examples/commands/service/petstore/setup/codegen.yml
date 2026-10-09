@@ -1,27 +1,18 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/doordash-oss/oapi-codegen-dd/main/configuration-schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla-codegen/main/config.schema.json
 package: petstore
-output:
-  use-single-file: true
-  skip-fmt: true
-  directory: ../
-  filename: gen.go
-generate:
-  omit-description: true
-  default-int-type: int64
-  always-prefix-enum-values: true
+models:
+  int-type: int64
+  descriptions: false
   validation:
     response: true
-  handler:
-    kind: chi
-    output:
-      overwrite: true
-    service: {}
-    middleware: {}
-    server:
-      directory: server
-      handler-package: github.com/mockzilla/mockzilla/v2/examples/commands/service/petstore
-    validation:
-      request: true
-      response: true
-error-mapping:
-
+server:
+  framework: chi
+  validation:
+    request: true
+    response: true
+  scaffold:
+    service: ../service.go
+    middleware: ../middleware.go
+    main: ../server/main.go
+output:
+  file: ../gen.go

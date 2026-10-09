@@ -17,33 +17,6 @@ import (
 //go:embed testdata/**
 var testDataFS embed.FS
 
-func loadSpec(t *testing.T, fileName string) typedef.OperationRegistry {
-	t.Helper()
-
-	specContents, err := testDataFS.ReadFile(filepath.Join("testdata", fileName))
-	if err != nil {
-		t.Fatalf("reading testdata/%s: %v", fileName, err)
-	}
-
-	reg, err := typedef.NewRegistry(specContents, typedef.RegistryOptions{})
-	if err != nil {
-		t.Fatalf("parsing %s: %v", fileName, err)
-	}
-	return reg
-}
-
-func createSchemaFromString(t *testing.T, value string) *schema.Schema {
-	t.Helper()
-
-	target := &schema.Schema{}
-	if err := yaml.Unmarshal([]byte(value), &target); err != nil {
-		t.Errorf("Error parsing schema: %v", err)
-		t.FailNow()
-	}
-
-	return target
-}
-
 func TestNestedRefsResponse(t *testing.T) {
 	assert := assert2.New(t)
 
@@ -1030,8 +1003,7 @@ func TestGenerateContentFromArray(t *testing.T) {
 	})
 
 	t.Run("any type in array items generates empty objects", func(t *testing.T) {
-		// This tests the case where oapi-codegen generates []struct{} for empty item schemas
-		// We need to generate data that can be unmarshaled into struct{}, which is {}
+		// Any value satisfies an 'any' item schema, so each item is an empty object
 		s := createSchemaFromString(t, `
 type: array
 items:
@@ -1151,4 +1123,31 @@ items:
 		res := generateContentFromSchema(s, nullReplacer, state)
 		assert.Nil(res, "should return nil when valueReplacer returns NULL")
 	})
+}
+
+func loadSpec(t *testing.T, fileName string) typedef.OperationRegistry {
+	t.Helper()
+
+	specContents, err := testDataFS.ReadFile(filepath.Join("testdata", fileName))
+	if err != nil {
+		t.Fatalf("reading testdata/%s: %v", fileName, err)
+	}
+
+	reg, err := typedef.NewRegistry(specContents, typedef.RegistryOptions{})
+	if err != nil {
+		t.Fatalf("parsing %s: %v", fileName, err)
+	}
+	return reg
+}
+
+func createSchemaFromString(t *testing.T, value string) *schema.Schema {
+	t.Helper()
+
+	target := &schema.Schema{}
+	if err := yaml.Unmarshal([]byte(value), &target); err != nil {
+		t.Errorf("Error parsing schema: %v", err)
+		t.FailNow()
+	}
+
+	return target
 }

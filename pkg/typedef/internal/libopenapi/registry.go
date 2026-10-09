@@ -11,7 +11,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 	"github.com/pb33f/libopenapi"
@@ -228,7 +227,7 @@ func (r *Registry) convertOperation(e *opEntry) *schema.Operation {
 
 	contentType := "application/json"
 	var bodySchema *schema.Schema
-	var bodyEncoding map[string]codegen.RequestBodyEncoding
+	var bodyEncoding map[string]schema.RequestBodyEncoding
 	if op.RequestBody != nil && op.RequestBody.Content != nil && op.RequestBody.Content.Len() > 0 {
 		mediaType, picked := pickContent(op.RequestBody.Content)
 		if mediaType != "" {

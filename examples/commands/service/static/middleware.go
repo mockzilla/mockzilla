@@ -1,6 +1,3 @@
-// Package static This file is generated ONCE as a starting point and will NOT be overwritten.
-// Modify it freely to add your middleware logic.
-// To regenerate, delete this file or set generate.handler.output.overwrite: true in config.
 package static
 
 import (
@@ -9,31 +6,8 @@ import (
 	"github.com/mockzilla/mockzilla/v2/pkg/middleware"
 )
 
-// getMiddleware returns custom middleware for this service.
-//
-// This function is called during service registration.
-// Middleware returned here will be applied BEFORE the standard middleware chain.
-// Example:
-//
-//	return []func(*middleware.Params) func(http.Handler) http.Handler{
-//	    createAuthMiddleware,
-//	    createLoggingMiddleware,
-//	}
+// getMiddleware returns the middleware of this service, applied before the standard chain.
+// This file is written once; edit it freely.
 func getMiddleware() []func(*middleware.Params) func(http.Handler) http.Handler {
-	return []func(*middleware.Params) func(http.Handler) http.Handler{
-		// Add your custom middleware here
-	}
+	return []func(*middleware.Params) func(http.Handler) http.Handler{}
 }
-
-// Example middleware - uncomment and customize as needed:
-//
-// func createAuthMiddleware(params *middleware.Params) func(http.Handler) http.Handler {
-//     return func(next http.Handler) http.Handler {
-//         return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-//             // Your authentication logic here
-//             // Example: check headers, validate tokens, etc.
-//
-//             next.ServeHTTP(w, req)
-//         })
-//     }
-// }

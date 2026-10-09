@@ -60,6 +60,17 @@ func SetupSandbox(sandboxDir string) error {
 		}
 	}
 
+	// A relative replace in the project's go.mod points elsewhere from the sandbox.
+	goModPath := filepath.Join(sandboxDir, "go.mod")
+	goModContent, err := os.ReadFile(goModPath)
+	if err != nil {
+		return fmt.Errorf("failed to read go.mod: %w", err)
+	}
+	goModContent = []byte(strings.ReplaceAll(string(goModContent), "=> ../", "=> "+filepath.Dir(cwd)+"/"))
+	if err := os.WriteFile(goModPath, goModContent, 0644); err != nil {
+		return fmt.Errorf("failed to write go.mod: %w", err)
+	}
+
 	// Build gen-service binary once (avoids recompiling for each service generation)
 	if err := buildGenService(sandboxDir); err != nil {
 		return fmt.Errorf("failed to build gen-service: %w", err)
@@ -89,11 +100,6 @@ func SetupSandbox(sandboxDir string) error {
 	// This is needed because generated handlers import packages like:
 	// github.com/mockzilla/mockzilla/v2/resources/data/services/stripe_spec3/types
 	// Without the replace directive, Go tries to fetch this from the internet and fails
-	goModPath := filepath.Join(sandboxDir, "go.mod")
-	goModContent, err := os.ReadFile(goModPath)
-	if err != nil {
-		return fmt.Errorf("failed to read go.mod: %w", err)
-	}
 
 	// Check if replace directive already exists
 	goModStr := string(goModContent)
@@ -152,50 +158,6 @@ func WaitForServer(serverURL string, maxWait time.Duration, proc *ServerProcess,
 	}
 
 	return fmt.Errorf("server did not become ready within %v", maxWait)
-}
-
-// prefixedWriter wraps output with a prefix for debugging
-type prefixedWriter struct {
-	prefix   string
-	isStderr bool
-}
-
-func (w *prefixedWriter) Write(p []byte) (n int, err error) {
-	lines := strings.Split(string(p), "\n")
-	for i, line := range lines {
-		if line != "" || i < len(lines)-1 {
-			prefixed := fmt.Sprintf("%s %s\n", w.prefix, line)
-			if w.isStderr {
-				fmt.Fprint(os.Stderr, prefixed)
-			} else {
-				fmt.Print(prefixed)
-			}
-		}
-	}
-	return len(p), nil
-}
-
-// buildGenService builds the gen-service binary once for use in all service generations.
-func buildGenService(sandboxDir string) error {
-	genServiceBin := filepath.Join(sandboxDir, GenServiceBinaryPath)
-	binDir := filepath.Dir(genServiceBin)
-
-	if err := os.MkdirAll(binDir, 0755); err != nil {
-		return fmt.Errorf("failed to create bin directory: %w", err)
-	}
-
-	cmd := exec.Command("go", "build", "-o", genServiceBin, "./cmd/gen/service")
-	cmd.Dir = sandboxDir
-	cmd.Env = append(os.Environ(), sandboxGoEnv(sandboxDir)...)
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("build failed: %w\nstderr: %s", err, stderr.String())
-	}
-
-	return nil
 }
 
 // BuildServiceServer builds the server binary for a single service
@@ -285,4 +247,48 @@ func StopServiceServer(proc *ServerProcess) {
 	case <-time.After(5 * time.Second):
 		// Process didn't exit cleanly, but we killed it so move on
 	}
+}
+
+// prefixedWriter wraps output with a prefix for debugging
+type prefixedWriter struct {
+	prefix   string
+	isStderr bool
+}
+
+func (w *prefixedWriter) Write(p []byte) (n int, err error) {
+	lines := strings.Split(string(p), "\n")
+	for i, line := range lines {
+		if line != "" || i < len(lines)-1 {
+			prefixed := fmt.Sprintf("%s %s\n", w.prefix, line)
+			if w.isStderr {
+				fmt.Fprint(os.Stderr, prefixed)
+			} else {
+				fmt.Print(prefixed)
+			}
+		}
+	}
+	return len(p), nil
+}
+
+// buildGenService builds the gen-service binary once for use in all service generations.
+func buildGenService(sandboxDir string) error {
+	genServiceBin := filepath.Join(sandboxDir, GenServiceBinaryPath)
+	binDir := filepath.Dir(genServiceBin)
+
+	if err := os.MkdirAll(binDir, 0755); err != nil {
+		return fmt.Errorf("failed to create bin directory: %w", err)
+	}
+
+	cmd := exec.Command("go", "build", "-o", genServiceBin, "./cmd/gen/service")
+	cmd.Dir = sandboxDir
+	cmd.Env = append(os.Environ(), sandboxGoEnv(sandboxDir)...)
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("build failed: %w\nstderr: %s", err, stderr.String())
+	}
+
+	return nil
 }

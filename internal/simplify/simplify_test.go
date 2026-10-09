@@ -1,6 +1,8 @@
 package simplify
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -119,16 +121,50 @@ paths:
         '200':
           description: ok
 `
-	const cfg = `filter:
-  include:
-    paths:
-      - /keep
+	const cfg = `spec:
+  filter:
+    include:
+      paths:
+        - /keep
 `
 	out, err := Simplify([]byte(spec), Options{ConfigYAML: []byte(cfg)})
 	require.NoError(t, err)
 	s := string(out)
 	assert.Contains(t, s, "/keep:")
 	assert.NotContains(t, s, "/drop:")
+}
+
+func TestSimplify_ConfigOverlayResolvesAgainstConfigDir(t *testing.T) {
+	const spec = `openapi: 3.0.0
+info:
+  title: T
+  version: 1.0.0
+paths:
+  /keep:
+    get:
+      operationId: keepMe
+      responses:
+        '200':
+          description: ok
+`
+	const overlay = `overlay: 1.0.0
+info:
+  title: Rename
+  version: 1.0.0
+actions:
+  - target: $.paths['/keep'].get
+    update:
+      summary: Overlaid summary
+`
+	const cfg = `spec:
+  overlays: [overlay.yaml]
+`
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "overlay.yaml"), []byte(overlay), 0o644))
+
+	out, err := Simplify([]byte(spec), Options{ConfigYAML: []byte(cfg), ConfigDir: dir})
+	require.NoError(t, err)
+	assert.Contains(t, string(out), "Overlaid summary")
 }
 
 func TestSimplify_Errors(t *testing.T) {
@@ -139,9 +175,25 @@ func TestSimplify_Errors(t *testing.T) {
 
 	t.Run("malformed config YAML", func(t *testing.T) {
 		_, err := Simplify([]byte(demoSpec), Options{
-			ConfigYAML: []byte("filter: [this is not a map"),
+			ConfigYAML: []byte("spec: [this is not a map"),
 		})
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "parsing config")
+	})
+
+	t.Run("top-level filter key", func(t *testing.T) {
+		_, err := Simplify([]byte(demoSpec), Options{
+			ConfigYAML: []byte("filter:\n  include:\n    paths: [/things]\n"),
+		})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "parsing config")
+	})
+
+	t.Run("missing overlay file", func(t *testing.T) {
+		_, err := Simplify([]byte(demoSpec), Options{
+			ConfigYAML: []byte("spec:\n  overlays: [no-such-overlay.yaml]\n"),
+			ConfigDir:  t.TempDir(),
+		})
+		require.Error(t, err)
 	})
 }

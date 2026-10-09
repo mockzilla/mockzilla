@@ -35,21 +35,9 @@ func TestGenerateServiceBindsMultipartBody(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			body := multipartHandlerBody(t, string(gen), tc.handler)
-			assert.Contains(t, body, "body.Kind", "form value is never bound to the body struct")
-			assert.Contains(t, body, "body.File", "uploaded file is never bound to the body struct")
+			assert.Contains(t, body, "runtime.DecodeMultipart(r, opts.Body,", "form is never decoded into the body struct")
 		})
 	}
-}
-
-// multipartHandlerBody returns the generated adapter method for handler, from
-// ParseMultipartForm to the point the body is handed to the service.
-func multipartHandlerBody(t *testing.T, gen, handler string) string {
-	t.Helper()
-
-	re := regexp.MustCompile(`(?s)OperationID: "` + handler + `".*?opts\.Body = &body`)
-	match := re.FindString(gen)
-	require.NotEmpty(t, match, "no multipart adapter generated for %s", handler)
-	return match
 }
 
 func TestWriteCompressedSpec(t *testing.T) {
@@ -113,4 +101,14 @@ func TestWriteCompressedSpec(t *testing.T) {
 		err := writeCompressedSpec(filepath.Join(t.TempDir(), "missing"), spec)
 		require.Error(t, err)
 	})
+}
+
+// multipartHandlerBody returns the generated adapter method that serves handler.
+func multipartHandlerBody(t *testing.T, gen, handler string) string {
+	t.Helper()
+
+	re := regexp.MustCompile(`(?s)func \(a \*HTTPAdapter\) serve` + handler + `\(.*?\n}\n`)
+	match := re.FindString(gen)
+	require.NotEmpty(t, match, "no adapter generated for %s", handler)
+	return match
 }

@@ -65,24 +65,6 @@ func TestBuildOptionalConfig(t *testing.T) {
 	}
 }
 
-func newParsedSimplifyCommand(t *testing.T, argv []string) (*cobra.Command, int, int, int) {
-	t.Helper()
-	cmd := simplifyCommand()
-	cmd.RunE = func(*cobra.Command, []string) error { return nil }
-	cmd.SetArgs(argv)
-	cmd.SetOut(io.Discard)
-	cmd.SetErr(io.Discard)
-	require.NoError(t, cmd.Execute())
-
-	fixed, err := cmd.Flags().GetInt("optional")
-	require.NoError(t, err)
-	min, err := cmd.Flags().GetInt("optional-min")
-	require.NoError(t, err)
-	max, err := cmd.Flags().GetInt("optional-max")
-	require.NoError(t, err)
-	return cmd, fixed, min, max
-}
-
 func TestMutuallyExclusiveFlags(t *testing.T) {
 	cmd := simplifyCommand()
 	cmd.RunE = func(*cobra.Command, []string) error { return nil }
@@ -157,14 +139,15 @@ paths:
         '200':
           description: ok
 `
-	const cfg = `filter:
-  include:
-    paths:
-      - /keep
+	const cfg = `spec:
+  filter:
+    include:
+      paths:
+        - /keep
 `
 	dir := t.TempDir()
 	specPath := filepath.Join(dir, "spec.yml")
-	cfgPath := filepath.Join(dir, "codegen.yml")
+	cfgPath := filepath.Join(dir, "codegen.yaml")
 	outPath := filepath.Join(dir, "out.yml")
 	require.NoError(t, os.WriteFile(specPath, []byte(spec), 0o644))
 	require.NoError(t, os.WriteFile(cfgPath, []byte(cfg), 0o644))
@@ -254,6 +237,24 @@ func TestWriteOutput(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "writing output file")
 	})
+}
+
+func newParsedSimplifyCommand(t *testing.T, argv []string) (*cobra.Command, int, int, int) {
+	t.Helper()
+	cmd := simplifyCommand()
+	cmd.RunE = func(*cobra.Command, []string) error { return nil }
+	cmd.SetArgs(argv)
+	cmd.SetOut(io.Discard)
+	cmd.SetErr(io.Discard)
+	require.NoError(t, cmd.Execute())
+
+	fixed, err := cmd.Flags().GetInt("optional")
+	require.NoError(t, err)
+	min, err := cmd.Flags().GetInt("optional-min")
+	require.NoError(t, err)
+	max, err := cmd.Flags().GetInt("optional-max")
+	require.NoError(t, err)
+	return cmd, fixed, min, max
 }
 
 func captureStdout(t *testing.T, fn func()) string {

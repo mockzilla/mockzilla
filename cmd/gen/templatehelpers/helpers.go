@@ -6,21 +6,13 @@ import (
 	"text/template"
 	"unicode"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
 
 // GetFuncMap returns a template.FuncMap with all available template functions.
-// It combines codegen.TemplateFunctions with our custom functions.
 func GetFuncMap() template.FuncMap {
-	// Start with codegen's template functions
 	funcMap := make(template.FuncMap)
-	for k, v := range codegen.TemplateFunctions {
-		funcMap[k] = v
-	}
-
-	// Add our custom functions (will override if already present)
 	titleCaser := cases.Title(language.English)
 
 	funcMap["backtick"] = func(s string) string {

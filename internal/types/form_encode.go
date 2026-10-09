@@ -1,26 +1,16 @@
 package types
 
 import (
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/runtime"
+	"github.com/mockzilla/mockzilla/v2/internal/formenc"
+	"github.com/mockzilla/mockzilla/v2/pkg/schema"
 )
 
 // EncodeFormData encodes data as application/x-www-form-urlencoded using the provided encoding metadata.
-// It converts codegen.RequestBodyEncoding to runtime.FieldEncoding and calls the runtime encoder.
-func EncodeFormData(data any, encoding map[string]codegen.RequestBodyEncoding) (string, error) {
-	if encoding == nil {
-		encoding = make(map[string]codegen.RequestBodyEncoding)
-	}
-
-	// Convert codegen.RequestBodyEncoding to runtime.FieldEncoding
-	runtimeEncoding := make(map[string]runtime.FieldEncoding, len(encoding))
+func EncodeFormData(data any, encoding map[string]schema.RequestBodyEncoding) (string, error) {
+	fields := make(map[string]formenc.FieldEncoding, len(encoding))
 	for key, enc := range encoding {
-		runtimeEncoding[key] = runtime.FieldEncoding{
-			Style:       enc.Style,
-			Explode:     enc.Explode,
-			ContentType: enc.ContentType,
-		}
+		fields[key] = formenc.FieldEncoding{Style: enc.Style, Explode: enc.Explode}
 	}
 
-	return runtime.EncodeFormFields(data, runtimeEncoding)
+	return formenc.Encode(data, fields)
 }

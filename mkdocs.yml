@@ -85,5 +85,6 @@ nav:
       - service: 'commands/service.md'
       - simplify: 'commands/simplify.md'
       - lint: 'commands/lint.md'
+      - generate: 'commands/generate.md'
   - API:
       - Overview: 'api/index.md'
