@@ -157,14 +157,15 @@ paths:
         '200':
           description: ok
 `
-	const cfg = `filter:
-  include:
-    paths:
-      - /keep
+	const cfg = `spec:
+  filter:
+    include:
+      paths:
+        - /keep
 `
 	dir := t.TempDir()
 	specPath := filepath.Join(dir, "spec.yml")
-	cfgPath := filepath.Join(dir, "codegen.yml")
+	cfgPath := filepath.Join(dir, "codegen.yaml")
 	outPath := filepath.Join(dir, "out.yml")
 	require.NoError(t, os.WriteFile(specPath, []byte(spec), 0o644))
 	require.NoError(t, os.WriteFile(cfgPath, []byte(cfg), 0o644))

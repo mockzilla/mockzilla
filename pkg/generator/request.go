@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/runtime"
+	"github.com/mockzilla/mockzilla/v2/internal/formenc"
 	"github.com/mockzilla/mockzilla/v2/pkg/api"
 )
 
@@ -26,7 +26,7 @@ func WithRequest(r *http.Request) ResponseOption {
 
 // requestPayload decodes the request body into the structure `request:` context
 // paths navigate. The Content-Type header decides how the body is read: form
-// bodies go through the same runtime encoding mockzilla generates them with, so
+// bodies go through the same form encoding mockzilla generates them with, so
 // deepObject keys (`order[payment][currency]`) and repeated keys land as nested
 // objects and arrays. Returns nil when there is nothing usable to navigate.
 func requestPayload(r *http.Request) any {
@@ -40,7 +40,7 @@ func requestPayload(r *http.Request) any {
 	}
 
 	if strings.Contains(strings.ToLower(r.Header.Get("Content-Type")), "application/x-www-form-urlencoded") {
-		converted, err := runtime.ConvertFormFields(body)
+		converted, err := formenc.ToJSON(body)
 		if err != nil {
 			return nil
 		}

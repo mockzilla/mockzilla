@@ -3,22 +3,25 @@ package api
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"embed"
 	"fmt"
 	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"text/template"
+	"time"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
+	"github.com/mockzilla/mockzilla-codegen/pkg/codegen"
+	codegenconfig "github.com/mockzilla/mockzilla-codegen/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/cmd/gen/templatehelpers"
 	"github.com/mockzilla/mockzilla/v2/internal/files"
 	"github.com/mockzilla/mockzilla/v2/internal/overlay"
 	"github.com/mockzilla/mockzilla/v2/internal/types"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
-	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -184,35 +187,6 @@ func GenerateService(opts ServiceOptions) error {
 		}
 	}
 
-	// Read the codegen config file
-	cfg := codegen.Configuration{}
-	codegenCfgContents, err := os.ReadFile(configFile)
-	if err != nil {
-		return fmt.Errorf("reading config file: %w", err)
-	}
-	if err = yaml.Unmarshal(codegenCfgContents, &cfg); err != nil {
-		return fmt.Errorf("parsing config file: %w", err)
-	}
-	cfg = cfg.WithDefaults()
-
-	// Read overlays once: their contents go into the generated service, their
-	// resolved paths into the config oapi-codegen generates from.
-	if cfg.Overlay != nil && len(cfg.Overlay.Sources) > 0 {
-		overlays, err := overlay.Resolve(setupDir, cfg.Overlay.Sources)
-		if err != nil {
-			return err
-		}
-
-		if cfg.UserContext == nil {
-			cfg.UserContext = make(map[string]any)
-		}
-		cfg.UserContext["Overlays"] = overlays
-
-		for i := range cfg.Overlay.Sources {
-			cfg.Overlay.Sources[i] = overlays[i].Path
-		}
-	}
-
 	// Read the service config file
 	serviceCfgContents, err := os.ReadFile(serviceConfigFile)
 	if err != nil {
@@ -222,185 +196,138 @@ func GenerateService(opts ServiceOptions) error {
 	if err != nil {
 		return fmt.Errorf("parsing service config: %w", err)
 	}
+	compressSpec := serviceCfg.SpecOptions != nil && serviceCfg.SpecOptions.Compress
 
-	// Only the generated handler embeds the spec, and only it reads the flag.
-	compressSpec := serviceCfg.SpecOptions != nil && serviceCfg.SpecOptions.Compress &&
-		cfg.Generate != nil && cfg.Generate.Handler != nil
-	if compressSpec {
+	codegenCfgContents, err := os.ReadFile(configFile)
+	if err != nil {
+		return fmt.Errorf("reading config file: %w", err)
+	}
+	var parts mockzillaParts
+	cfg, err := codegenconfig.Parse(codegenCfgContents, setupDir, func(c *codegenconfig.Config) {
+		parts = addMockzillaParts(c, setupDir, compressSpec)
+	})
+	if parts.err != nil {
+		return parts.err
+	}
+	if err != nil {
+		return fmt.Errorf("parsing %s: %w", configFile, err)
+	}
+
+	if compressSpec && cfg.Server != nil {
 		if err := writeCompressedSpec(setupDir, specContents); err != nil {
 			return err
 		}
-		if cfg.UserContext == nil {
-			cfg.UserContext = make(map[string]any)
-		}
-		cfg.UserContext["CompressedSpec"] = true
 	}
 
-	// Parse OpenAPI spec
-	parseCtx, errs := typedef.CreateParseContext(specContents, cfg, serviceCfg.SpecOptions)
-	if len(errs) > 0 {
-		return fmt.Errorf("parsing OpenAPI spec: %v", errs[0])
+	res, err := codegen.Generate(context.Background(), cfg, codegen.WithSpec(specContents))
+	if err != nil {
+		return fmt.Errorf("generating code: %w", err)
 	}
-	if len(parseCtx.Operations) == 0 {
-		slog.Warn("No operations found in spec")
-	}
-
-	// Determine output directories
-	// The output directory in codegen.yml is relative to setup directory
-	destDir := ""
-	if cfg.Output != nil {
-		// Make the output directory relative to setup directory, not current working directory
-		destDir = filepath.Join(setupDir, cfg.Output.Directory)
-		if err = os.MkdirAll(destDir, generatedDirPerm); err != nil {
-			return fmt.Errorf("creating directory: %w", err)
+	for _, d := range res.Diagnostics {
+		if d.Severity >= codegen.SeverityWarning {
+			slog.Debug("codegen", "diagnostic", d.String())
 		}
 	}
 
-	if destDir == "" {
-		return fmt.Errorf("no output directory specified")
+	if !parts.isOverwrite {
+		res.Files = slices.DeleteFunc(res.Files, func(f codegen.File) bool {
+			return slices.ContainsFunc(parts.writeOnce, func(p string) bool {
+				return f.Path == cfg.Resolve(p) && fileExists(f.Path)
+			})
+		})
 	}
-
-	// Override oapi-codegen templates with mockzilla versions
-	if cfg.UserTemplates == nil {
-		cfg.UserTemplates = make(map[string]string)
-	}
-
-	// Resolve user template file paths relative to setup directory.
-	// Single-line values are treated as file paths by oapi-codegen.
-	for key, val := range cfg.UserTemplates {
-		if !strings.Contains(val, "\n") && !filepath.IsAbs(val) {
-			cfg.UserTemplates[key] = filepath.Join(setupDir, val)
-		}
-	}
-
-	// Override handler templates (scaffold templates + service-options)
-	// Skip templates already provided by the user in codegen.yml user-templates.
-	for _, tmplName := range []string{"service.tmpl", "server.tmpl", "middleware.tmpl", "service-options.tmpl"} {
-		key := "handler/" + tmplName
-		if _, ok := cfg.UserTemplates[key]; ok {
-			continue
-		}
-		tmplContent, err := templatesFS.ReadFile("templates/handler/" + tmplName)
-		if err != nil {
-			return fmt.Errorf("reading %s template: %w", tmplName, err)
-		}
-		cfg.UserTemplates[key] = string(tmplContent)
-	}
-
-	// Override chi handler template to include mockzilla generator code
-	if _, ok := cfg.UserTemplates["handler/chi/handler.tmpl"]; !ok {
-		chiHandlerContent, err := templatesFS.ReadFile("templates/handler/chi/handler.tmpl")
-		if err != nil {
-			return fmt.Errorf("reading chi/handler.tmpl: %w", err)
-		}
-		cfg.UserTemplates["handler/chi/handler.tmpl"] = string(chiHandlerContent)
-	}
-
-	// Add imports required by mockzilla generator code
-	cfg.AdditionalImports = append(cfg.AdditionalImports,
-		codegen.AdditionalImport{Package: "sync"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/api"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/config"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/db"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/factory"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/schema"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/generator"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/loader"},
-		codegen.AdditionalImport{Package: "github.com/mockzilla/mockzilla/v2/pkg/typedef"},
-	)
-
-	// Imports only the overlay-application code path needs at runtime.
-	if cfg.Overlay != nil && len(cfg.Overlay.Sources) > 0 {
-		cfg.AdditionalImports = append(cfg.AdditionalImports,
-			codegen.AdditionalImport{Package: "github.com/pb33f/libopenapi"},
-		)
-	}
-
-	// Step 1: Generate code with oapi-codegen
-	genSpec, err := inlineMultipartBodies(specContents)
+	reports, err := codegen.Write(res, codegen.WriteOptions{})
 	if err != nil {
 		return err
 	}
-
-	generatedCode, err := codegen.Generate(genSpec, cfg)
-	if err != nil {
-		return fmt.Errorf("oapi-codegen generate: %w", err)
-	}
-
-	// Determine handler directory for mockzilla templates
-	handlerDir := destDir
-	if cfg.Generate != nil && cfg.Generate.Handler != nil {
-		if cfg.Generate.Handler.Output != nil && cfg.Generate.Handler.Output.Directory != "" {
-			handlerDir = filepath.Join(destDir, cfg.Generate.Handler.Output.Directory)
-			if err := os.MkdirAll(handlerDir, generatedDirPerm); err != nil {
-				return fmt.Errorf("creating handler directory %s: %w", handlerDir, err)
-			}
-		}
-	}
-
-	// Write combined file to handler directory
-	// With use-single-file: true and skip-fmt: true, GetCombined() returns unformatted code
-	// Generator code is now included via the chi/handler.tmpl override
-	outputFilename := "gen.go"
-	if cfg.Output != nil && cfg.Output.Filename != "" {
-		outputFilename = cfg.Output.Filename
-	}
-	outputPath := filepath.Join(handlerDir, outputFilename)
-	formatted, err := codegen.FormatCode(generatedCode.GetCombined())
-	if err != nil {
-		return fmt.Errorf("formatting combined code: %w", err)
-	}
-	if err := os.WriteFile(outputPath, []byte(formatted), generatedFilePerm); err != nil {
-		return fmt.Errorf("writing %s: %w", outputFilename, err)
-	}
-	if !opts.Quiet {
-		fmt.Printf("Generated: %s\n", outputPath)
-	}
-
-	// Write scaffold files (service.go, middleware.go) - these are user-editable
-	for key, content := range generatedCode {
-		if !codegen.IsScaffoldFile(key) {
-			continue
-		}
-
-		scaffoldPath := codegen.ScaffoldFileName(key) + ".go"
-		actualFilename := filepath.Base(scaffoldPath)
-		scaffoldDir := filepath.Dir(scaffoldPath)
-		outputDir := destDir
-		if scaffoldDir != "." {
-			outputDir = filepath.Join(destDir, scaffoldDir)
-		}
-
-		if err := os.MkdirAll(outputDir, generatedDirPerm); err != nil {
-			return fmt.Errorf("creating scaffold directory %s: %w", outputDir, err)
-		}
-
-		filePath := filepath.Join(outputDir, actualFilename)
-
-		// Check overwrite setting
-		scaffoldOutput := cfg.Generate.Handler.ResolveScaffoldOutput(cfg.Output)
-		if !scaffoldOutput.Overwrite {
-			if _, err := os.Stat(filePath); err == nil {
-				slog.Info("Skipping scaffold file (already exists)", "file", filePath)
-				continue
-			}
-		}
-
-		formattedCode, err := codegen.FormatCode(content)
-		if err != nil {
-			return fmt.Errorf("formatting %s: %w", actualFilename, err)
-		}
-
-		if err := os.WriteFile(filePath, []byte(formattedCode), generatedFilePerm); err != nil {
-			return fmt.Errorf("writing %s: %w", actualFilename, err)
-		}
-		if !opts.Quiet {
-			fmt.Printf("Generated: %s\n", filePath)
+	for _, r := range reports {
+		if r.Action == codegen.ActionWrite && !opts.Quiet {
+			fmt.Printf("Generated: %s\n", r.Path)
 		}
 	}
 
 	slog.Info("Service generation complete")
 	return nil
+}
+
+// mockzillaParts is what addMockzillaParts reports: writeOnce lists the extra files that are written
+// only when they do not exist yet, unless isOverwrite.
+type mockzillaParts struct {
+	writeOnce   []string
+	isOverwrite bool
+	err         error
+}
+
+// addMockzillaParts adds what a mockzilla service needs to a config with a server: the
+// GenerateResponse field and register.go, which wires the service into mockzilla. The service,
+// middleware and main scaffolds are written from mockzilla's own templates. A block the config sets
+// itself is kept.
+func addMockzillaParts(c *codegenconfig.Config, setupDir string, compressSpec bool) mockzillaParts {
+	if c.Server == nil {
+		return mockzillaParts{}
+	}
+	if c.Templates == nil {
+		c.Templates = map[string]codegenconfig.Template{}
+	}
+	if _, ok := c.Templates["server.request-options-extra"]; !ok {
+		c.Templates["server.request-options-extra"] = codegenconfig.Template{
+			Text: "// GenerateResponse makes a mock response that satisfies the spec.\n" +
+				"GenerateResponse func() (*{{.Data}}, error)",
+		}
+	}
+	if c.ExtraFiles == nil {
+		c.ExtraFiles = map[string]codegenconfig.Template{}
+	}
+	if c.UserContext == nil {
+		c.UserContext = map[string]any{}
+	}
+
+	parts := mockzillaParts{isOverwrite: c.Server.Scaffold.Overwrite}
+	files := map[string]string{"../register.go": "register.tmpl"}
+	if p := c.Server.Scaffold.Service; p != "" {
+		files[p] = "service.tmpl"
+		parts.writeOnce = append(parts.writeOnce, p)
+		c.Server.Scaffold.Service = ""
+	}
+	if p := c.Server.Scaffold.Middleware; p != "" {
+		files[p] = "middleware.tmpl"
+		parts.writeOnce = append(parts.writeOnce, p)
+		c.UserContext["Middleware"] = true
+		c.Server.Scaffold.Middleware = ""
+	}
+	if p := c.Server.Scaffold.Main; p != "" {
+		files[p] = "main.tmpl"
+		if c.Output.Packages == nil {
+			c.Output.Packages = map[string]string{}
+		}
+		c.Output.Packages[filepath.Dir(p)] = "main"
+		port, timeout := c.Server.Scaffold.Port, time.Duration(c.Server.Scaffold.Timeout)
+		if port == 0 {
+			port = 8080
+		}
+		if timeout == 0 {
+			timeout = 30 * time.Second
+		}
+		c.UserContext["Main"] = map[string]any{"Port": port, "Timeout": int(timeout.Seconds())}
+		c.Server.Scaffold.Main = ""
+	}
+	for path, name := range files {
+		text, err := templatesFS.ReadFile("templates/codegen/" + name)
+		if err != nil {
+			return mockzillaParts{err: fmt.Errorf("reading %s: %w", name, err)}
+		}
+		c.ExtraFiles[path] = codegenconfig.Template{Text: string(text)}
+	}
+
+	c.UserContext["CompressedSpec"] = compressSpec
+	if len(c.Spec.Overlays) > 0 {
+		overlays, err := overlay.Resolve(setupDir, c.Spec.Overlays)
+		if err != nil {
+			return mockzillaParts{err: err}
+		}
+		c.UserContext["Overlays"] = overlays
+	}
+	return parts
 }
 
 // ensureSetupDir creates the setup directory with all necessary files if it doesn't exist.
@@ -539,16 +466,14 @@ func ensureSetupDir(opts ServiceOptions, serviceDir, setupDir string) error {
 	if opts.CodegenConfigPath != "" {
 		currentPath := filepath.Join(setupDir, "codegen.yml")
 		err := mergeSetupYAMLConfigs(opts.CodegenConfigPath, currentPath, "codegen", func(templateData, customData []byte) ([]byte, error) {
-			var templateCfg, customCfg codegen.Configuration
+			var templateCfg, customCfg map[string]any
 			if err := yaml.Unmarshal(templateData, &templateCfg); err != nil {
 				return nil, fmt.Errorf("parsing template codegen config: %w", err)
 			}
 			if err := yaml.Unmarshal(customData, &customCfg); err != nil {
 				return nil, fmt.Errorf("parsing custom codegen config: %w", err)
 			}
-
-			mergedCfg := templateCfg.WithDefaults().OverwriteWith(customCfg)
-			return yaml.Dump(mergedCfg, yaml.WithIndent(2))
+			return yaml.Dump(mergeYAMLMaps(templateCfg, customCfg), yaml.WithIndent(2))
 		})
 		if err != nil {
 			return err
@@ -769,6 +694,25 @@ func mergeSetupYAMLConfigs(customPath, templatePath, configType string, mergeFn 
 	}
 
 	return nil
+}
+
+// mergeYAMLMaps returns base with over laid on it: maps merge key by key, any other value of over
+// replaces the one in base.
+func mergeYAMLMaps(base, over map[string]any) map[string]any {
+	out := make(map[string]any, len(base)+len(over))
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range over {
+		baseMap, isBaseMap := out[k].(map[string]any)
+		overMap, isOverMap := v.(map[string]any)
+		if isBaseMap && isOverMap {
+			out[k] = mergeYAMLMaps(baseMap, overMap)
+			continue
+		}
+		out[k] = v
+	}
+	return out
 }
 
 // renderSetupTemplate renders a setup template file with the given data.

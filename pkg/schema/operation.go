@@ -1,7 +1,5 @@
 package schema
 
-import "github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
-
 type RouteInfo struct {
 	ID     string
 	Method string
@@ -28,15 +26,30 @@ type Operation struct {
 	Body        *Schema         `json:"body,omitempty"`
 
 	// Encoding metadata for form fields
-	BodyEncoding map[string]codegen.RequestBodyEncoding `json:"bodyEncoding,omitempty"`
-	Response     *Response                              `json:"response,omitempty"`
+	BodyEncoding map[string]RequestBodyEncoding `json:"bodyEncoding,omitempty"`
+	Response     *Response                      `json:"response,omitempty"`
 }
 
 // QueryParameter represents a single query parameter.
 type QueryParameter struct {
-	Schema   *Schema                    `json:"schema,omitempty"`
-	Required bool                       `json:"required,omitempty"`
-	Encoding *codegen.ParameterEncoding `json:"encoding,omitempty"`
+	Schema   *Schema            `json:"schema,omitempty"`
+	Required bool               `json:"required,omitempty"`
+	Encoding *ParameterEncoding `json:"encoding,omitempty"`
+}
+
+// RequestBodyEncoding describes how one field of a form body is serialised.
+type RequestBodyEncoding struct {
+	ContentType string
+	Style       string
+	Explode     *bool
+}
+
+// ParameterEncoding describes how a query parameter is serialised.
+type ParameterEncoding struct {
+	Style         string
+	Explode       *bool
+	Required      bool
+	AllowReserved bool
 }
 
 // QueryParameters is a map of parameter name to parameter info.

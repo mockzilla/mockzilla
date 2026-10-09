@@ -5,23 +5,28 @@
 package simplify
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/codegen"
+	"github.com/mockzilla/mockzilla-codegen/pkg/codegen"
+	codegenconfig "github.com/mockzilla/mockzilla-codegen/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/config"
 	"github.com/mockzilla/mockzilla/v2/pkg/typedef"
 	"github.com/pb33f/libopenapi"
 	"github.com/pb33f/libopenapi/datamodel"
-	"go.yaml.in/yaml/v4"
 )
 
 // Options controls how Simplify treats the input spec.
 type Options struct {
-	// ConfigYAML is an optional oapi-codegen-dd codegen.yml. When non-empty,
-	// the spec is run through filter + overlay + prune before simplification
-	// (so callers can include/exclude paths/tags/operation-ids, apply OpenAPI
-	// Overlay 1.0 deltas, and drop dangling refs).
+	// ConfigYAML is an optional mockzilla-codegen config. When non-empty,
+	// the spec is prepared as its spec.overlays, spec.filter and spec.prune
+	// say before simplification (so callers can include/exclude
+	// paths/tags/operation-ids, apply OpenAPI Overlay 1.0 deltas, and drop
+	// dangling refs).
 	ConfigYAML []byte
+
+	// ConfigDir is the folder relative paths in ConfigYAML resolve against.
+	ConfigDir string
 
 	// OptionalProperties controls pruning of optional schema properties:
 	//   nil               keep every optional property
@@ -39,7 +44,7 @@ type Options struct {
 // Examples are deliberately preserved to avoid breaking $ref targets pointing
 // at components/examples.
 func Simplify(specBytes []byte, opts Options) ([]byte, error) {
-	doc, err := loadDocument(specBytes, opts.ConfigYAML)
+	doc, err := loadDocument(specBytes, opts.ConfigYAML, opts.ConfigDir)
 	if err != nil {
 		return nil, fmt.Errorf("loading OpenAPI spec: %w", err)
 	}
@@ -60,21 +65,22 @@ func Simplify(specBytes []byte, opts Options) ([]byte, error) {
 }
 
 // loadDocument parses the OpenAPI bytes and, when configYAML is non-empty,
-// runs them through oapi-codegen-dd's filter + overlay + prune pipeline
-// before returning. Without a config it falls back to a plain libopenapi
-// document with circular-ref check disabled.
-func loadDocument(specBytes, configYAML []byte) (libopenapi.Document, error) {
-	if len(configYAML) == 0 {
-		return libopenapi.NewDocumentWithConfiguration(specBytes, &datamodel.DocumentConfiguration{
-			SkipCircularReferenceCheck: true,
-		})
+// prepares them with the mockzilla-codegen config (overlays, filter, prune)
+// before returning. The document has the circular-ref check disabled.
+func loadDocument(specBytes, configYAML []byte, configDir string) (libopenapi.Document, error) {
+	if len(configYAML) > 0 {
+		cfg, err := codegenconfig.Parse(configYAML, configDir)
+		if err != nil {
+			return nil, fmt.Errorf("parsing config: %w", err)
+		}
+
+		specBytes, _, err = codegen.Prepare(context.Background(), cfg, codegen.WithSpec(specBytes))
+		if err != nil {
+			return nil, fmt.Errorf("preparing spec: %w", err)
+		}
 	}
 
-	var cfg codegen.Configuration
-	if err := yaml.Unmarshal(configYAML, &cfg); err != nil {
-		return nil, fmt.Errorf("parsing config: %w", err)
-	}
-	cfg = cfg.WithDefaults()
-
-	return codegen.CreateDocument(specBytes, cfg)
+	return libopenapi.NewDocumentWithConfiguration(specBytes, &datamodel.DocumentConfiguration{
+		SkipCircularReferenceCheck: true,
+	})
 }

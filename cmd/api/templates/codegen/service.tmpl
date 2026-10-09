@@ -1,0 +1,21 @@
+{{- $api := import "github.com/mockzilla/mockzilla/v2/pkg/api"}}
+// service implements the ServiceInterface with your business logic.
+// Return nil, nil to fall back to the generator for mock responses.
+// Return a response to override the generated response.
+// Return an error to return an error response.
+type service struct {
+	params *{{$api}}.ServiceParams
+}
+
+// newService creates a new service instance.
+func newService(params *{{$api}}.ServiceParams) *service {
+	return &service{params: params}
+}
+{{- range .Operations}}{{if .IsRouted}}
+
+// {{.ID}} handles {{.Method}} {{.Path}}.
+func (s *service) {{.ID}}(ctx {{import "context"}}.Context, opts *{{expr .RequestOptions}}) (*{{expr .ResponseData}}, error) {
+	// Return nil, nil to use the generated mock response.
+	return nil, nil
+}
+{{- end}}{{end}}

@@ -71,9 +71,7 @@ func generateContentFromSchema(schema *schema.Schema, valueReplacer replacer.Val
 		return nil
 	}
 
-	// Handle 'any' type - used for empty schemas (items: {}) from OpenAPI specs
-	// oapi-codegen generates struct{} for these, which can only unmarshal from {}
-	// Generate empty objects {} that can be unmarshaled into struct{}
+	// Any value satisfies an 'any' schema, so an empty object is enough
 	if typ == "any" {
 		slog.Debug("generating empty object for 'any' type", "namePath", state.NamePath)
 		return map[string]any{}

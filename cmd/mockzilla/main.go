@@ -92,7 +92,7 @@ func main() {
 }
 
 // run is the top-level dispatcher: routes the invocation to a
-// subcommand (info / simplify / pack / lint), portable mode (file/URL/dir/
+// subcommand (info / simplify / pack / lint / generate), portable mode (file/URL/dir/
 // package arg), or the codegen-mode app server. Returns the process
 // exit code so main can decide whether to re-exec on a hot reload.
 func run() int {
@@ -140,6 +140,8 @@ func dispatchSubcommand(args []string) (int, bool) {
 		return runCobraSubcommand(packCommand(), args), true
 	case "lint":
 		return runCobraSubcommand(lintCommand(), args), true
+	case "generate":
+		return runGenerate(args, os.Stdout, os.Stderr), true
 	}
 	return 0, false
 }
@@ -323,6 +325,7 @@ Usage:
   mockzilla simplify <spec.yaml | https://...> Simplify a spec (drop unions, limit optional props)
   mockzilla pack <dir>                         Pack a service directory into a .mockz archive
   mockzilla lint <spec.yaml | https://...>     Find schemas no value can satisfy (exit 1 if any)
+  mockzilla generate <spec.yaml | https://...> Generate Go code: models, server, client, MCP tools
   mockzilla [<app-dir>]                        App mode: serve a configured mockzilla project
   mockzilla --version                          Print version and exit
   mockzilla --help                             Print this message
@@ -376,9 +379,11 @@ Examples:
   mockzilla info https://petstore3.swagger.io/api/v3/openapi.json
   mockzilla simplify --output simplified.yml --optional 5 ./openapi.yml
   mockzilla lint --format json ./openapi.yml
+  mockzilla generate ./openapi.yml -server chi -client
   mockzilla --ready-stamp --port 0 ./openapi.yml
 
-Run 'mockzilla <subcommand> --help' for subcommand-specific flags (e.g. 'mockzilla simplify --help').
+Run 'mockzilla <subcommand> --help' for subcommand-specific flags (e.g. 'mockzilla simplify --help',
+'mockzilla generate -h').
 
 Docs:  https://github.com/mockzilla/mockzilla
 `)

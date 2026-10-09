@@ -27,7 +27,7 @@ go run github.com/mockzilla/mockzilla/v2/cmd/mockzilla@latest simplify [flags] <
 | Flag | Description |
 |------|-------------|
 | `-o, --output` | Output file path. If not specified (or set to `-`), outputs to stdout. |
-| `-c, --config` | Path to oapi-codegen-dd `codegen.yml`. Applies filter + overlay + prune before simplification. |
+| `-c, --config` | Path to a mockzilla-codegen `codegen.yml`. Its `spec.filter`, `spec.overlays` and `spec.prune` apply before simplification. |
 | `--optional` | Keep exactly N optional properties per schema. Omit to keep all; pass `0` to drop all. |
 | `--optional-min` | Range mode: minimum optional properties per schema (requires `--optional-max`). |
 | `--optional-max` | Range mode: maximum optional properties per schema (requires `--optional-min`). |

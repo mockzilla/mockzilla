@@ -2,7 +2,6 @@ package replacer
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"log/slog"
 	"math/rand"
@@ -11,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/doordash-oss/oapi-codegen-dd/v3/pkg/runtime"
 	"github.com/google/uuid"
+	"github.com/mockzilla/mockzilla-codegen/pkg/runtime"
 	"github.com/mockzilla/mockzilla/v2/internal/contexts"
 	"github.com/mockzilla/mockzilla/v2/internal/types"
 	"github.com/mockzilla/mockzilla/v2/pkg/schema"
@@ -130,9 +129,7 @@ func hasCorrectSchemaValue(ctx *ReplaceContext, value any) bool {
 		if !ok {
 			return false
 		}
-		email := runtime.Email(str)
-		_, err := json.Marshal(email)
-		return err == nil
+		return runtime.Email(str).Validate() == nil
 	case "uuid":
 		str, ok := value.(string)
 		if !ok {
@@ -625,7 +622,7 @@ func replaceFromSchemaPrimitive(ctx *ReplaceContext) any {
 
 	// Check for enum values first
 	// If enum is explicitly defined, all values (including 0) are valid
-	// Filter out nil and "null" values since oapi-codegen doesn't generate constants for null
+	// nil and "null" both stand for a null value, which is never picked as an enum value
 	if len(s.Enum) > 0 {
 		nonNilEnums := make([]any, 0, len(s.Enum))
 		for _, v := range s.Enum {
@@ -768,8 +765,7 @@ func applySchemaStringConstraints(schema *schema.Schema, value string) any {
 	skipLengthConstraints := schema.Format == "date-time" || schema.Format == "datetime" || schema.Format == "date" || schema.Format == "uuid"
 
 	expectedEnums := make(map[string]bool)
-	// remove random nulls from enum values
-	// Filter out both nil and the string "null" since oapi-codegen doesn't generate constants for null
+	// nil and "null" both stand for a null value, which is never picked as an enum value
 	for _, v := range schema.Enum {
 		if v != nil && v != "null" {
 			// values can be numbers in the schema too, make sure we get strings here

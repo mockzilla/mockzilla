@@ -1,0 +1,328 @@
+{{- $embed := import "embed"}}
+{{- $errors := import "errors"}}
+{{- $fmt := import "fmt"}}
+{{- $io := import "io"}}
+{{- $json := import "encoding/json"}}
+{{- $slog := import "log/slog"}}
+{{- $http := import "net/http"}}
+{{- $sync := import "sync"}}
+{{- $chi := import "github.com/go-chi/chi/v5"}}
+{{- $api := import "github.com/mockzilla/mockzilla/v2/pkg/api"}}
+{{- $config := import "github.com/mockzilla/mockzilla/v2/pkg/config"}}
+{{- $db := import "github.com/mockzilla/mockzilla/v2/pkg/db"}}
+{{- $factory := import "github.com/mockzilla/mockzilla/v2/pkg/factory"}}
+{{- $generator := import "github.com/mockzilla/mockzilla/v2/pkg/generator"}}
+{{- $loader := import "github.com/mockzilla/mockzilla/v2/pkg/loader"}}
+{{- $typedef := import "github.com/mockzilla/mockzilla/v2/pkg/typedef"}}
+{{- $overlays := index .UserContext "Overlays"}}
+{{- define "build"}}
+{{- with .Success}}
+{{- if not .Body.Name}}
+	return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}{{end}}).WithHeaders(res.Headers), nil
+{{- else if .IsStream}}
+	return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}, {{end}}func(func({{expr .Body}}) bool) {}).WithHeaders(res.Headers), nil
+{{- else if and (eq .Body.Name "File") (eq .Body.ImportPath "github.com/mockzilla/mockzilla-codegen/pkg/runtime")}}
+	return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}, {{end}}{{import "github.com/mockzilla/mockzilla-codegen/pkg/runtime"}}.NewFile(res.Body, "", {{quote .ContentType}})).WithHeaders(res.Headers), nil
+{{- else if .Body.Elem.Name}}
+	var body {{expr .Body.Elem}}
+	if err := {{import "github.com/mockzilla/mockzilla/v2/pkg/api"}}.UnmarshalResponseInto(res.Body, {{quote .ContentType}}, &body); err != nil {
+		return nil, err
+	}
+	return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}, {{end}}&body).WithHeaders(res.Headers), nil
+{{- else}}
+	var body {{expr .Body}}
+	if err := {{import "github.com/mockzilla/mockzilla/v2/pkg/api"}}.UnmarshalResponseInto(res.Body, {{quote .ContentType}}, &body); err != nil {
+		return nil, err
+	}
+	return {{expr .Constructor}}({{if .HasStatusArg}}{{.Code}}, {{end}}body).WithHeaders(res.Headers), nil
+{{- end}}
+{{- else}}
+	return &{{expr $.ResponseData}}{Status: 200}, nil
+{{- end}}
+{{- end}}
+
+//go:embed setup/config.yml
+var configSrc []byte
+
+{{if index .UserContext "CompressedSpec"}}//go:embed setup/spec.gz{{else}}//go:embed setup/openapi.*{{end}}
+var openapiSpecFS {{$embed}}.FS
+
+//go:embed setup/context.yml
+var contextSrc []byte
+{{- with $overlays}}
+
+// overlays are the overlays of this service, applied at runtime in this order.
+var overlays = []struct {
+	Name    string
+	Content string
+}{
+{{- range .}}
+	{Name: {{quote .Name}}, Content: {{.Literal}}},
+{{- end}}
+}
+{{- end}}
+
+// ServiceErrorHandler answers the requests that fail before the service is reached.
+var ServiceErrorHandler {{symbol "server.errors" "ErrorHandler"}} = {{symbol "server.errors" "DefaultErrorHandler"}}{}
+
+// cfg is set before any init function runs, so the package's other files can read it in theirs.
+var cfg, cfgErr = {{$config}}.NewServiceConfigFromBytes(configSrc)
+
+func init() {
+	if cfgErr != nil {
+		{{$slog}}.Error("Failed to parse service config", "error", cfgErr)
+		return
+	}
+	{{$loader}}.Register(cfg.Name, RegisterAPIRouter)
+}
+
+// RegisterAPIRouter registers the service with the central router.
+func RegisterAPIRouter(router *{{$api}}.Router) {
+	serviceName := cfg.Name
+
+	openapiSpec, err := {{$api}}.ReadEmbeddedSpec(openapiSpecFS)
+	if err != nil {
+		{{$slog}}.Error({{$fmt}}.Sprintf("Failed to read OpenAPI spec for %s", serviceName), "error", err, "service", serviceName)
+		return
+	}
+{{- if $overlays}}
+
+	openapiSpec, err = applyOverlays(openapiSpec)
+	if err != nil {
+		{{$slog}}.Error({{$fmt}}.Sprintf("Failed to apply overlay for %s", serviceName), "error", err, "service", serviceName)
+		return
+	}
+{{- end}}
+
+	registry, err := {{$typedef}}.NewRegistry(openapiSpec, {{$typedef}}.RegistryOptions{
+		SpecOptions:     cfg.SpecOptions,
+		ReleaseDocument: true,
+	})
+	if err != nil {
+		{{$slog}}.Error({{$fmt}}.Sprintf("Failed to create registry for %s", serviceName), "error", err, "service", serviceName)
+		return
+	}
+
+	orderedCtx := router.ServiceContext(serviceName, contextSrc)
+	gen, err := {{$generator}}.NewGenerator(orderedCtx, router.GetContexts())
+	if err != nil {
+		{{$slog}}.Error({{$fmt}}.Sprintf("Failed to create generator for %s", serviceName), "error", err, "service", serviceName)
+		return
+	}
+
+	router.RegisterHTTPHandler(cfg, func(serviceDB {{$db}}.DB) {{$api}}.Handler {
+		userSvc := newService(&{{$api}}.ServiceParams{
+			AppConfig:     router.Config(),
+			ServiceConfig: cfg,
+			DB:            serviceDB,
+		})
+		genSvc := &generatorService{service: userSvc, generator: gen, registry: registry}
+		return newServiceHandler(genSvc, gen, registry)
+	}{{if index .UserContext "Middleware"}}, {{$api}}.WithMiddleware(getMiddleware()){{end}})
+
+	{{$slog}}.Info({{$fmt}}.Sprintf("Registered %s service", serviceName), "service", serviceName)
+}
+{{- if $overlays}}
+{{- $libopenapi := import "github.com/pb33f/libopenapi"}}
+
+func applyOverlays(spec []byte) ([]byte, error) {
+	for _, overlay := range overlays {
+		result, err := {{$libopenapi}}.ApplyOverlayFromBytesToSpecBytes(spec, []byte(overlay.Content))
+		if err != nil {
+			return nil, {{$fmt}}.Errorf("applying overlay %s: %w", overlay.Name, err)
+		}
+		spec = result.Bytes
+	}
+	return spec, nil
+}
+{{- end}}
+
+type serviceHandler struct {
+	router   {{$chi}}.Router
+	gen      {{$generator}}.Generate
+	registry {{$typedef}}.OperationRegistry
+}
+
+func newServiceHandler(svc {{expr .Service}}, gen {{$generator}}.Generate, registry {{$typedef}}.OperationRegistry) {{$api}}.Handler {
+	return &serviceHandler{
+		router: {{symbol "server.router" "NewRouter"}}(svc,
+			{{symbol "server.adapter" "WithMiddleware"}}({{$api}}.ContextReplacementsMiddleware),
+			{{symbol "server.adapter" "WithErrorHandler"}}(returnedErrors{next: ServiceErrorHandler}),
+		),
+		gen:      gen,
+		registry: registry,
+	}
+}
+
+func (h *serviceHandler) Routes() {{$api}}.RouteDescriptions {
+	routes := h.router.Routes()
+	descriptions := make({{$api}}.RouteDescriptions, 0, len(routes))
+	for _, route := range routes {
+		for method := range route.Handlers {
+			descriptions = append(descriptions, &{{$api}}.RouteDescription{Method: method, Path: route.Pattern})
+		}
+	}
+	return descriptions
+}
+
+func (h *serviceHandler) RegisterRoutes(router {{$chi}}.Router) {
+	router.Mount("/", h.router)
+}
+
+func (h *serviceHandler) Generate(w {{$http}}.ResponseWriter, r *{{$http}}.Request) {
+	var req {{$api}}.GenerateRequest
+	if err := {{$json}}.NewDecoder(r.Body).Decode(&req); err != nil {
+		message := err.Error()
+		if {{$errors}}.Is(err, {{$io}}.EOF) {
+			message = "request body is empty or incomplete"
+		}
+		{{$slog}}.Error("Failed to decode request", "error", err)
+		{{$http}}.Error(w, message, {{$http}}.StatusBadRequest)
+		return
+	}
+
+	op := h.registry.FindOperation(req.Path, req.Method)
+	res := h.gen.Request(&req, op, req.Context)
+	{{$api}}.NewJSONResponse(w).Send(res)
+}
+
+// returnedError is an error the service returned, with the status of the response it returned too.
+// It has no Unwrap, so the adapter cannot answer an error type of the spec before returnedErrors.
+type returnedError struct {
+	status int
+	err    error
+}
+
+func (e *returnedError) Error() string {
+	return e.err.Error()
+}
+
+// returnedErrors hands next an error the service returned as it was returned, with the status of
+// its response, so a service answers an error with the status it sets.
+type returnedErrors struct {
+	next {{symbol "server.errors" "ErrorHandler"}}
+}
+
+func (h returnedErrors) HandleError(w {{$http}}.ResponseWriter, r *{{$http}}.Request, status int, err error) {
+	var returned *returnedError
+	if {{$errors}}.As(err, &returned) {
+		if returned.status != 0 {
+			status = returned.status
+		}
+		err = returned.err
+	}
+	h.next.HandleError(w, r, status, err)
+}
+
+// generatorService calls the service first and makes a mock response when it returns nil, nil.
+type generatorService struct {
+	service   *service
+	generator {{$generator}}.Generate
+	registry  {{$typedef}}.OperationRegistry
+}
+
+var _ {{expr .Service}} = (*generatorService)(nil)
+{{- range $op := .Operations}}
+
+func (s *generatorService) {{.ID}}(ctx {{import "context"}}.Context, opts *{{expr .RequestOptions}}) (*{{expr .ResponseData}}, error) {
+	opts.GenerateResponse = func() (*{{expr .ResponseData}}, error) {
+{{- if .Success}}
+		respSchema := s.registry.GetResponseSchema({{quote .Path}}, {{quote .Method}})
+		res := s.generator.Response(respSchema, {{$api}}.UserContextFromGoContext(ctx), {{$generator}}.WithRequest(opts.RawRequest))
+{{- end}}
+{{- template "build" $op}}
+	}
+{{- if .IsRouted}}
+
+	resp, err := s.service.{{.ID}}(ctx, opts)
+	if err != nil {
+		status := 0
+		if resp != nil {
+			status = resp.Status
+		}
+		return nil, &returnedError{status: status, err: err}
+	}
+	if resp != nil {
+		return resp, nil
+	}
+{{- end}}
+	return opts.GenerateResponse()
+}
+{{- end}}
+
+var (
+	defaultFactory     *{{$factory}}.Factory
+	defaultFactoryOnce {{$sync}}.Once
+	defaultFactoryErr  error
+)
+
+// NewFactory returns a Factory with the spec, spec options and context of this service.
+func NewFactory(opts ...{{$factory}}.FactoryOption) (*{{$factory}}.Factory, error) {
+	openapiSpec, err := {{$api}}.ReadEmbeddedSpec(openapiSpecFS)
+	if err != nil {
+		return nil, err
+	}
+{{- if $overlays}}
+
+	openapiSpec, err = applyOverlays(openapiSpec)
+	if err != nil {
+		return nil, {{$fmt}}.Errorf("applying overlay: %w", err)
+	}
+{{- end}}
+
+	allOpts := []{{$factory}}.FactoryOption{ {{- $factory}}.WithServiceContext(contextSrc)}
+	if cfg != nil && cfg.SpecOptions != nil {
+		allOpts = append(allOpts, {{$factory}}.WithSpecOptions(cfg.SpecOptions))
+	}
+	allOpts = append(allOpts, opts...)
+	return {{$factory}}.NewFactory(openapiSpec, allOpts...)
+}
+
+// GetFactory returns the Factory of this service, made on the first call.
+func GetFactory() (*{{$factory}}.Factory, error) {
+	defaultFactoryOnce.Do(func() {
+		defaultFactory, defaultFactoryErr = NewFactory()
+	})
+	return defaultFactory, defaultFactoryErr
+}
+{{- range $op := .Operations}}
+{{- if .Success}}
+
+// Generate{{.ID}}Response makes a mock response for {{.Method}} {{.Path}}.
+func Generate{{.ID}}Response(ctx map[string]any) (*{{expr .ResponseData}}, error) {
+	f, err := GetFactory()
+	if err != nil {
+		return nil, err
+	}
+	res, err := f.Response({{quote .Path}}, {{quote .Method}}, ctx)
+	if err != nil {
+		return nil, err
+	}
+{{- template "build" $op}}
+}
+{{- end}}
+
+// Generate{{.ID}}Request makes a mock request for {{.Method}} {{.Path}}.
+func Generate{{.ID}}Request(ctx map[string]any) ({{import "github.com/mockzilla/mockzilla/v2/pkg/schema"}}.GeneratedRequest, error) {
+	f, err := GetFactory()
+	if err != nil {
+		return {{import "github.com/mockzilla/mockzilla/v2/pkg/schema"}}.GeneratedRequest{}, err
+	}
+	return f.Request({{quote .Path}}, {{quote .Method}}, ctx)
+}
+{{- range .Bodies}}{{if and (eq .ContentType "application/json") .Type.Elem.Name}}
+
+// Generate{{$op.ID}}RequestBody makes a typed mock request body for {{$op.Method}} {{$op.Path}}.
+func Generate{{$op.ID}}RequestBody(ctx map[string]any) ({{expr .Type}}, error) {
+	req, err := Generate{{$op.ID}}Request(ctx)
+	if err != nil {
+		return nil, err
+	}
+	body := new({{expr .Type.Elem}})
+	if err := {{import "encoding/json"}}.Unmarshal(req.Body, body); err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+{{- end}}{{end}}
+{{- end}}

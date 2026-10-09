@@ -1030,8 +1030,7 @@ func TestGenerateContentFromArray(t *testing.T) {
 	})
 
 	t.Run("any type in array items generates empty objects", func(t *testing.T) {
-		// This tests the case where oapi-codegen generates []struct{} for empty item schemas
-		// We need to generate data that can be unmarshaled into struct{}, which is {}
+		// Any value satisfies an 'any' item schema, so each item is an empty object
 		s := createSchemaFromString(t, `
 type: array
 items:

@@ -60,6 +60,17 @@ func SetupSandbox(sandboxDir string) error {
 		}
 	}
 
+	// A relative replace in the project's go.mod points elsewhere from the sandbox.
+	goModPath := filepath.Join(sandboxDir, "go.mod")
+	goModContent, err := os.ReadFile(goModPath)
+	if err != nil {
+		return fmt.Errorf("failed to read go.mod: %w", err)
+	}
+	goModContent = []byte(strings.ReplaceAll(string(goModContent), "=> ../", "=> "+filepath.Dir(cwd)+"/"))
+	if err := os.WriteFile(goModPath, goModContent, 0644); err != nil {
+		return fmt.Errorf("failed to write go.mod: %w", err)
+	}
+
 	// Build gen-service binary once (avoids recompiling for each service generation)
 	if err := buildGenService(sandboxDir); err != nil {
 		return fmt.Errorf("failed to build gen-service: %w", err)
@@ -89,11 +100,6 @@ func SetupSandbox(sandboxDir string) error {
 	// This is needed because generated handlers import packages like:
 	// github.com/mockzilla/mockzilla/v2/resources/data/services/stripe_spec3/types
 	// Without the replace directive, Go tries to fetch this from the internet and fails
-	goModPath := filepath.Join(sandboxDir, "go.mod")
-	goModContent, err := os.ReadFile(goModPath)
-	if err != nil {
-		return fmt.Errorf("failed to read go.mod: %w", err)
-	}
 
 	// Check if replace directive already exists
 	goModStr := string(goModContent)

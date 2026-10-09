@@ -1,21 +1,18 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/doordash-oss/oapi-codegen-dd/main/configuration-schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/mockzilla/mockzilla-codegen/main/config.schema.json
 package: users
-output:
-  use-single-file: true
-  skip-fmt: true
-  directory: ../
-  filename: gen.go
-generate:
-  omit-description: true
-  default-int-type: int64
-  always-prefix-enum-values: true
+models:
+  int-type: int64
+  descriptions: false
   validation:
     response: true
-  handler:
-    kind: chi
-    output:
-      overwrite: true
-    service:
-      overwrite: true
-    middleware: {}
-error-mapping:
+server:
+  framework: chi
+  validation:
+    request: false
+    response: false
+  scaffold:
+    service: ../service.go
+    middleware: ../middleware.go
+    overwrite: true
+output:
+  file: ../gen.go

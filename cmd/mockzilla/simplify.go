@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 
 	"github.com/mockzilla/mockzilla/v2/internal/files"
 	"github.com/mockzilla/mockzilla/v2/internal/simplify"
@@ -31,9 +32,10 @@ The command:
   - Reduces required union properties to a single variant (first variant)
   - Strips x-* extension fields from schemas
   - Optionally limits the number of optional properties per schema
-  - With --config: applies oapi-codegen-dd filter + overlay + prune BEFORE
-    simplification (filter paths/tags/operation-ids, apply OpenAPI Overlay 1.0
-    deltas, drop dangling refs)
+  - With --config: reads a mockzilla-codegen config (codegen.yaml) and applies
+    its spec.filter, spec.overlays and spec.prune keys BEFORE simplification
+    (filter paths/tags/operation-ids, apply OpenAPI Overlay 1.0 deltas, drop
+    dangling refs)
 
 Examples are intentionally preserved to avoid dangling $ref targets.
 
@@ -50,7 +52,7 @@ Use '-' as <spec> to read the spec from stdin.
 Examples:
   mockzilla simplify openapi.yml
   mockzilla simplify --output simplified.yml --optional 5 openapi.yml
-  mockzilla simplify --config codegen.yml -o simplified.yml openapi.yml
+  mockzilla simplify --config codegen.yaml -o simplified.yml openapi.yml
   curl -s https://example.com/openapi.json | mockzilla simplify -`,
 		Args:          requireSpecArg,
 		SilenceUsage:  true,
@@ -62,15 +64,18 @@ Examples:
 			}
 
 			var configBytes []byte
+			var configDir string
 			if flagConfig != "" {
 				configBytes, err = os.ReadFile(flagConfig)
 				if err != nil {
 					return fmt.Errorf("reading config %q: %w", flagConfig, err)
 				}
+				configDir = filepath.Dir(flagConfig)
 			}
 
 			output, err := simplify.Simplify(specBytes, simplify.Options{
 				ConfigYAML:         configBytes,
+				ConfigDir:          configDir,
 				OptionalProperties: buildOptionalConfig(cmd, flagOptional, flagOptionalMin, flagOptionalMax),
 			})
 			if err != nil {
@@ -82,7 +87,7 @@ Examples:
 	}
 
 	cmd.Flags().StringVarP(&flagOutput, "output", "o", "", "Output file path (default stdout; '-' also means stdout)")
-	cmd.Flags().StringVarP(&flagConfig, "config", "c", "", "Path to oapi-codegen-dd codegen.yml. Applies filter + overlay + prune before simplification.")
+	cmd.Flags().StringVarP(&flagConfig, "config", "c", "", "Path to a mockzilla-codegen config (codegen.yaml). Its spec.filter, spec.overlays and spec.prune apply before simplification.")
 	cmd.Flags().IntVar(&flagOptional, "optional", 0, "Keep exactly N optional properties per schema (unset = keep all; 0 = drop all)")
 	cmd.Flags().IntVar(&flagOptionalMin, "optional-min", 0, "Minimum optional properties (use with --optional-max)")
 	cmd.Flags().IntVar(&flagOptionalMax, "optional-max", 0, "Maximum optional properties (use with --optional-min)")

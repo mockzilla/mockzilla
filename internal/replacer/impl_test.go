@@ -2001,8 +2001,7 @@ func TestApplySchemaStringConstraints(t *testing.T) {
 	})
 
 	t.Run("nullable-enum-filters-null-string", func(t *testing.T) {
-		// Nullable enums with "null" as a string value should filter it out
-		// oapi-codegen doesn't generate constants for null, so we should never return "null"
+		// The string "null" stands for a null value, so it is never returned as an enum value
 		s := &schema.Schema{
 			Type:     types.TypeString,
 			Nullable: true,

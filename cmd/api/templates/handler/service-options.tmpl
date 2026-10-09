@@ -1,6 +1,0 @@
-{{/* Override service-request-options-extra-fields to add GenerateResponse function */}}
-{{/* Available: .Op (operation) */}}
-{{- define "service-request-options-extra-fields" }}
-    // GenerateResponse generates a sample response with random data satisfying the OpenAPI schema.
-    GenerateResponse func() (*{{ .Op.ID | ucFirst }}ResponseData, error)
-{{- end -}}

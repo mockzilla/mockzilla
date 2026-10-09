@@ -1,0 +1,41 @@
+{{- $errors := import "errors"}}
+{{- $fmt := import "fmt"}}
+{{- $log := import "log"}}
+{{- $slog := import "log/slog"}}
+{{- $http := import "net/http"}}
+{{- $os := import "os"}}
+{{- $time := import "time"}}
+{{- $api := import "github.com/mockzilla/mockzilla/v2/pkg/api"}}
+{{- $main := index .UserContext "Main"}}
+func main() {
+	logLevel := {{$slog}}.LevelInfo
+	if {{$os}}.Getenv("LOG_LEVEL") == "debug" {
+		logLevel = {{$slog}}.LevelDebug
+	}
+	{{$slog}}.SetDefault({{$slog}}.New({{$slog}}.NewTextHandler({{$os}}.Stderr, &{{$slog}}.HandlerOptions{Level: logLevel})))
+
+	router := {{$api}}.NewRouter()
+	_ = {{$api}}.CreateHealthRoutes(router)
+	_ = {{$api}}.CreateHomeRoutes(router)
+	_ = {{$api}}.CreateServiceRoutes(router)
+	_ = {{$api}}.CreateHistoryRoutes(router)
+	_ = {{$api}}.CreateReplayRoutes(router)
+	{{symbol "../register.go" "RegisterAPIRouter"}}(router)
+
+	port := {{$os}}.Getenv("PORT")
+	if port == "" {
+		port = "{{$main.Port}}"
+	}
+	server := &{{$http}}.Server{
+		Addr:         {{$fmt}}.Sprintf(":%s", port),
+		Handler:      router,
+		ReadTimeout:  {{$main.Timeout}} * {{$time}}.Second,
+		WriteTimeout: {{$main.Timeout}} * {{$time}}.Second,
+		IdleTimeout:  {{$main.Timeout}} * 2 * {{$time}}.Second,
+	}
+
+	{{$log}}.Printf("Starting server on %s", server.Addr)
+	if err := server.ListenAndServe(); err != nil && !{{$errors}}.Is(err, {{$http}}.ErrServerClosed) {
+		{{$log}}.Fatalf("Server failed to start: %v", err)
+	}
+}
