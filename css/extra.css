@@ -1,0 +1,23 @@
+.md-header__button.md-logo {
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0 .35rem 0 0;
+}
+
+.md-header__button.md-logo img {
+    height: 1.6rem;
+    width: auto;
+    /* horns sit above the head block, so geometric centring reads as low */
+    transform: translateY(-3px);
+}
+
+.md-header__title {
+    margin-left: 0 !important;
+    display: flex;
+    align-items: center;
+}
+
+.md-typeset h1 {
+    font-weight: 800;
+}
