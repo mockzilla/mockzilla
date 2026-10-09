@@ -4,7 +4,7 @@ go 1.26.9
 
 require (
 	github.com/go-chi/chi/v5 v5.3.2
-	github.com/mockzilla/mockzilla-codegen v1.0.0
+	github.com/mockzilla/mockzilla-codegen v1.0.2
 	github.com/mockzilla/mockzilla/v2 v2.0.0
 )
 
@@ -27,9 +27,9 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 )
 
 // For local development, use relative path to repo root

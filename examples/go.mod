@@ -6,7 +6,7 @@ replace github.com/mockzilla/mockzilla/v2 => ../
 
 require (
 	github.com/go-chi/chi/v5 v5.3.2
-	github.com/mockzilla/mockzilla-codegen v1.0.0
+	github.com/mockzilla/mockzilla-codegen v1.0.2
 	github.com/mockzilla/mockzilla/v2 v2.0.0
 )
 
@@ -40,9 +40,9 @@ require (
 	github.com/spf13/pflag v1.0.9 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.6 // indirect
-	golang.org/x/crypto v0.56.0 // indirect
-	golang.org/x/net v0.58.0 // indirect
-	golang.org/x/sync v0.22.0 // indirect
-	golang.org/x/sys v0.47.0 // indirect
-	golang.org/x/text v0.41.0 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
+	golang.org/x/sync v0.23.0 // indirect
+	golang.org/x/sys v0.48.0 // indirect
+	golang.org/x/text v0.42.0 // indirect
 )
