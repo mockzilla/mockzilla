@@ -45,8 +45,8 @@ Total: 2215 services, 98464 endpoints
 
 Mockzilla runs in two modes:
 
-- **[Portable](https://mockzilla.github.io/mockzilla/usage/portable/)** - point at OpenAPI specs and run. No code generation, no setup.
-- **[Codegen](https://mockzilla.github.io/mockzilla/usage/codegen/)** - generate typed Go handlers with custom logic and middleware.
+- **[Portable](https://mockz.io/docs/mock-server/usage/portable/)** - point at OpenAPI specs and run. No code generation, no setup.
+- **[Codegen](https://mockz.io/docs/mock-server/usage/codegen/)** - generate typed Go handlers with custom logic and middleware.
 
 ## Use cases
 
@@ -81,7 +81,7 @@ go run github.com/mockzilla/mockzilla/v2/cmd/mockzilla@latest \
 - [Portable template](https://github.com/mockzilla/mockzilla-portable-template) - embed specs into a single binary via `go:embed`
 - [Codegen template](https://github.com/mockzilla/mockzilla-codegen-template) - generate Go handlers with custom logic and middleware
 
-Read full documentation at [mockzilla.github.io/mockzilla](https://mockzilla.github.io/mockzilla/).
+Read full documentation at [mockz.io/docs](https://mockz.io/docs/mock-server/).
 
 ## Mockzilla Cloud
 
@@ -93,7 +93,7 @@ Mockzilla ships an [MCP server](https://github.com/mockzilla/mockzilla-mcp), so 
 
 ## Related
 - [mockzilla.org](https://mockzilla.org) - hosted API simulation, per-PR mock URLs, GitHub Actions integration
-- [Documentation](https://mockzilla.github.io/mockzilla/) - full usage guide for portable and codegen modes
+- [Documentation](https://mockz.io/docs/mock-server/) - full usage guide for portable and codegen modes
 - [OpenAPI Specification](https://editor.swagger.io/?url=https://raw.githubusercontent.com/mockzilla/mockzilla/main/resources/openapi.yml) - interactive Swagger UI for the Mockzilla API
 
 ## License

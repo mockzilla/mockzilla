@@ -6,7 +6,7 @@ description: |
   Mockzilla is an OpenAPI mock engine that generates API mocks with meaningful
   responses, configurable latency, error codes and more.
 
-  See https://mockzilla.github.io/mockzilla/ for full documentation.
+  See https://mockz.io/docs/mock-server/ for full documentation.
 license: MIT
 grade: stable
 confinement: strict

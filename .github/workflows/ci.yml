@@ -45,7 +45,7 @@ jobs:
           changed=$(git diff --name-only "${BASE}" "${HEAD}")
           echo "Changed files:"
           echo "${changed}"
-          code=$(echo "${changed}" | grep -vE '^docs/|\.md$|^mkdocs\.yml$|^LICENSE$' || true)
+          code=$(echo "${changed}" | grep -vE '^docs/|\.md$|^LICENSE$' || true)
           if [ -n "${code}" ]; then
             echo "Non-documentation changes present, running the full suite."
             echo "code=true" >> "$GITHUB_OUTPUT"

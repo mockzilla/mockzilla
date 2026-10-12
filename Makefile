@@ -221,21 +221,9 @@ docker-run:
 docker-shell:
 	@docker exec -it $$(docker ps -q -f ancestor=$(IMAGE_NAME)) bash
 
-@PHONY: docs-install
-docs-install:
-	@brew install mkdocs-material
-
 @PHONY: docs-prepare
 docs-prepare:
 	@go run ./cmd/fake_list/main.go
-
-@PHONY: docs-serve
-docs-serve: docs-prepare
-	mkdocs serve
-
-@PHONY: docs-deploy
-docs-deploy: docs-prepare
-	mkdocs gh-deploy --force
 
 # Suppress "is up to date" messages for positional arguments (spec files, URLs)
 # These get passed to MAKECMDGOALS and treated as targets.

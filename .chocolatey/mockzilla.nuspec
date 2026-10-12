@@ -8,10 +8,10 @@
     <owners>Mockzilla Development</owners>
     <licenseUrl>https://github.com/mockzilla/mockzilla/blob/main/LICENSE</licenseUrl>
     <iconUrl>https://cdn.jsdelivr.net/gh/mockzilla/mockzilla@v$version$/resources/docs/images/logo_head_blue_192.png</iconUrl>
-    <projectUrl>https://mockzilla.github.io/mockzilla/</projectUrl>
+    <projectUrl>https://mockz.io/</projectUrl>
     <projectSourceUrl>https://github.com/mockzilla/mockzilla</projectSourceUrl>
     <packageSourceUrl>https://github.com/mockzilla/mockzilla/tree/main/.chocolatey</packageSourceUrl>
-    <docsUrl>https://mockzilla.github.io/mockzilla/</docsUrl>
+    <docsUrl>https://mockz.io/docs/mock-server/</docsUrl>
     <bugTrackerUrl>https://github.com/mockzilla/mockzilla/issues</bugTrackerUrl>
     <releaseNotes>https://github.com/mockzilla/mockzilla/releases/tag/v$version$</releaseNotes>
     <copyright>Copyright (c) 2026-present Mockzilla Development</copyright>
@@ -26,7 +26,7 @@
 mockzilla --help
 ```
 
-See the [documentation](https://mockzilla.github.io/mockzilla/) for full usage.</description>
+See the [documentation](https://mockz.io/docs/mock-server/) for full usage.</description>
   </metadata>
   <files>
     <file src="tools\**" target="tools" />
