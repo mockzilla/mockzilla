@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Mockzilla <igor@born.by>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
-Homepage: https://mockzilla.github.io/mockzilla/
+Homepage: https://mockz.io/
 Vcs-Browser: https://github.com/mockzilla/mockzilla
 Vcs-Git: https://github.com/mockzilla/mockzilla.git
 Rules-Requires-Root: no
@@ -16,4 +16,4 @@ Description: OpenAPI mock engine CLI
  Mockzilla generates API mocks with meaningful responses, configurable
  latency, error codes and more from OpenAPI specs.
  .
- See https://mockzilla.github.io/mockzilla/ for full documentation.
+ See https://mockz.io/docs/mock-server/ for full documentation.

@@ -20,7 +20,7 @@ go run github.com/mockzilla/mockzilla/v2/cmd/gen/service@latest \
   https://petstore3.swagger.io/api/v3/openapi.json
 ```
 
-See the [documentation](https://mockzilla.github.io/mockzilla/) for detailed usage.
+See the [documentation](https://mockz.io/docs/mock-server/) for detailed usage.
 
 ## Discover
 

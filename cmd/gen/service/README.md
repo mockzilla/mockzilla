@@ -2,7 +2,7 @@
 
 Generates a complete mock service from an OpenAPI spec or static files.
 
-See the [full documentation](https://mockzilla.github.io/mockzilla/commands/service/).
+See the [full documentation](https://mockz.io/docs/mock-server/commands/service/).
 
 ## Quick Start
 
