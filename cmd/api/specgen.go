@@ -353,7 +353,7 @@ func buildStaticOperation(route Route) map[string]any {
 		responseSchema, err := schema.BuildSchemaFromContent([]byte(route.Content), route.ContentType)
 		if err != nil {
 			// One unreadable body must not take down the rest of the service.
-			slog.Error("Static body does not parse as its content type, serving it as text",
+			slog.Info("Static body does not parse as its content type, serving it as text",
 				"method", route.Method, "path", route.Path, "file", route.SourceFile, "error", err)
 			responseSchema = &schema.Schema{Type: "string", StaticContent: route.Content}
 		}
