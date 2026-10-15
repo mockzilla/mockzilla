@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -319,11 +320,7 @@ func generateOpenAPIFromStatic(routes []Route, serviceName string) ([]byte, erro
 			paths[path] = pathItem
 		}
 
-		operation, err := buildStaticOperation(route)
-		if err != nil {
-			return nil, err
-		}
-		pathItem[method] = operation
+		pathItem[method] = buildStaticOperation(route)
 	}
 
 	// Marshal to YAML with 2-space indent
@@ -340,7 +337,7 @@ func generateOpenAPIFromStatic(routes []Route, serviceName string) ([]byte, erro
 // literal response body via the `x-static-response` extension. Shared
 // between the spec-synthesized-from-static path and the merge path
 // (where it overrides an entry inside a user-supplied spec).
-func buildStaticOperation(route Route) (map[string]any, error) {
+func buildStaticOperation(route Route) map[string]any {
 	method := strings.ToLower(route.Method)
 
 	code := cmp.Or(route.Status, http.StatusOK)
@@ -355,7 +352,10 @@ func buildStaticOperation(route Route) (map[string]any, error) {
 	} else {
 		responseSchema, err := schema.BuildSchemaFromContent([]byte(route.Content), route.ContentType)
 		if err != nil {
-			return nil, fmt.Errorf("failed to build schema for %s %s: %w", route.Method, route.Path, err)
+			// One unreadable body must not take down the rest of the service.
+			slog.Error("Static body does not parse as its content type, serving it as text",
+				"method", route.Method, "path", route.Path, "file", route.SourceFile, "error", err)
+			responseSchema = &schema.Schema{Type: "string", StaticContent: route.Content}
 		}
 		response["content"] = map[string]any{
 			route.ContentType: map[string]any{
@@ -403,7 +403,7 @@ func buildStaticOperation(route Route) (map[string]any, error) {
 		}
 	}
 
-	return operation, nil
+	return operation
 }
 
 // MergeStaticIntoSpec overlays static routes on top of an existing
@@ -429,10 +429,7 @@ func MergeStaticIntoSpec(specBytes []byte, routes []Route) ([]byte, error) {
 	}
 
 	for _, route := range routes {
-		operation, err := buildStaticOperation(route)
-		if err != nil {
-			return nil, err
-		}
+		operation := buildStaticOperation(route)
 		method := strings.ToLower(route.Method)
 		pathItem, _ := paths[route.Path].(map[string]any)
 		if pathItem == nil {

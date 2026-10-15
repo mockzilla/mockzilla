@@ -156,8 +156,7 @@ func TestBuildStaticOperation_Meta(t *testing.T) {
 		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			op, err := buildStaticOperation(c.route)
-			require.NoError(t, err)
+			op := buildStaticOperation(c.route)
 
 			responses := op["responses"].(map[string]any)
 			require.Len(t, responses, 1)
@@ -183,6 +182,37 @@ func TestBuildStaticOperation_Meta(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildStaticOperation_UnparsedBody(t *testing.T) {
+	for _, c := range []struct {
+		name, contentType, content string
+	}{
+		{"truncated json", "application/json", `{"a":`},
+		{"json with a comment", "application/json", "{\"a\":1 // note\n}"},
+		{"text saved as json", "application/problem+json", "hello"},
+		{"truncated xml", "application/xml", "<a>"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			op := buildStaticOperation(Route{Method: "GET", Path: "/users", ContentType: c.contentType, Content: c.content})
+
+			response := op["responses"].(map[string]any)["200"].(map[string]any)
+			media := response["content"].(map[string]any)[c.contentType].(map[string]any)
+			assert.Equal(t, c.content, media["x-static-response"])
+			assert.Equal(t, "string", media["schema"].(map[string]any)["type"])
+		})
+	}
+}
+
+func TestGenerateSpecFromStaticDir_UnparsedBodyKeepsOtherEndpoints(t *testing.T) {
+	dir := t.TempDir()
+	writeStatic(t, dir, "users/index.json", `{"id":1}`)
+	writeStatic(t, dir, "broken/index.json", `{"id":`)
+
+	spec, err := GenerateSpecFromStaticDir(dir, "svc")
+	require.NoError(t, err)
+	assert.Contains(t, string(spec), "/users:")
+	assert.Contains(t, string(spec), "/broken:")
 }
 
 func writeStatic(t *testing.T, dir, rel, content string) {
